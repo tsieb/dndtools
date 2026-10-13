@@ -99,6 +99,94 @@
 			"sampleCount": 15,
 			"fixture": "Local player-safe projection of the demo vault; the network hop is NOT included (budget dataset: near-real-time projected session ops)",
 			"scenario": "Project the DM state to a player view 15× and time until the projection is painted."
+		},
+		{
+			"budgetId": "smoke-ci:large",
+			"observedValue": null,
+			"unit": "ms",
+			"sampleCount": 0,
+			"fixture": "5,000 notes / 200 maps / 60 tiles / 40 characters",
+			"scenario": "Not yet measured on this historical workstation baseline; CI records a fresh paired baseline."
+		},
+		{
+			"budgetId": "app-startup:large",
+			"observedValue": null,
+			"unit": "ms",
+			"sampleCount": 0,
+			"fixture": "5,000 notes / 200 maps / 60 tiles / 40 characters",
+			"scenario": "Not yet measured on this historical workstation baseline; CI records a fresh paired baseline."
+		},
+		{
+			"budgetId": "vault-open:large",
+			"observedValue": null,
+			"unit": "ms",
+			"sampleCount": 0,
+			"fixture": "5,000 notes / 200 maps / 60 tiles / 40 characters",
+			"scenario": "Not yet measured on this historical workstation baseline; CI records a fresh paired baseline."
+		},
+		{
+			"budgetId": "scene-first-render:large",
+			"observedValue": null,
+			"unit": "ms",
+			"sampleCount": 0,
+			"fixture": "5,000 notes / 200 maps / 60 tiles / 40 characters",
+			"scenario": "Not yet measured on this historical workstation baseline; CI records a fresh paired baseline."
+		},
+		{
+			"budgetId": "widget-update:large",
+			"observedValue": null,
+			"unit": "ms",
+			"sampleCount": 0,
+			"fixture": "5,000 notes / 200 maps / 60 tiles / 40 characters",
+			"scenario": "Not yet measured on this historical workstation baseline; CI records a fresh paired baseline."
+		},
+		{
+			"budgetId": "map-pan-zoom-desktop:large",
+			"observedValue": null,
+			"unit": "fps",
+			"sampleCount": 0,
+			"fixture": "5,000 notes / 200 maps / 60 tiles / 40 characters",
+			"scenario": "Not yet measured on this historical workstation baseline; CI records a fresh paired baseline."
+		},
+		{
+			"budgetId": "map-pan-zoom-slim:large",
+			"observedValue": null,
+			"unit": "fps",
+			"sampleCount": 0,
+			"fixture": "5,000 notes / 200 maps / 60 tiles / 40 characters",
+			"scenario": "Not yet measured on this historical workstation baseline; CI records a fresh paired baseline."
+		},
+		{
+			"budgetId": "search:large",
+			"observedValue": null,
+			"unit": "ms",
+			"sampleCount": 0,
+			"fixture": "5,000 notes / 200 maps / 60 tiles / 40 characters",
+			"scenario": "Not yet measured on this historical workstation baseline; CI records a fresh paired baseline."
+		},
+		{
+			"budgetId": "graph-indexing:large",
+			"observedValue": null,
+			"unit": "ms",
+			"sampleCount": 0,
+			"fixture": "5,000 notes / 200 maps / 60 tiles / 40 characters",
+			"scenario": "Not yet measured on this historical workstation baseline; CI records a fresh paired baseline."
+		},
+		{
+			"budgetId": "sync-reconciliation:large",
+			"observedValue": null,
+			"unit": "ms",
+			"sampleCount": 0,
+			"fixture": "5,000 notes / 200 maps / 60 tiles / 40 characters",
+			"scenario": "Not yet measured on this historical workstation baseline; CI records a fresh paired baseline."
+		},
+		{
+			"budgetId": "live-session-delivery:large",
+			"observedValue": null,
+			"unit": "ms",
+			"sampleCount": 0,
+			"fixture": "5,000 notes / 200 maps / 60 tiles / 40 characters",
+			"scenario": "Not yet measured on this historical workstation baseline; CI records a fresh paired baseline."
 		}
 	]
 }

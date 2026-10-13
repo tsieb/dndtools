@@ -50,6 +50,14 @@ import { cpus, hostname, totalmem, type } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { buildDemoSeedProfile } from '../../apps/gm-react/src/runtime/demo-seed';
+import type { CoreStateSlice } from '../../packages/core/src/commands/types';
+import {
+	LARGE_VAULT_DATASET,
+	LARGE_VAULT_NOTE_EDITS,
+	LARGE_VAULT_PAN_ZOOM_MAP,
+} from '../../packages/core/src/testing/large-vault';
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../..');
 
@@ -83,6 +91,8 @@ interface Page {
 		options?: { waitUntil?: 'domcontentloaded' | 'load' | 'commit' },
 	): Promise<unknown>;
 	reload(options?: { waitUntil?: 'domcontentloaded' | 'load' | 'commit' }): Promise<unknown>;
+	context(): BrowserContext;
+	url(): string;
 	evaluate<R, A = undefined>(fn: (arg: A) => R | Promise<R>, arg?: A): Promise<R>;
 	waitForFunction<A = undefined>(
 		fn: (arg: A) => unknown,
@@ -160,6 +170,7 @@ interface Options {
 	out: string;
 	port: number;
 	notes: number;
+	vaultProfile: 'standard' | 'large';
 	only: Set<string> | null;
 	skip: Set<string>;
 	headed: boolean;
@@ -194,6 +205,7 @@ function parseOptions(argv: readonly string[]): Options {
 		out: flags.get('out') ?? join(REPO_ROOT, 'tests/perf/current.json'),
 		port: Number(flags.get('port') ?? process.env.DNDTOOLS_E2E_PORT ?? 5273),
 		notes: Number(flags.get('notes') ?? 200),
+		vaultProfile: 'standard',
 		only: flags.has('only') ? list(flags.get('only')) : null,
 		skip: list(flags.get('skip')),
 		headed: bare.has('headed'),
@@ -294,10 +306,27 @@ async function ensureDevServer(
 
 const READY_TIMEOUT = 30_000;
 
+let largeSnapshot: Promise<string> | null = null;
+
+/** The large snapshot, built once per capture and serialized once. Every restore parses its own copy
+ * inside the page, so revisions and batches never share objects; rebuilding it for each of the
+ * ~200 seeded contexts a capture opens would only add setup time.
+ */
+function largeSnapshotJson(): Promise<string> {
+	largeSnapshot ??= (async () => {
+		const started = performance.now();
+		const snapshot = await buildDemoSeedProfile('large');
+		if (performance.now() - started >= 10_000) throw new Error('Large fixture build exceeded 10 s');
+		return JSON.stringify({ ...snapshot, sync: { operations: snapshot.sync.operations } });
+	})();
+	return largeSnapshot;
+}
+
 async function newPage(
 	browser: Browser,
 	port: number,
 	profile: 'desktop' | 'slim',
+	vaultProfile: Options['vaultProfile'] = 'standard',
 ): Promise<{ page: Page; close: () => Promise<void> }> {
 	const context = await browser.newContext({
 		baseURL: `http://localhost:${port}`,
@@ -306,7 +335,7 @@ async function newPage(
 		isMobile: false,
 		hasTouch: profile === 'slim',
 	});
-	const page = await context.newPage();
+	let page = await context.newPage();
 	// The first-run onboarding overlay covers every surface; bypass it before the first navigation
 	// exactly as `tests/e2e/_helpers.ts` does.
 	await page.addInitScript(() => {
@@ -316,7 +345,102 @@ async function newPage(
 			/* storage may be unavailable; the bypass is best-effort */
 		}
 	});
-	return { page, close: () => context.close() };
+	try {
+		if (vaultProfile === 'large') {
+			await page.addInitScript(() => {
+				window.localStorage.setItem('dndtools:react:vault-choice', 'fresh');
+			});
+			await gotoRoute(page, '/');
+			// Both revisions receive the SAME candidate-generated snapshot via their own restore path.
+			// This also works on the pinned reference, which predates the large profile.
+			await page.evaluate(
+				async (json) => {
+					const state = JSON.parse(json) as CoreStateSlice;
+					const modulePath = '/src/platform/storage/coreStore.ts';
+					const storage = await import(/* @vite-ignore */ modulePath);
+					const rt = (
+						window as unknown as {
+							__rt: {
+								runExclusiveMaintenance<T>(operation: () => Promise<T>): Promise<T>;
+								reloadFromStorage(): Promise<void>;
+								state: CoreStateSlice;
+							};
+						}
+					).__rt;
+					await rt.runExclusiveMaintenance(async () => {
+						await storage.restoreCoreState(state);
+						await rt.reloadFromStorage();
+						const loaded = rt.state;
+						if (
+							Object.keys(loaded.content.items).length !== 5_000 ||
+							Object.keys(loaded.maps.maps).length !== 200 ||
+							Object.keys(loaded.characters.characters).length !== 40 ||
+							loaded.scenes.scenes[loaded.commandCenter.homeSceneId!]?.widgets.length !== 60
+						) {
+							throw new Error('Large fixture counts changed during storage hydration');
+						}
+					});
+				},
+				await largeSnapshotJson(),
+			);
+			// The setup document's time origin includes fixture construction and restore. A hash
+			// navigation would keep that origin, contaminating navigation-based measurements.
+			// Keep durable storage/cache, but give every scenario an un-navigated document.
+			await page.close();
+			page = await context.newPage();
+		}
+		return { page, close: () => context.close() };
+	} catch (error) {
+		await context.close();
+		throw error;
+	}
+}
+
+/** Reopen the durable vault in a fresh document within the SAME storage/cache context.
+ * Repeated Vite reloads in one Chromium page can exhaust module-loader resources and leave
+ * a blank document (net::ERR_INSUFFICIENT_RESOURCES). Closing the old page releases them.
+ * Creation/close are outside the navigation-based sample; IndexedDB and HTTP cache persist.
+ */
+async function reopenPage(page: Page): Promise<Page> {
+	const context = page.context();
+	const url = page.url();
+	await page.close();
+	const next = await context.newPage();
+	await next.goto(url, { waitUntil: 'domcontentloaded' });
+	return next;
+}
+
+/**
+ * Un-navigated pages for navigation-from-origin samples. A standard sample gets a cold context each
+ * time. A large sample needs the restored vault, and the setup page has already loaded the app in its
+ * context, so a large batch restores once and gives every sample a new page in that context. Each
+ * sample then starts from the same state a freshly restored context offers, without restoring 5,000
+ * notes before every navigation.
+ */
+function samplePages(
+	browser: Browser,
+	port: number,
+	vaultProfile: Options['vaultProfile'],
+): { next: () => Promise<Page>; close: () => Promise<void> } {
+	let current: { page: Page; close: () => Promise<void> } | null = null;
+	return {
+		next: async () => {
+			if (current && vaultProfile === 'large') {
+				const context = current.page.context();
+				await current.page.close();
+				current = { page: await context.newPage(), close: current.close };
+				return current.page;
+			}
+			await current?.close();
+			current = null;
+			current = await newPage(browser, port, 'desktop', vaultProfile);
+			return current.page;
+		},
+		close: async () => {
+			await current?.close();
+			current = null;
+		},
+	};
 }
 
 /** Resolve once the SceneRuntime has hydrated and the shell's main landmark exists. */
@@ -332,6 +456,14 @@ async function waitReady(page: Page): Promise<void> {
 async function gotoRoute(page: Page, path: string): Promise<void> {
 	await page.goto(`/#${path}`, { waitUntil: 'domcontentloaded' });
 	await waitReady(page);
+}
+
+/** Navigation-from-origin samples must never silently become same-document route transitions. */
+async function gotoDocument(page: Page, path: string): Promise<void> {
+	const response = await page.goto(`/#${path}`, { waitUntil: 'domcontentloaded' });
+	if (response === null) {
+		throw new Error('Navigation timing requires a fresh document; setup time must be excluded');
+	}
 }
 
 interface DispatchResult {
@@ -363,7 +495,12 @@ function actorId(page: Page): Promise<string> {
  * the timed scenarios read is a REAL vault built by real commands — not a hand-written fixture that
  * skips the op-log the app actually replays.
  */
-async function seedNotes(page: Page, count: number): Promise<number> {
+async function seedNotes(
+	page: Page,
+	count: number,
+	profile: Options['vaultProfile'],
+): Promise<number> {
+	if (profile === 'large') return 5_000;
 	const actor = await actorId(page);
 	return page.evaluate<number, { actor: string; count: number }>(
 		async ({ actor: a, count: n }) => {
@@ -401,6 +538,12 @@ type Capture = Omit<CapturedBudget, 'budgetId'>;
 interface Scenario {
 	readonly budgetId: string;
 	readonly run: (ctx: ScenarioContext) => Promise<Capture>;
+	/**
+	 * A budget whose workload does not depend on the vault records the batches another row measured
+	 * in the same capture, instead of repeating identical work. Run on its own when that row is not
+	 * part of the capture.
+	 */
+	readonly sharesBatchesWith?: { readonly budgetId: string; readonly fixture: string };
 }
 
 interface ScenarioContext {
@@ -425,13 +568,15 @@ const appStartup: Scenario = {
 	budgetId: 'app-startup',
 	run: async ({ browser, options }) => {
 		const samples: number[] = [];
+		const pages = samplePages(browser, options.port, options.vaultProfile);
 		// One discarded warm-up: the FIRST navigation of a session pays the dev server's on-demand
 		// transform of every route chunk, which is a property of Vite, not of the app's startup path.
 		// Every recorded sample is a real cold browser context against an already-warm server.
-		for (let i = -1; i < 3; i += 1) {
-			const { page, close } = await newPage(browser, options.port, 'desktop');
-			try {
-				await gotoRoute(page, '/');
+		try {
+			for (let i = -1; i < 3; i += 1) {
+				const page = await pages.next();
+				await gotoDocument(page, '/');
+				await waitReady(page);
 				if (i < 0) continue;
 				samples.push(
 					round(
@@ -446,9 +591,9 @@ const appStartup: Scenario = {
 						}),
 					),
 				);
-			} finally {
-				await close();
 			}
+		} finally {
+			await pages.close();
 		}
 		return {
 			samples,
@@ -468,13 +613,19 @@ const appStartup: Scenario = {
 const vaultOpen: Scenario = {
 	budgetId: 'vault-open',
 	run: async ({ browser, options }) => {
-		const { page, close } = await newPage(browser, options.port, 'desktop');
+		const { page: initialPage, close } = await newPage(
+			browser,
+			options.port,
+			'desktop',
+			options.vaultProfile,
+		);
+		let page = initialPage;
 		try {
 			await gotoRoute(page, '/');
-			const seeded = await seedNotes(page, options.notes);
+			const seeded = await seedNotes(page, options.notes, options.vaultProfile);
 			const samples: number[] = [];
 			for (let i = 0; i < 3; i += 1) {
-				await page.reload({ waitUntil: 'domcontentloaded' });
+				page = await reopenPage(page);
 				await waitReady(page);
 				// The per-route <h1> is always in the DOM but visually hidden in the compact layout, so
 				// wait for it ATTACHED (the e2e helpers make the same distinction).
@@ -494,7 +645,7 @@ const vaultOpen: Scenario = {
 			}
 			return {
 				samples,
-				scenario: 'Reload a seeded vault → runtime hydrated + Command Center heading rendered.',
+				scenario: 'Reopen a seeded vault → runtime hydrated + Command Center heading rendered.',
 				fixture: `${seeded} seeded notes + demo content (budget dataset: 1,000 notes / 100 objects / 20 maps)`,
 				profile: 'desktop',
 			};
@@ -512,13 +663,19 @@ const vaultOpen: Scenario = {
 const syncReconciliation: Scenario = {
 	budgetId: 'sync-reconciliation',
 	run: async ({ browser, options }) => {
-		const { page, close } = await newPage(browser, options.port, 'desktop');
+		const { page: initialPage, close } = await newPage(
+			browser,
+			options.port,
+			'desktop',
+			options.vaultProfile,
+		);
+		let page = initialPage;
 		try {
 			await gotoRoute(page, '/');
-			const seeded = await seedNotes(page, options.notes);
+			const seeded = await seedNotes(page, options.notes, options.vaultProfile);
 			const samples: number[] = [];
 			for (let i = 0; i < 5; i += 1) {
-				await page.reload({ waitUntil: 'domcontentloaded' });
+				page = await reopenPage(page);
 				await page.waitForFunction(
 					() => !!(window as unknown as { __rt?: { loaded?: boolean } }).__rt?.loaded,
 					undefined,
@@ -544,7 +701,7 @@ const syncReconciliation: Scenario = {
 			);
 			return {
 				samples,
-				scenario: `Reload → hydrate storage and replay the durable op log (${ops} operations) to a loaded runtime.`,
+				scenario: `Reopen → hydrate storage and replay the durable op log (${ops} operations) to a loaded runtime.`,
 				// The fixture names the input only. The op count is what the revision under test writes for
 				// that input, so it differs between reference and candidate whenever seeding records more
 				// ops (RC-KNW-5.2 note history), and CI treats a fixture mismatch as an invalid baseline.
@@ -566,11 +723,12 @@ const sceneFirstRender: Scenario = {
 	run: async ({ browser, options }) => {
 		const samples: number[] = [];
 		let widgetCount = 0;
+		const pages = samplePages(browser, options.port, options.vaultProfile);
 		// As in app-startup, the first navigation warms the dev server's module graph and is discarded.
-		for (let i = -1; i < 3; i += 1) {
-			const { page, close } = await newPage(browser, options.port, 'desktop');
-			try {
-				await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
+		try {
+			for (let i = -1; i < 3; i += 1) {
+				const page = await pages.next();
+				await gotoDocument(page, '/board');
 				await page.waitForFunction(
 					() => {
 						const rt = (
@@ -615,9 +773,9 @@ const sceneFirstRender: Scenario = {
 							'[data-testid="scene-board-bounded"] [data-testid^="widget-"]',
 						).length,
 				);
-			} finally {
-				await close();
 			}
+		} finally {
+			await pages.close();
 		}
 		return {
 			samples,
@@ -634,10 +792,58 @@ const sceneFirstRender: Scenario = {
  * inside the page across a rAF so the sample includes the render the DM waits for, not just the
  * command's promise.
  */
+/** `widget-update` moves the home scene's first widget to each of these rows, one command per sample. */
+export const WIDGET_UPDATE_ROWS: readonly number[] = Array.from(
+	{ length: 25 },
+	(_, i) => 40 + (i % 8) * 30,
+);
+
+/** `graph-indexing` adds each of these linked notes, one `content.create-item` per sample. */
+export const GRAPH_INDEXING_NOTES: readonly {
+	kind: 'note';
+	title: string;
+	body: string;
+	visibility: 'player-visible';
+}[] = Array.from({ length: 5 }, (_, i) => ({
+	kind: 'note',
+	title: `Perf indexed note ${i}`,
+	body: 'Linked to [[Perf note 1]] and [[Perf note 2]].',
+	visibility: 'player-visible',
+}));
+
+/**
+ * The commands each :large scenario dispatches after its snapshot is restored, built from the same
+ * data the scenarios send. `seedNotes` and the map rows write nothing on the large profile; only
+ * `widget-update` and `graph-indexing` commit. `tests/perf/large-vault.test.ts` replays these through
+ * the storage boundary, so a scenario that starts writing on the large vault must be listed here.
+ */
+export function largeScenarioCommits(
+	state: CoreStateSlice,
+	actorId: string,
+): Record<string, { type: string; actorId: string; payload: Record<string, unknown> }[]> {
+	const sceneId = state.commandCenter.homeSceneId!;
+	const widget = state.scenes.scenes[sceneId].widgets[0];
+	const commits: Record<
+		string,
+		{ type: string; actorId: string; payload: Record<string, unknown> }[]
+	> = Object.fromEntries(STANDARD_SCENARIOS.map((scenario) => [`${scenario.budgetId}:large`, []]));
+	commits['widget-update:large'] = WIDGET_UPDATE_ROWS.map((y) => ({
+		type: 'scene.move-widget',
+		actorId,
+		payload: { sceneId, widgetInstanceId: widget.id, x: widget.layout.x, y },
+	}));
+	commits['graph-indexing:large'] = GRAPH_INDEXING_NOTES.map((payload) => ({
+		type: 'content.create-item',
+		actorId,
+		payload: { ...payload },
+	}));
+	return commits;
+}
+
 const widgetUpdate: Scenario = {
 	budgetId: 'widget-update',
 	run: async ({ browser, options }) => {
-		const { page, close } = await newPage(browser, options.port, 'desktop');
+		const { page, close } = await newPage(browser, options.port, 'desktop', options.vaultProfile);
 		try {
 			await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
 			await waitReady(page);
@@ -659,7 +865,7 @@ const widgetUpdate: Scenario = {
 				undefined,
 				{ timeout: READY_TIMEOUT },
 			);
-			const samples = await page.evaluate<number[], number>(async (runs) => {
+			const samples = await page.evaluate<number[], readonly number[]>(async (rows) => {
 				interface Widget {
 					id: string;
 					layout: { x: number; y: number };
@@ -679,8 +885,7 @@ const widgetUpdate: Scenario = {
 				const sceneId = rt.state.commandCenter.homeSceneId!;
 				const widget = rt.state.scenes.scenes[sceneId].widgets[0];
 				const out: number[] = [];
-				for (let i = 0; i < runs; i += 1) {
-					const y = 40 + (i % 8) * 30;
+				for (const y of rows) {
 					const started = performance.now();
 					performance.mark('rc-perf:widget-update:start');
 					const res = await rt.dispatch({
@@ -700,7 +905,7 @@ const widgetUpdate: Scenario = {
 					out.push(Math.round((performance.now() - started) * 1000) / 1000);
 				}
 				return out;
-			}, 25);
+			}, WIDGET_UPDATE_ROWS);
 			return {
 				samples,
 				scenario: 'Dispatch scene.move-widget 25× and time command acceptance → repainted frame.',
@@ -722,7 +927,7 @@ const widgetUpdate: Scenario = {
 const liveSessionDelivery: Scenario = {
 	budgetId: 'live-session-delivery',
 	run: async ({ browser, options }) => {
-		const { page, close } = await newPage(browser, options.port, 'desktop');
+		const { page, close } = await newPage(browser, options.port, 'desktop', options.vaultProfile);
 		try {
 			await gotoRoute(page, '/');
 			const samples = await page.evaluate<number[], number>(async (runs) => {
@@ -768,27 +973,42 @@ const liveSessionDelivery: Scenario = {
 	},
 };
 
+/** Matches no node title, folder or tag in the large vault, so the result list starts empty. */
+const LARGE_SEARCH_RESET = 'rc-perf-no-match';
+
 /** Fill the graph search box and time until the result list settles on the new query. */
 const search: Scenario = {
 	budgetId: 'search',
 	run: async ({ browser, options }) => {
-		const { page, close } = await newPage(browser, options.port, 'desktop');
+		const { page: initialPage, close } = await newPage(
+			browser,
+			options.port,
+			'desktop',
+			options.vaultProfile,
+		);
+		let page = initialPage;
 		try {
 			await gotoRoute(page, '/graph');
-			const seeded = await seedNotes(page, options.notes);
-			await page.reload({ waitUntil: 'domcontentloaded' });
-			await waitReady(page);
+			const seeded = await seedNotes(page, options.notes, options.vaultProfile);
+			// In-page seeding is reopened so the query runs against the vault loaded from storage. The
+			// large vault was restored before this document loaded, so it already is.
+			if (options.vaultProfile !== 'large') {
+				page = await reopenPage(page);
+				await waitReady(page);
+			}
 			const box = page.getByRole('textbox', { name: 'Search the graph' });
 			await box.waitFor({ state: 'visible', timeout: READY_TIMEOUT });
 			const samples: number[] = [];
+			// Clearing the box lists every node. On the large vault that re-renders 5,000 rows between
+			// samples, so each large sample starts from a query that matches nothing instead.
+			const reset = options.vaultProfile === 'large' ? LARGE_SEARCH_RESET : '';
 			for (let i = 0; i < 20; i += 1) {
 				const query = `Perf note ${i}`;
-				await box.fill('');
+				await box.fill(reset);
 				await page.evaluate<void>(() => {
 					performance.mark('rc-perf:search:start');
 				});
 				await box.fill(query);
-				const started = Date.now();
 				await page.waitForFunction<string>(
 					(needle) => {
 						const main = document.querySelector('#main-content');
@@ -801,11 +1021,18 @@ const search: Scenario = {
 					query,
 					{ timeout: 15_000, polling: 'raf' },
 				);
-				await page.evaluate<void>(() => {
-					performance.mark('rc-perf:search:results');
-					performance.measure('rc-perf:search', 'rc-perf:search:start', 'rc-perf:search:results');
-				});
-				samples.push(round(Date.now() - started));
+				samples.push(
+					round(
+						await page.evaluate<number>(() => {
+							performance.mark('rc-perf:search:results');
+							return performance.measure(
+								'rc-perf:search',
+								'rc-perf:search:start',
+								'rc-perf:search:results',
+							).duration;
+						}),
+					),
+				);
 			}
 			return {
 				samples,
@@ -827,34 +1054,40 @@ const search: Scenario = {
 const graphIndexing: Scenario = {
 	budgetId: 'graph-indexing',
 	run: async ({ browser, options }) => {
-		const { page, close } = await newPage(browser, options.port, 'desktop');
+		const { page: initialPage, close } = await newPage(
+			browser,
+			options.port,
+			'desktop',
+			options.vaultProfile,
+		);
+		let page = initialPage;
 		try {
 			await gotoRoute(page, '/graph');
-			const seeded = await seedNotes(page, options.notes);
-			await page.reload({ waitUntil: 'domcontentloaded' });
-			await waitReady(page);
+			const seeded = await seedNotes(page, options.notes, options.vaultProfile);
+			if (options.vaultProfile !== 'large') {
+				page = await reopenPage(page);
+				await waitReady(page);
+			}
 			const actor = await actorId(page);
-			const samples = await page.evaluate<number[], { actor: string; runs: number }>(
-				async ({ actor: a, runs }) => {
+			const samples = await page.evaluate<
+				number[],
+				{ actor: string; notes: typeof GRAPH_INDEXING_NOTES }
+			>(
+				async ({ actor: a, notes }) => {
 					const rt = (
 						window as unknown as {
 							__rt: { dispatch: (c: unknown) => Promise<{ status: string }> };
 						}
 					).__rt;
 					const out: number[] = [];
-					for (let i = 0; i < runs; i += 1) {
-						const title = `Perf indexed note ${i}`;
+					for (const note of notes) {
+						const title = note.title;
 						const started = performance.now();
 						performance.mark('rc-perf:graph-indexing:start');
 						const res = await rt.dispatch({
 							type: 'content.create-item',
 							actorId: a,
-							payload: {
-								kind: 'note',
-								title,
-								body: `Linked to [[Perf note 1]] and [[Perf note 2]].`,
-								visibility: 'player-visible',
-							},
+							payload: note,
 						});
 						if (res.status !== 'accepted') continue;
 						// Wait for the graph rail to show the changed note — the affected-node update.
@@ -872,6 +1105,8 @@ const graphIndexing: Scenario = {
 							if (hit) break;
 							await new Promise<void>((done) => requestAnimationFrame(() => done()));
 						}
+						if (performance.now() >= deadline)
+							throw new Error('Graph node did not appear before the deadline');
 						performance.mark('rc-perf:graph-indexing:reindexed');
 						performance.measure(
 							'rc-perf:graph-indexing',
@@ -882,7 +1117,7 @@ const graphIndexing: Scenario = {
 					}
 					return out;
 				},
-				{ actor, runs: 5 },
+				{ actor, notes: GRAPH_INDEXING_NOTES },
 			);
 			return {
 				samples,
@@ -896,6 +1131,123 @@ const graphIndexing: Scenario = {
 	},
 };
 
+/** The standard map scenario's dataset, built through real `map.create` / `map.create-poi` commands. */
+async function seedPanZoomMap(
+	page: Page,
+	profile: 'desktop' | 'slim',
+): Promise<{ mapName: string; poiCount: number } | { unavailableReason: string }> {
+	const actor = await actorId(page);
+	const mapName = `Perf map ${profile}`;
+	const created = await dispatch(page, {
+		type: 'map.create',
+		actorId: actor,
+		payload: {
+			name: mapName,
+			visibility: 'dm-only',
+			projection: { kind: 'flat', rotationDegrees: 0 },
+			initialLayers: [
+				{ name: 'Base', category: 'base', visibility: 'dm-only' },
+				{ name: 'Terrain', category: 'terrain', visibility: 'dm-only' },
+				{ name: 'Roads', category: 'roads', visibility: 'dm-only' },
+				{ name: 'Points of interest', category: 'poi', visibility: 'dm-only' },
+			],
+		},
+	});
+	const mapId = (created.events ?? [])
+		.map((event) => event as { kind?: string; mapId?: string })
+		.find((event) => event.kind === 'map.created')?.mapId;
+	if (created.status !== 'accepted' || !mapId) {
+		return {
+			unavailableReason: `map.create was ${created.status}${created.rejection?.message ? `: ${created.rejection.message}` : ''}; no map to pan.`,
+		};
+	}
+	const layerIds = await page.evaluate<string[], string>(
+		(id) =>
+			Object.values(
+				(
+					window as unknown as {
+						__rt: {
+							state: {
+								maps: {
+									maps: Record<string, { id: string; layers: Record<string, { id: string }> }>;
+								};
+							};
+						};
+					}
+				).__rt.state.maps.maps[id]?.layers ?? {},
+			).map((layer) => layer.id),
+		mapId,
+	);
+	if (layerIds.length === 0) {
+		return { unavailableReason: 'the created map exposed no layers to place POIs on.' };
+	}
+	const poiCount = await page.evaluate<
+		number,
+		{ actor: string; mapId: string; layerIds: string[] }
+	>(
+		async ({ actor: a, mapId: m, layerIds: layers }) => {
+			const rt = (
+				window as unknown as {
+					__rt: { dispatch: (c: unknown) => Promise<{ status: string }> };
+				}
+			).__rt;
+			let placed = 0;
+			for (let i = 0; i < 100; i += 1) {
+				const res = await rt.dispatch({
+					type: 'map.create-poi',
+					actorId: a,
+					payload: {
+						mapId: m,
+						// PLAT-006: the core mints the id; the harness never invents one.
+						layerId: layers[i % layers.length],
+						label: `Perf POI ${i}`,
+						category: 'other',
+						position: { x: 0.05 + ((i * 37) % 90) / 100, y: 0.05 + ((i * 53) % 90) / 100 },
+						visibility: 'dm-only',
+					},
+				});
+				if (res.status === 'accepted') placed += 1;
+			}
+			return placed;
+		},
+		{ actor, mapId, layerIds },
+	);
+	return { mapName, poiCount };
+}
+
+/**
+ * The large vault already holds the same 4-layer / 100-POI map, built by the same commands. Creating
+ * it here instead would commit 101 times through the storage boundary of a 5,000-note vault, which
+ * the pinned reference validates at twice the vault's size.
+ */
+async function largeSnapshotMap(
+	page: Page,
+): Promise<{ mapName: string; poiCount: number } | { unavailableReason: string }> {
+	const map = await page.evaluate<{ layers: number; pois: number } | null, string>((name) => {
+		const maps = (
+			window as unknown as {
+				__rt: {
+					state: {
+						maps: { maps: Record<string, { name: string; layers: unknown[]; pois: unknown[] }> };
+					};
+				};
+			}
+		).__rt.state.maps.maps;
+		const found = Object.values(maps).find((candidate) => candidate.name === name);
+		return found ? { layers: found.layers.length, pois: found.pois.length } : null;
+	}, LARGE_VAULT_PAN_ZOOM_MAP.name);
+	if (
+		!map ||
+		map.layers !== LARGE_VAULT_PAN_ZOOM_MAP.layers ||
+		map.pois !== LARGE_VAULT_PAN_ZOOM_MAP.pois
+	) {
+		return {
+			unavailableReason: `the restored large vault has no ${LARGE_VAULT_PAN_ZOOM_MAP.layers}-layer / ${LARGE_VAULT_PAN_ZOOM_MAP.pois}-POI "${LARGE_VAULT_PAN_ZOOM_MAP.name}".`,
+		};
+	}
+	return { mapName: LARGE_VAULT_PAN_ZOOM_MAP.name, poiCount: map.pois };
+}
+
 /**
  * Map pan/zoom frame rate on one viewport profile: build the declared fixture (4 layers, 100 POIs)
  * through real `map.create` / `map.create-layer` / `map.create-poi` commands, open the full-screen
@@ -906,102 +1258,31 @@ function mapPanZoom(budgetId: string, profile: 'desktop' | 'slim'): Scenario {
 	return {
 		budgetId,
 		run: async ({ browser, options }) => {
-			const { page, close } = await newPage(browser, options.port, profile);
+			const { page, close } = await newPage(browser, options.port, profile, options.vaultProfile);
 			try {
 				await gotoRoute(page, '/atlas');
-				const actor = await actorId(page);
-				const mapName = `Perf map ${profile}`;
-				const created = await dispatch(page, {
-					type: 'map.create',
-					actorId: actor,
-					payload: {
-						name: mapName,
-						visibility: 'dm-only',
-						projection: { kind: 'flat', rotationDegrees: 0 },
-						initialLayers: [
-							{ name: 'Base', category: 'base', visibility: 'dm-only' },
-							{ name: 'Terrain', category: 'terrain', visibility: 'dm-only' },
-							{ name: 'Roads', category: 'roads', visibility: 'dm-only' },
-							{ name: 'Points of interest', category: 'poi', visibility: 'dm-only' },
-						],
-					},
-				});
-				const mapId = (created.events ?? [])
-					.map((event) => event as { kind?: string; mapId?: string })
-					.find((event) => event.kind === 'map.created')?.mapId;
-				if (created.status !== 'accepted' || !mapId) {
+				const seeded =
+					options.vaultProfile === 'large'
+						? await largeSnapshotMap(page)
+						: await seedPanZoomMap(page, profile);
+				if ('unavailableReason' in seeded) {
 					return {
 						samples: [],
 						scenario: 'Pan and zoom the full-screen map editor while sampling animation frames.',
 						fixture: '4 layers / 100 POIs',
 						profile,
-						unavailableReason: `map.create was ${created.status}${created.rejection?.message ? `: ${created.rejection.message}` : ''}; no map to pan.`,
+						unavailableReason: seeded.unavailableReason,
 					};
 				}
-				const layerIds = await page.evaluate<string[], string>(
-					(id) =>
-						Object.values(
-							(
-								window as unknown as {
-									__rt: {
-										state: {
-											maps: {
-												maps: Record<
-													string,
-													{ id: string; layers: Record<string, { id: string }> }
-												>;
-											};
-										};
-									};
-								}
-							).__rt.state.maps.maps[id]?.layers ?? {},
-						).map((layer) => layer.id),
-					mapId,
-				);
-				if (layerIds.length === 0) {
-					return {
-						samples: [],
-						scenario: 'Pan and zoom the full-screen map editor while sampling animation frames.',
-						fixture: '4 layers / 100 POIs',
-						profile,
-						unavailableReason: 'the created map exposed no layers to place POIs on.',
-					};
-				}
-				const poiCount = await page.evaluate<
-					number,
-					{ actor: string; mapId: string; layerIds: string[] }
-				>(
-					async ({ actor: a, mapId: m, layerIds: layers }) => {
-						const rt = (
-							window as unknown as {
-								__rt: { dispatch: (c: unknown) => Promise<{ status: string }> };
-							}
-						).__rt;
-						let placed = 0;
-						for (let i = 0; i < 100; i += 1) {
-							const res = await rt.dispatch({
-								type: 'map.create-poi',
-								actorId: a,
-								payload: {
-									mapId: m,
-									// PLAT-006: the core mints the id; the harness never invents one.
-									layerId: layers[i % layers.length],
-									label: `Perf POI ${i}`,
-									category: 'other',
-									position: { x: 0.05 + ((i * 37) % 90) / 100, y: 0.05 + ((i * 53) % 90) / 100 },
-									visibility: 'dm-only',
-								},
-							});
-							if (res.status === 'accepted') placed += 1;
-						}
-						return placed;
-					},
-					{ actor, mapId, layerIds },
-				);
+				const { mapName, poiCount } = seeded;
 
 				// Open the map in the full-screen editor — the only surface where the canvas is pannable.
-				await page.reload({ waitUntil: 'domcontentloaded' });
-				await waitReady(page);
+				// A map seeded in-page is reloaded first; the large snapshot's map was restored before
+				// this document loaded.
+				if (options.vaultProfile !== 'large') {
+					await page.reload({ waitUntil: 'domcontentloaded' });
+					await waitReady(page);
+				}
 				const chip = page.getByRole('button', { name: new RegExp(mapName) }).first();
 				await chip.waitFor({ state: 'visible', timeout: READY_TIMEOUT });
 				await chip.click();
@@ -1119,7 +1400,7 @@ const smokeCi: Scenario = {
 	},
 };
 
-const SCENARIOS: readonly Scenario[] = [
+const STANDARD_SCENARIOS: readonly Scenario[] = [
 	smokeCi,
 	appStartup,
 	vaultOpen,
@@ -1131,6 +1412,48 @@ const SCENARIOS: readonly Scenario[] = [
 	graphIndexing,
 	syncReconciliation,
 	liveSessionDelivery,
+];
+
+const SMOKE_CI_LARGE_FIXTURE = `${LARGE_VAULT_DATASET}; smoke CI does not open the browser vault, so this row records the smoke-ci batches measured in the same capture`;
+
+/** Each fixture is a separate baseline key; never overwrite the standard observation. */
+export const SCENARIOS: readonly Scenario[] = [
+	...STANDARD_SCENARIOS,
+	...STANDARD_SCENARIOS.map(
+		(scenario): Scenario => ({
+			budgetId: `${scenario.budgetId}:large`,
+			...(scenario.budgetId === 'smoke-ci'
+				? { sharesBatchesWith: { budgetId: scenario.budgetId, fixture: SMOKE_CI_LARGE_FIXTURE } }
+				: {}),
+			run: async (ctx) => {
+				const capture = await scenario.run({
+					...ctx,
+					options: { ...ctx.options, vaultProfile: 'large' },
+				});
+				return {
+					...capture,
+					scenario: capture.scenario.replace(
+						'Cold context',
+						'Restored context (once per batch), new page per sample',
+					),
+					fixture:
+						scenario.budgetId === 'smoke-ci'
+							? SMOKE_CI_LARGE_FIXTURE
+							: `${LARGE_VAULT_DATASET}; compacted snapshot + ${LARGE_VAULT_NOTE_EDITS} note edits${
+									scenario.budgetId.startsWith('map-pan-zoom')
+										? `; pans the snapshot's "${LARGE_VAULT_PAN_ZOOM_MAP.name}" (${LARGE_VAULT_PAN_ZOOM_MAP.layers} layers / ${LARGE_VAULT_PAN_ZOOM_MAP.pois} POIs)`
+										: scenario.budgetId === 'search'
+											? `; each query starts from an empty result list ("${LARGE_SEARCH_RESET}")`
+											: scenario.budgetId === 'graph-indexing'
+												? '; add five linked notes'
+												: scenario.budgetId === 'live-session-delivery'
+													? '; local projection, network hop excluded'
+													: ''
+								}`,
+				};
+			},
+		}),
+	),
 ];
 
 // ── Runner ───────────────────────────────────────────────────────────────────────────────────────
@@ -1183,8 +1506,11 @@ async function main(): Promise<void> {
 	const options = parseOptions(process.argv.slice(2));
 	const selected = SCENARIOS.filter(
 		(scenario) =>
-			(options.only === null || options.only.has(scenario.budgetId)) &&
-			!options.skip.has(scenario.budgetId),
+			(options.only === null ||
+				options.only.has(scenario.budgetId) ||
+				options.only.has(scenario.budgetId.replace(/:large$/, ''))) &&
+			!options.skip.has(scenario.budgetId) &&
+			!options.skip.has(scenario.budgetId.replace(/:large$/, '')),
 	);
 	if (selected.length === 0) throw new Error('no scenarios selected; check --only / --skip');
 
@@ -1205,10 +1531,12 @@ async function main(): Promise<void> {
 	sides.push({ label: 'candidate', root: REPO_ROOT, port: options.port, out: options.out });
 	const paired = sides.length > 1;
 
-	const needsBrowser = selected.some((scenario) => scenario.budgetId !== 'smoke-ci');
+	const needsBrowser = selected.some((scenario) => !scenario.budgetId.startsWith('smoke-ci'));
 	const servers: Array<{ stop: () => Promise<void> }> = [];
 	let browser: Browser | null = null;
 	const captured = new Map<Side['label'], CapturedBudget[]>(sides.map((side) => [side.label, []]));
+	// Completed seven-batch captures by budget id, for rows that share another row's batches.
+	const measured = new Map<string, Map<Side['label'], Capture[]>>();
 	try {
 		if (needsBrowser) {
 			for (const side of sides) {
@@ -1234,8 +1562,18 @@ async function main(): Promise<void> {
 			process.stdout.write(`· ${label} … `);
 			const started = Date.now();
 			try {
-				const batches = new Map<Side['label'], Capture[]>(sides.map((side) => [side.label, []]));
-				for (let repeat = 0; repeat < 7; repeat += 1) {
+				const sharing = scenario.sharesBatchesWith;
+				const shared = sharing ? measured.get(sharing.budgetId) : undefined;
+				const batches = new Map<Side['label'], Capture[]>(
+					sides.map((side) => [
+						side.label,
+						(shared?.get(side.label) ?? []).map((batch) => ({
+							...batch,
+							fixture: sharing!.fixture,
+						})),
+					]),
+				);
+				for (let repeat = shared ? 7 : 0; repeat < 7; repeat += 1) {
 					for (const side of interleavedOrder(sides, repeat)) {
 						const batch = await scenario.run({
 							browser: browser as Browser,
@@ -1257,9 +1595,12 @@ async function main(): Promise<void> {
 						repetitions: sideBatches.map((batch) => batch.samples),
 					});
 				}
+				measured.set(label, batches);
 				const candidate = batches.get('candidate')!;
 				console.log(
-					`${candidate.flatMap((batch) => batch.samples).length} samples${paired ? ' per revision, interleaved,' : ''} in ${Math.round((Date.now() - started) / 1000)}s`,
+					shared
+						? `${candidate.flatMap((batch) => batch.samples).length} samples per revision, shared with ${sharing!.budgetId}`
+						: `${candidate.flatMap((batch) => batch.samples).length} samples${paired ? ' per revision, interleaved,' : ''} in ${Math.round((Date.now() - started) / 1000)}s`,
 				);
 			} catch (error) {
 				// A scenario that throws records ZERO samples and the reason, on every side of a paired
@@ -1305,6 +1646,7 @@ async function main(): Promise<void> {
 		);
 		const empty = budgets.filter((entry) => entry.samples.length === 0);
 		if (empty.length > 0) {
+			process.exitCode = 1;
 			console.log(
 				`${empty.length} budget(s) recorded no samples: ${empty.map((entry) => entry.budgetId).join(', ')}`,
 			);

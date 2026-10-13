@@ -635,3 +635,363 @@ The four additional sequential hosted captures described above remain pending
 authorization; no new hosted capture was dispatched. No push, promotion, loop
 launch or dispatcher-state edit was performed. The five-job acceptance criterion
 is still unmet; this rebase and journal update do not resolve that review finding.
+
+## 2026-09-20 — RC-ENG-3.3 large-vault fixture
+
+Task branch started clean. No applicable AGENTS.md or callable Headroom tools
+were found. Implementation stays within the task's owned paths.
+
+Added a deterministic large snapshot profile (5,000 linked notes, 200 maps,
+60 home-board tiles, 40 characters) with a bounded 200-operation real delta.
+The capture harness installs the same snapshot through each revision's durable
+restore API before timing navigation. The eleven `:large` registry keys retain
+independent samples, baseline entries and verdicts alongside the standard row;
+the existing CI baseline/comparison/stability pipeline consumes the expanded
+registry without a separate workflow. Smoke CI remains a repository-wide check
+and its large-row fixture explicitly states that scope.
+
+Initial validation found the restore wire format must exclude the runtime-only
+`idempotencyKeys` Set. Capture now sends `{ operations }`, like a backup snapshot.
+The historical workstation baseline gained explicit unmeasured/null large rows;
+these are not fabricated timings or hosted CI evidence. Targeted tests, browser
+capture and type/lint checks are in progress; final results follow below.
+
+Local checks completed: scoped perf config 3 files / 16 tests; core perf suites
+3 files / 114 tests; tooling 26 files / 196 tests; app tests 144 files / 1,584 tests;
+core and app typechecks; targeted ESLint; boundary lint; formatting; diff check.
+The owner-planning lookup preserves one default entry per workflow; passing the
+expanded registry explicitly exposes all fixture targets. Tests cover both forms.
+A standalone full fixture construction measured 695.1 ms with exact counts and
+200 operations. Browser probing has recorded seven batches each for large vault
+open and scene render; search and graph indexing are still running. A temporary
+pinned-reference checkout is being prepared to verify the restore seam on the
+actual CI reference. These are local checks, not central or hosted gate results.
+
+The paired large-vault-open probe succeeded against the configured reference
+`48a827861616fc3c3f6ccf69f0872edc1c8c771a` and candidate `e06c96ea`: seven
+batches / 21 samples on each side, including the post-restore count assertions.
+The first large search probe completed seven batches / 140 samples. Its long
+setup/render time exposed that the old search statistic started after input fill,
+even though the scenario already emitted earlier start/end marks. Capture now
+returns that real performance measure, including input processing. A fresh
+standard-plus-large search capture is running against this corrected code.
+Large startup descriptions now say seeded context; the setup warms the context
+before measured navigation. The fixture test has a 30-second overall timeout so
+its second construction/deep comparison cannot obscure the explicit 10-second
+first-build assertion. No application performance fix or warning suppression was
+introduced. Other large-scenario probes are functional checks, not stable timing
+comparisons: some ran concurrently on this workstation.
+
+### Browser failure diagnosis and recovery
+
+A later unit run failed before collection with `Unknown system error -122, write`
+while the temporary reference checkout was installed in quota-limited `/tmp`.
+After removing that task-created checkout, the identical scoped perf command
+passed again (3 files / 16 tests). No user data or dispatcher state was removed.
+
+Browser failures also reproduced independently of quota: after repeated same-page
+reloads, requests for Vite modules failed with `net::ERR_INSUFFICIENT_RESOURCES`;
+the timeout diagnostic showed an empty document and no `window.__rt`, not a loaded
+vault that missed its performance target. Waiting for network idle did not fix it.
+Reopening in a new page within the same browser context preserves IndexedDB/cache
+and releases the previous page's loader resources. With that change, standalone
+probes completed large sync (5 samples), delivery (15), graph indexing (5), and
+standard search (20). Capture now uses this reopen path for vault, sync, search
+and graph scenarios; samples still start at navigation, after page close/create.
+No failed sample is converted to a pass or omitted. Earlier failed captures stay
+in local `tmp/perf` as failed evidence. A fresh seven-batch standard/large capture
+of those four workflows is running against the final implementation.
+
+### Final local result
+
+The uninterrupted final selected capture exited **0**: standard and large vault
+open, search, graph indexing and sync each produced seven batches, **8 rows /
+56 batches / 462 raw samples**, with no missing observations. The committed
+[local report](reports/2026-09-20-large-vault/README.md) includes the raw capture
+(hostname redacted only) and the final fixture-build record: **614.3 ms**, exactly
+5,000 notes / 200 maps / 60 tiles / 40 characters and 200 update operations.
+
+The capture records `882a242bf7c2412b41f60b82c0599c15458cef03`. The last edit while
+it ran restored a TypeScript-only `Page.reload` interface member still used by
+the map scenario; it did not change measured runtime code. A direct TypeScript
+check of `capture.ts`, using app compiler options and core's Node type definitions,
+then passed. The final scoped perf suite passed 3 files / 16 tests; targeted
+ESLint and formatting passed. Earlier broad app/tooling/core and typecheck results
+remain above. All tracked changes are within the task claim.
+
+The other large scenarios also produced real samples in separate functional
+probes: smoke CI (1), startup (3), widget update (25), map desktop (46 frames),
+map slim (193 frames), scene render (seven batches / 21 samples), and local live
+delivery (15). These mixed development probes are not a complete hosted capture
+or stability verdict. The final report intentionally contains only its fresh
+selected eight rows. CI baseline-writing tests verify all 22 configured entries
+and fail closed on a missing row.
+
+Large graph indexing measured **3,258.5 ms** against the provisional **1,000 ms**
+absolute target. The other seven selected rows met their absolute targets. This
+is a reported performance finding, not a reason to raise the target or fabricate
+baseline data. Hosted same-runner drift, a complete 22-row baseline, central gates
+and independent review remain the operator's subsequent work. Nothing was pushed
+or promoted; no workflow, loop, sub-agent or dispatcher control-state change was
+launched. The task-created reference checkout and diagnostic servers were removed
+or stopped; original local failed diagnostics remain available under `tmp/perf`
+and the task-named `/tmp/rc-eng-3.3-*` logs.
+
+## 2026-09-20 — RC-ENG-3.3 independent-review timing repair
+
+Review of candidate `fa2d30bdeb7eb470889f404bcab8081a127e2dd7` identified
+same-document startup/board navigation after large-fixture restore. The undefined
+start mark then included the setup document's elapsed time. Large setup now closes
+its document and returns a fresh page in the same durable storage/cache context.
+Startup and scene navigation also reject null navigation responses, failing closed
+if a future change turns either into a hash-only transition.
+
+Added opt-in real-Chromium regression coverage in `navigation.browser.ts`, exercising
+both standard and large startup/scene scenarios. It deliberately delays setup and
+asserts all four navigations per scenario (warmup plus samples) are real document
+loads, with each large measured time origin after restore and the injected delay.
+Run against a Vite server with `PERF_BROWSER_URL=http://localhost:15573 pnpm exec tsx
+tests/perf/navigation.browser.ts`.
+
+Scoped unit suite: 16 passed, four browser checks skipped without the opt-in URL.
+Targeted ESLint and the capture TypeScript check exited 0. Live browser results
+and any new capture evidence follow below. No Headroom tools are available.
+Hosted 22-row acceptance remains required; local execution is not a hosted runner,
+and this task does not authorize publication or remote workflow dispatch.
+
+The initial Vitest browser invocation failed two large checks because its SSR
+transform rewrote the browser-side dynamic import to an unavailable Vitest helper.
+The browser test now runs under tsx/node:test, like the capture CLI, to exercise
+the actual browser code without that transform. This was a test-runner issue,
+not a timing measurement result.
+
+The tsx/node:test browser invocation exited 0: all four checks passed. All eight
+large measured-document origins (including warmups) followed completed setup;
+none of the 24 total navigations was a same-document transition. Large startup
+samples were 813.9/818.2/818.2 ms, scene samples 1314.5/1147.8/1142.3 ms.
+The final scoped suite passed 3 files / 16 tests and measured fixture construction
+at 766.7 ms. Typechecking the capture and browser regression together passed.
+An initial direct Playwright type import did not resolve through the app compiler
+configuration; the regression now derives its browser types from the scenario API.
+No application behavior or performance targets were changed.
+
+A post-commit browser run will retain exact implementation-SHA provenance. This
+is regression evidence only, not the missing 22-row hosted baseline. The central
+operator must publish the candidate when authorized, run its Performance workflow,
+and retain the full `perf-run` artifact with the candidate SHA and all 22 numeric
+baseline rows. The task's no-push restriction prevents supplying new hosted-runner
+evidence here; neither configuration descriptions nor local/synthetic samples
+are substituted for that acceptance requirement.
+
+Post-commit verification on clean implementation `cd075a5306534e25cfee1ad1abd76e4c8dd81908`
+exited 0 with four browser checks passed. The original output and reproduction
+instructions are retained in [the timing-repair report](reports/2026-09-20-navigation-repair/README.md).
+All 24 navigation responses were document loads, and all eight large measurement
+origins followed setup. The evidence commit changes only documentation/output.
+Hosted baseline acceptance remains unresolved; no push, promotion, workflow
+dispatch, new loop, dispatcher control-state edit or sub-agent was used.
+
+## 2026-09-20 — CI acceptance evidence retry
+
+Starting candidate: `1e1f38c63fbae9e69a0470471a5ff80da5fda701`; clean tree.
+The supplied independent review identifies missing hosted capture evidence,
+not a remaining implementation defect. Read the existing capture workflow,
+CI script, stability checker and timing-repair report. No callable Headroom
+tools were available. The read-only GitHub Actions lookup returned exit 0 and
+zero runs for the reviewed SHA. Its selected response and exact command are
+retained in [the acceptance lookup](reports/2026-09-20-ci-acceptance/README.md).
+
+Reran `pnpm exec vitest run --config tests/perf/vitest.config.ts`: exit 0,
+3 files / 16 tests passed. No measured source or budget target changed.
+Another workstation capture cannot supply the hosted artifact required by
+review, so no substitute baseline was created. Acceptance remains incomplete;
+the linked report gives the exact-SHA publication/capture/artifact handoff for
+the central operator. This evidence-only retry respects the explicit no-push
+restriction. No promotion, remote workflow dispatch, extra loop, dispatcher
+control-state edit or sub-agent was used.
+
+## 2026-09-27 — hosted-capture rework (storage cap and runtime)
+
+Starting candidate: `2c2ac85e`, on base `2d9f566d`. The owner's hosted run
+36282130325 found two defects; details and evidence are in
+[the rework report](reports/2026-09-27-hosted-rework/README.md).
+
+Rebased the series onto loop/rc `6dd4f09c`. `demo-seed.ts` kept the showcase layer
+and appended the large profile. `budget-registry.ts` kept loop/rc's measured
+standard maturity; the `:large` rows are now explicitly provisional (review
+2026-12-31), because those baselines were not measured on the large fixture.
+`capture.ts` kept `a347e2c0`'s input-only sync fixture label.
+
+**Storage cap.** The map rows failed on the pinned reference, not on the
+candidate: `48a82786` validates `{ previous, next }`, so each commit costs twice
+the vault. A live reference probe after the rebase rejected any dispatch at
+5,343,213 B. The platform limit is unchanged. The fixture now has short ids and
+bodies and 100 note edits (2,354,674 B), and its pan/zoom map (4 layers / 100
+POIs) is one of the 200 maps, so the large map rows commit nothing. The new
+payload test replays every `:large` scenario's commits. It requires 384 KiB of
+headroom on both boundary shapes. The peak is 4,726,918 B on the reference and
+2,364,007 B here. The previous fixture fails it at 5,342,569 B.
+
+**Runtime.** Measured hosted per-run time was 65.0 / 63.8 / 63.6 / 63.4 min:
+standard ~1,285 s, large ~2,505 s. Changes: build the snapshot once; share
+`smoke-ci` batches with `smoke-ci:large`; restore once per batch for large
+startup and scene; drop a redundant reopen in large search and graph; reset
+large search to a no-match query. The workflow and `ci.sh` were not changed.
+
+One full paired local capture of `1d7de2da` took **47.2 min** at load ~15. Its
+standard rows ran 1.19× slower than hosted, which projects ~40 min per hosted
+run and ~200 min for five. At the local pace, five runs would take 236 min.
+Large rows took 1,303 s. Every one of the 22 rows had seven nonempty batches on
+both revisions, including 356 / 1,360 map frames. `perf:baseline --ci` wrote all
+22 rows. `perf:compare --ci` flagged `search:large` (+48.5%) and
+`graph-indexing:large` (+23.5%). Search drift also appears in the hosted runs
+on the old fixture. Neither verdict was adjusted.
+
+Checks on this revision: scoped perf suite 3 files / 18 tests; `pnpm typecheck`
+exit 0; `pnpm test:tooling` 30 files / 228 tests; targeted ESLint and Prettier;
+typecheck of `capture.ts` with both perf tests; opt-in Chromium navigation
+regression 4/4. These are local results, not hosted or wrapper gates. The
+task-created reference worktree and dev servers were removed. No push,
+promotion, workflow dispatch, loop, sub-agent or dispatcher control-state edit.
+
+## 2026-09-27 — Lint gate failure on 701956fb: task scratch files
+
+The Lint wrapper gate (attempt `5d9e4cad`) exited 1 with 18 errors and 17
+warnings. I read the original log. All 18 errors were
+`@typescript-eslint/no-explicit-any` in three untracked probe scripts this task
+created under the ignored `tmp/` directory: `rc-eng-3.3-probe.ts` (8),
+`rc-eng-3.3-shrink.ts` (7) and `rc-eng-3.3-size.ts` (3). Repository-wide ESLint
+scans `tmp/`, so leftover scratch TypeScript fails the gate even though it is
+never committed. No committed file had an error.
+
+I deleted those three probes plus two other task scratch files
+(`tmp/large-vault.new.ts`, `tmp/tsconfig.capture.json`). Rerunning the full
+`pnpm lint` on the unchanged committed code exited 0: 0 errors, 17 warnings.
+All 17 warnings are in loop/rc files this task does not change (`CommandPalette`,
+compendium, overlay components, `useCombatKeyboard`). No source or measured code
+changed. This is a local rerun, not a wrapper gate result.
+
+## 2026-09-27 — Review of 624715c1: waiting on the hosted capture
+
+The independent review found no implementation defect. It withheld approval
+only because the hosted five-run capture has not run on this candidate. I
+checked before changing anything. `gh api .../actions/runs?head_sha=624715c1`
+returns zero runs. The newest Performance `workflow_dispatch` is still
+36282130325 on `2c2ac85e`, the pre-fix commit. `~/.cache/perf-evidence/rc-eng-3.3/`
+holds only that run's four partial current/reference pairs.
+
+This worker cannot push or dispatch a workflow, so nothing local can close the
+gap. No source, fixture, registry, capture or workflow code changed. Measured
+code is still `1d7de2da`. I did not rebase onto newer loop/rc (`e50c13b9`)
+because that would move the SHA under the pending capture.
+
+For the owner's capture of this candidate, acceptance needs: current/reference
+1..5 with 22 rows and seven nonempty batches per row; numeric baseline-1..5;
+the comparison and stability output; and total and per-run wall times under the
+300-minute timeout. Check `search:large` (+48.5% locally) and
+`graph-indexing:large` (+23.5% locally) against the hosted comparison without
+changing targets or comparison rules.
+
+## 2026-10-02 — Review of 3c88f8bc: hosted evidence still unavailable
+
+Starting candidate: `3c88f8bc234dc461987b7dbd31ac137da63c68e3`; clean tree.
+The supplied independent review reports no further implementation defect and
+withholds approval solely for hosted acceptance evidence. This retry made
+read-only GitHub queries at approximately 2026-10-03 02:21 UTC:
+
+```sh
+gh api 'repos/tsieb/dndtools/actions/runs?head_sha=3c88f8bc234dc461987b7dbd31ac137da63c68e3&per_page=100'
+gh api 'repos/tsieb/dndtools/actions/workflows/perf.yml/runs?event=workflow_dispatch&per_page=5'
+```
+
+Both queries exited 0. Retrieved the exact original Headroom output before
+recording these findings: the candidate query returned `total_count: 0` and
+no runs. The manual Performance query returned two runs, with the newest still
+the cancelled pre-fix run
+[36282130325](https://github.com/tsieb/dndtools/actions/runs/36282130325)
+on `2c2ac85edfdc8ee775817d8d71337c96dc1d2e0f`. Newer Performance runs exist
+on other SHAs, but do not provide exact-candidate acceptance evidence.
+
+No source changes or repeat local capture were warranted by this feedback.
+The storage/runtime fixes and input-only sync fixture label remain unchanged.
+The recorded 47.2-minute local capture remains an earlier-revision measurement,
+not a hosted per-run time for this candidate. No tests were rerun for this
+journal-only update; prior review results are not claimed as new verification.
+
+Acceptance remains blocked on the owner-dispatched hosted capture: five paired
+captures, all 22 rows with seven nonempty batches, numeric baselines, comparison
+and stability output, and measured per-run/total wall times with margin under
+300 minutes. The hosted comparisons must also assess the previously recorded
+large search and graph breaches. This worker did not push, promote, dispatch a
+workflow, launch a loop, or change dispatcher control state. The journal-only
+commit records the dependency; it does not close acceptance.
+
+## 2026-10-02 — Review of 1d21cf20: hosted dependency reconfirmed
+
+Starting candidate: `1d21cf20e374c9eaacdd61080f7888ce1a3c39e1`; clean tree.
+The supplied review found no additional implementation defect and withheld
+approval for missing hosted evidence. At approximately 2026-10-03 05:10 UTC,
+these read-only queries both exited 0:
+
+```sh
+gh api 'repos/tsieb/dndtools/actions/runs?head_sha=1d21cf20e374c9eaacdd61080f7888ce1a3c39e1&per_page=100'
+gh api 'repos/tsieb/dndtools/actions/workflows/perf.yml/runs?event=workflow_dispatch&per_page=5'
+```
+
+The candidate response contains `total_count: 0` and no runs. The manual
+Performance response contains two runs; the latest remains cancelled run
+[36282130325](https://github.com/tsieb/dndtools/actions/runs/36282130325)
+on pre-fix `2c2ac85edfdc8ee775817d8d71337c96dc1d2e0f`.
+No Headroom tools were available; these findings use the original, uncompressed
+command output, with run metadata selected by `gh --jq`.
+
+Preserved the reviewed implementation and input-only sync label. No rebase,
+source change, substitute baseline or repeat local capture was warranted.
+The previously recorded 47.2-minute local pair remains evidence for its earlier
+revision only. No tests were rerun for this journal-only change; `git diff
+--check` passed before commit.
+
+Acceptance remains incomplete. The operator must publish and capture the final
+candidate SHA, retain five current/reference pairs with all 22 rows and seven
+nonempty batches per row, numeric baselines, comparison/stability outputs, and
+measured per-run and total duration with margin under 300 minutes. Assess the
+earlier local search/graph breaches using that hosted evidence without weakening
+the comparison. Further local implementation retries cannot supply this external
+dependency. No push, promotion, workflow dispatch, loop, additional agent or
+dispatcher control-state edit occurred.
+
+## 2026-10-03 — Review of 09d09c3d: commit list derived from the capture
+
+Starting candidate: `09d09c3db308b3960f789baf286a37042f13879e`; clean tree.
+The review again found no implementation defect and withheld approval for the
+missing hosted capture. At 13:09 UTC, `gh api` showed `total_count: 0` runs for
+that SHA. The latest manual Performance run is still cancelled pre-fix run
+36282130325 on `2c2ac85e`.
+
+The review's low-severity maintenance finding was fixable here. The storage-cap
+test (`tests/perf/large-vault.test.ts`) had its own copy of each :large
+scenario's commits, so a change to the commands the capture sends would not have
+reached it. `scripts/perf/capture.ts` now exports `WIDGET_UPDATE_ROWS` (25 rows)
+and `GRAPH_INDEXING_NOTES` (5 notes). The `widget-update` and `graph-indexing`
+scenarios dispatch from those two values. The new
+`largeScenarioCommits(state, actorId)` builds every :large row's command list
+from the same data. The test replays that list through the real
+`storage.persistFullState` validator. It also asserts that only those two rows
+write, with exactly those counts. The commands match the earlier commit
+byte for byte (same titles, bodies, y rows), so measured behaviour does not
+change.
+
+Local checks on the edited tree: `pnpm exec vitest run --config
+tests/perf/vitest.config.ts` passed 3 files / 18 tests. `eslint` passed on both
+files. A scratch `tsc --noEmit` (core tsconfig plus DOM lib, outside the
+worktree) found no errors in either file.
+
+Acceptance still depends on the operator. Publish the new candidate SHA and
+dispatch the Performance workflow. That run must keep five current/reference
+pairs, each with all 22 rows and seven nonempty batches. It must also produce the
+CI baseline, the compare/stability output, and per-run and total wall time, with
+margin under `timeout-minutes: 300`. It should also give a hosted reading of
+the local search:large / graph-indexing:large drift. This worker did not push,
+dispatch a workflow, launch a loop, spawn agents or edit dispatcher state. No
+Headroom tools were used; all output cited here is the original, uncompressed
+output.

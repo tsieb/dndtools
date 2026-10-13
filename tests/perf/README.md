@@ -86,3 +86,44 @@ checks exercise advisory/enforcing decisions, two-repeat target confirmation,
 scheduled drift, missing data, runner-class matching, baseline recording and
 five-job agreement. They live in the owned comparison script and never read or
 write timing artifacts; passing them is not hosted acceptance evidence.
+
+## Large-vault row (RC-ENG-3.3)
+
+Every capture now records 22 entries: the eleven standard budget IDs and their
+`:large` counterparts. Each large browser context receives the same deterministic
+5,000-note / 200-map / 60-tile / 40-character snapshot via the app's validated
+storage restore, before the measured navigation. Notes have two resolvable links
+each; the compacted snapshot has a real delta of 100 note edits. One of the 200
+maps is built by the standard map scenario's commands (4 layers / 100 POIs), and
+the large map rows pan it instead of creating another. Construction is checked
+against a ten-second ceiling. The snapshot is built and serialized once per
+capture; each restore parses its own copy in the page. Setup, restore and initial
+hydration are outside the measured workflow; subsequent opens read the actual
+durable vault. Repeated opens use a new page in the same browser context,
+preserving IndexedDB and cache while releasing Chromium module-loader resources
+from the previous page. Page creation and close are outside the navigation-based
+sample. Widget moves and indexed notes run on top of this background fixture.
+
+Every accepted command sends the whole durable state through
+`storage.persistFullState`, which rejects payloads over 5 MiB. The pinned
+reference sends the previous _and_ next state, so it pays twice the vault's
+size. Ids and note bodies are therefore short. `large-vault.test.ts` replays each
+`:large` scenario's commits and fails unless both boundary shapes stay at least
+384 KiB under the cap. A new `:large` scenario must declare its commits there.
+
+Smoke CI never opens a vault. `smoke-ci:large` records the seven `smoke-ci`
+batches measured in the same capture, and its fixture says so. It runs on its own
+only when `smoke-ci` is not part of the capture.
+
+`search:large`, `graph-indexing:large`, `vault-open:large`, and
+`scene-first-render:large` have provisional targets of 500 ms, 1,000 ms,
+5,000 ms, and 2,500 ms respectively. The other large rows retain the workflow's
+existing target. The baseline writer and five-run CI stability check require all
+22 IDs, so neither row can silently disappear. `--only search` selects both
+sizes; `--only search:large` selects just the large row. Missing samples make
+capture exit nonzero as well as making comparison fail closed.
+
+The historical `baseline.json` has explicit null large entries because that
+workstation run did not measure them. They are not CI evidence. Hosted CI writes
+fresh numeric values for both rows into every `tmp/perf/baseline-N.json` and
+uploads the paired raw captures. No hosted result is implied by this configuration.

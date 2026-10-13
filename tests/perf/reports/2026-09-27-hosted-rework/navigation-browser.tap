@@ -1,0 +1,45 @@
+TAP version 13
+# {"id":"app-startup","profile":"standard","samples":[1364.6,1411.5,1446.5],"navigations":[{"origin":1790508979353.8,"setupFinished":0,"response":true},{"origin":1790508980967.3,"setupFinished":0,"response":true},{"origin":1790508982370.8,"setupFinished":0,"response":true},{"origin":1790508983818.9,"setupFinished":0,"response":true}]}
+# Subtest: navigation measurement boundaries in Chromium
+    # Subtest: app-startup (standard) starts a document after fixture setup
+    ok 1 - app-startup (standard) starts a document after fixture setup
+      ---
+      duration_ms: 6620.041566
+      type: 'test'
+      ...
+# {"id":"app-startup","profile":"large","samples":[1254.2,1230.4,1320.8],"navigations":[{"origin":1790508985417,"setupFinished":0,"response":true},{"origin":1790508988097.4,"setupFinished":1790508988062.6,"response":true},{"origin":1790508989391.6,"setupFinished":1790508988062.6,"response":true},{"origin":1790508990678.7,"setupFinished":1790508988062.6,"response":true},{"origin":1790508991940.8,"setupFinished":1790508988062.6,"response":true}]}
+    # Subtest: app-startup (large) starts a document after fixture setup
+    ok 2 - app-startup (large) starts a document after fixture setup
+      ---
+      duration_ms: 8000.048981
+      type: 'test'
+      ...
+# {"id":"scene-first-render","profile":"standard","samples":[1713,1743.5,1751.6],"navigations":[{"origin":1790508993407.5,"setupFinished":0,"response":true},{"origin":1790508995268.9,"setupFinished":0,"response":true},{"origin":1790508997031.1,"setupFinished":0,"response":true},{"origin":1790508998834.9,"setupFinished":0,"response":true}]}
+    # Subtest: scene-first-render (standard) starts a document after fixture setup
+    ok 3 - scene-first-render (standard) starts a document after fixture setup
+      ---
+      duration_ms: 7320.81629
+      type: 'test'
+      ...
+# {"id":"scene-first-render","profile":"large","samples":[1649.7,1528.8,1753.6],"navigations":[{"origin":1790509000717.2,"setupFinished":0,"response":true},{"origin":1790509002826.6,"setupFinished":1790509002799,"response":true},{"origin":1790509004636.3,"setupFinished":1790509002799,"response":true},{"origin":1790509006373.7,"setupFinished":1790509002799,"response":true},{"origin":1790509007986.5,"setupFinished":1790509002799,"response":true}]}
+    # Subtest: scene-first-render (large) starts a document after fixture setup
+    ok 4 - scene-first-render (large) starts a document after fixture setup
+      ---
+      duration_ms: 9203.089853
+      type: 'test'
+      ...
+    1..4
+ok 1 - navigation measurement boundaries in Chromium
+  ---
+  duration_ms: 31145.156292
+  type: 'suite'
+  ...
+1..1
+# tests 4
+# suites 1
+# pass 4
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 32010.9992
