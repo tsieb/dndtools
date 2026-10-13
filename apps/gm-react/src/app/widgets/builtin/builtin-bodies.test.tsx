@@ -3,7 +3,8 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { preloadBuiltinBodies } from './index';
 import {
 	BOARD_TOOL_WIDGET_TYPES,
 	HOME_WIDGET_TYPES,
@@ -17,6 +18,9 @@ import { DM_ACTOR, PLAYER_ACTOR, buildInitialState, makeEnvironment } from '@dnd
 import type { BoardWidget } from '../../board-helpers';
 import type { WidgetCommandHandler } from '../../widget-body-kit';
 import { I18nProvider } from '../../../i18n';
+
+// RC-ENG-3.2 — the session and combat bodies load on first use; these tests render synchronously.
+beforeAll(() => preloadBuiltinBodies());
 
 /**
  * RC-WID-4.1 — EVERY system widget type draws a real body.

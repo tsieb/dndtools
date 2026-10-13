@@ -645,6 +645,11 @@ export function builtinBodyModules(indexSource: string): Map<string, string> {
 	for (const match of code.matchAll(/import\s*\{([^}]*)\}\s*from\s*'\.\/(\w+)'/g))
 		for (const name of match[1]!.split(','))
 			componentModule.set(name.trim().split(/\s+as\s+/)[0]!, match[2]!);
+	// RC-ENG-3.2 — a body loaded on first use: `const X = lazyBody(() => import('./Module')…)`.
+	for (const match of code.matchAll(
+		/const\s+(\w+)\s*=\s*lazyBody\(\s*\(\)\s*=>\s*import\('\.\/(\w+)'\)/g,
+	))
+		componentModule.set(match[1]!, match[2]!);
 	const body = code.slice(code.indexOf('export function WidgetBody'));
 	const modules = new Map<string, string>();
 	let pending: string[] = [];

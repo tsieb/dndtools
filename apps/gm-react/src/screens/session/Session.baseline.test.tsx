@@ -3,7 +3,8 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { preloadBuiltinBodies } from '../../app/widgets/builtin';
 import {
 	PLAYER_SUMMARY_WIDGET,
 	SESSION_SCREEN_PARTS,
@@ -15,6 +16,9 @@ import { boardWidgetsOf, payloadIndex } from '../../app/board-helpers';
 import { I18nProvider } from '../../i18n';
 import { ariaTree, domSkeleton, focusOrder, headingOutline, squash } from './baseline-serializers';
 import { DM, baselineFixtures, createBaselineRuntime } from './baseline-fixtures';
+
+// RC-ENG-3.2 — the session and combat bodies load on first use; these tests render synchronously.
+beforeAll(() => preloadBuiltinBodies());
 
 /**
  * RC-CAN-7.8 — the Session console's committed baselines.

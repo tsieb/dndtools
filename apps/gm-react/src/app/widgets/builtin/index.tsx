@@ -5,13 +5,21 @@ import { NoteBody } from './NoteBody';
 import { CharacterBody } from './CharacterBody';
 import { AtlasBody } from './AtlasBody';
 import { CharactersBody } from './CharactersBody';
-import { CombatBody } from './CombatBody';
 import { DataHubBody } from './DataHubBody';
 import { GettingStartedBody } from './GettingStartedBody';
 import { NotesBody } from './NotesBody';
 import { SearchBody } from './SearchBody';
-import { SessionBody } from './SessionBody';
 import { ToolsBody } from './ToolsBody';
+import { lazyBody } from './lazyBody';
+
+// RC-ENG-3.2 — only the Session screen draws these two; they load on first use.
+const SessionBody = lazyBody(() => import('./SessionBody').then((module) => module.SessionBody));
+const CombatBody = lazyBody(() => import('./CombatBody').then((module) => module.CombatBody));
+
+/** Load the on-demand bodies ahead of their first draw (tests that render synchronously). */
+export function preloadBuiltinBodies(): Promise<unknown> {
+	return Promise.all([SessionBody.preload(), CombatBody.preload()]);
+}
 
 export type { WidgetCommandHandler } from '../../widget-body-kit';
 
