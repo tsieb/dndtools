@@ -65,7 +65,6 @@ import {
 
 const DEFAULT_SOURCE_ID = 'local-vault';
 
-
 // Its props are the memoized read plus state setters, so hover, focus and keyboard walks on the
 // canvas no longer re-render every result row (RC-ENG-3.2).
 const MemoGraphSearch = memo(GraphSearch);
@@ -145,10 +144,7 @@ export function Graph() {
 	const health = useGraphHealth(panelState, view, dmId, playerId);
 	// The same usage signal that puts Graph in the nav (three links): before it, a filter, cluster
 	// hulls and a dormant-arcs report are analytics about a graph that does not exist yet.
-	const signalReached = useMemo(
-		() => isMaturitySignalReached('graph', panelState),
-		[panelState],
-	);
+	const signalReached = useMemo(() => isMaturitySignalReached('graph', panelState), [panelState]);
 
 	const clusters = useGraphClusters(panelState, viewActorId);
 

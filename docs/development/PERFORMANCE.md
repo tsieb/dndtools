@@ -70,10 +70,10 @@ median of seven. Never loosen a budget to make a run pass.
 verdict comes from `compare.ts --policy`. It goes to the job summary and `policy.json` in the
 `perf-run` artifact. Setup, pipeline tests and artifact upload can also fail independently of the performance verdict.
 
-| Mode           | Runs on                                                                       | Paired runs | Binding verdict, once enforcing                                                    | Advisory only                 |
-| -------------- | ----------------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------- | ----------------------------- |
-| `scheduled`    | weekly on `main`; `workflow_dispatch` (the default mode)                      | 5           | drift past tolerance (20%, 1.5-frame floor) in any run, or runs disagreeing        | absolute target breaches      |
-| `pull-request` | pushes to `main`; `workflow_dispatch` on request (ADR-043: no PR trigger)     | 2           | a budget breaching its absolute target in **both** repeats, or measured in neither | drift; a breach in one repeat |
+| Mode           | Runs on                                                                   | Paired runs | Binding verdict, once enforcing                                                    | Advisory only                 |
+| -------------- | ------------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------- | ----------------------------- |
+| `scheduled`    | weekly on `main`; `workflow_dispatch` (the default mode)                  | 5           | drift past tolerance (20%, 1.5-frame floor) in any run, or runs disagreeing        | absolute target breaches      |
+| `pull-request` | pushes to `main`; `workflow_dispatch` on request (ADR-043: no PR trigger) | 2           | a budget breaching its absolute target in **both** repeats, or measured in neither | drift; a breach in one repeat |
 
 **Enforcing** means `baseline.ci.json` has a `recorded` block for the pinned `referenceCommit` and
 for this runner class (same `runnerLabel`, OS and core count; the CPU model may differ because the
