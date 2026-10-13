@@ -159,7 +159,7 @@ export function InitiativeTrackerCompact({
 	if (!running || tracker.combatants.length === 0) {
 		return (
 			<div style={{ ...bodyWrap, overflowY: 'hidden' }}>
-				<div style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
+				<div style={{ font: `max(12.5px, var(--fit-text-min, 0px)) ${T.sans}`, color: T.sub }}>
 					{/* Keep the same div > div > LiveReadout position as the running branch so React
 					    updates the existing announcement channel through start, end and empty order. */}
 					<LiveReadout style={{ display: 'inline' }}>
@@ -183,7 +183,7 @@ export function InitiativeTrackerCompact({
 					// first combatant rows, where it intercepted the presses meant for their hit points.
 					alignItems: 'center',
 					gap: 8,
-					font: `600 11px ${T.sans}`,
+					font: `600 max(11px, var(--fit-text-min, 0px)) ${T.sans}`,
 					color: T.sub,
 					textTransform: 'uppercase',
 					letterSpacing: '0.06em',
@@ -247,7 +247,7 @@ export function InitiativeTrackerCompact({
 							<span
 								aria-hidden="true"
 								style={{
-									font: `700 13px ${T.mono}`,
+									font: `700 max(13px, var(--fit-text-min, 0px)) ${T.mono}`,
 									color: T.sub,
 									width: 22,
 									textAlign: 'right',
@@ -260,7 +260,7 @@ export function InitiativeTrackerCompact({
 								<div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
 									<span
 										style={{
-											font: `600 13.5px ${T.sans}`,
+											font: `600 max(13.5px, var(--fit-text-min, 0px)) ${T.sans}`,
 											color: T.ink,
 											whiteSpace: 'nowrap',
 											overflow: 'hidden',
@@ -338,7 +338,7 @@ export function InitiativeTrackerCompact({
 												border: `1px solid ${T.bd}`,
 												background: T.surf,
 												color: T.ink,
-												font: `700 13px ${T.mono}`,
+												font: `700 max(13px, var(--fit-text-min, 0px)) ${T.mono}`,
 												cursor: interactive ? 'pointer' : 'default',
 											}}
 										>
@@ -361,7 +361,9 @@ export function InitiativeTrackerCompact({
 				})}
 			</ul>
 			{/* The swipe is a shortcut, not a secret: say so once, under the order. */}
-			<p style={{ margin: 0, font: `11.5px ${T.sans}`, color: T.ter }}>
+			<p
+				style={{ margin: 0, font: `max(11.5px, var(--fit-text-min, 0px)) ${T.sans}`, color: T.ter }}
+			>
 				<Icon name="chevron-left" size="micro" aria-hidden="true" />{' '}
 				{t('widgetBody.initiative.compactSwipeHint')}
 			</p>

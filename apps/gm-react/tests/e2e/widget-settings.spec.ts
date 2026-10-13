@@ -14,7 +14,9 @@ async function editBoard(page: Page): Promise<void> {
 	await page.goto('/#/board');
 	await waitReady(page);
 	await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
-	await expect(page.getByTestId('scene-board-bounded')).toBeVisible();
+	await expect(
+		page.locator('[data-testid="scene-board-bounded"], [data-testid="stacked-board"]'),
+	).toBeVisible();
 }
 
 /** The slice of `src/app/widgetBuilder/draft.ts` the page imports from the dev server. */

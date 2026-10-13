@@ -539,7 +539,14 @@ export function WidgetFrame({
 					style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}
 				>
 					<NoteFrameContext.Provider value={true}>
-						<WidgetRenderSlot widget={w} onCommand={onCommand} {...fit.slot} />
+						<WidgetRenderSlot
+							widget={w}
+							onCommand={onCommand}
+							{...fit.slot}
+							// Fit's text floor can make a previously whole body scroll. Keep that content
+							// keyboard-reachable even while the frame owns layout editing.
+							keyboardScrollable={fit.slot.keyboardScrollable || scale < 1}
+						/>
 					</NoteFrameContext.Provider>
 				</div>
 				{w.statusNote && (

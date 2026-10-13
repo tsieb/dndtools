@@ -354,6 +354,11 @@ export function MapViewTemplate({ widget, definition, data, onCommand }: WidgetT
 			className="scene-board-operation"
 			style={{ ...bodyWrap, gap: 6, overflowY: 'auto' }}
 			data-testid="map-tile"
+			tabIndex={interactive ? undefined : 0}
+			onKeyDown={(event) => {
+				if (event.target === event.currentTarget && /^(Arrow|Page|Home|End)/.test(event.key))
+					event.stopPropagation();
+			}}
 		>
 			<div
 				role="group"

@@ -185,6 +185,7 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 		quiet.clear();
 		setMetaOpen(false);
 	}
+	const tileOps = { onSelect: pick, onMove: move, onResize: resize, onRemove: remove };
 	const [addOpen, setAddOpen] = useState(false);
 	// RC-CAN-4.4 — the scene-template picker, opened from the empty board or the gallery header.
 	const [templatesOpen, setTemplatesOpen] = useState(false);
@@ -200,14 +201,14 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 	const phone = viewport === 'phone';
 	// A phone's Layout opens at Comfortable, the real tiles at 1:1; its Fit is the titles-only overview.
 	const [zoom, setZoom] = useState<ZoomPreset>(phone ? 'comfortable' : 'fit');
-	const steps = Phone.phoneZoomSteps(phone, editing, zoom);
+	const steps = Phone.phoneZoomSteps(phone, editing && !preview, zoom, true);
 	// The screen route names the scene; the board never provisions one.
 	const sceneId = screen.id;
 	const boardScene = runtime.state.scenes.scenes[sceneId];
 	const flow = !!boardScene && screenLayoutPolicy(boardScene) === 'flow';
 	// The panel list stands in for a CANVAS on a phone. A flow screen already collapses to one column
 	// of its own content (ADR-041), so it reads through FlowBoard on every tier (RC-CAN-7.6).
-	const posture = useStackedPosture(phone && !editing && !flow);
+	const posture = useStackedPosture(phone && !flow);
 	const [layoutFull, setLayoutFull] = useState(false);
 	const chromeHidden = posture.hideChrome || layoutFull;
 	// The Layouts panel used to render unconditionally whenever edit mode was on, with no close
@@ -617,6 +618,9 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 							<StackedBoard
 								history={history}
 								sceneId={sceneId}
+								editing={editing && !preview}
+								selectedId={selectedId}
+								{...tileOps}
 								widgets={widgets}
 								onWidgetCommand={operateWidget}
 								emptyHint={ready ? '' : t('board.preparingHint')}
@@ -629,10 +633,7 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 								tier={viewport}
 								editing={editing && !preview}
 								selectedId={selectedId}
-								onSelect={pick}
-								onMove={move}
-								onResize={resize}
-								onRemove={remove}
+								{...tileOps}
 								onWidgetCommand={operateWidget}
 								history={history}
 								emptyTitle=""
@@ -642,30 +643,29 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 							<Phone.PhoneNavigator
 								active={phone}
 								editing={editing && !preview}
+								{...tileOps}
 								widgets={widgets}
-								zoom={zoom}
+								zoom={steps.fitFloor ? 'fit' : zoom}
 								onZoom={setZoom}
 								onWidgetCommand={operateWidget}
 								onFullScreenChange={setLayoutFull}
 							>
 								<SceneBoardCanvas
+									fitFloor={steps.fitFloor}
 									widgets={widgets}
 									policy="bounded"
 									editing={editing && !preview}
 									snap={snap}
 									selectedId={selectedId}
-									onSelect={pick}
-									onMove={move}
-									onResize={resize}
+									{...tileOps}
 									focusOrder={focusOrder}
-									onRemove={remove}
 									onWidgetCommand={operateWidget}
 									emptyHint={ready ? '' : t('board.preparingHint')}
 									// The illustrated overlay owns the ready-empty copy; keep the canvas mounted for shortcuts.
 									emptyTitle={ready ? '' : t('board.preparingTitle')}
 									history={history}
 									zoomPreset={steps.canvas}
-									onZoomPresetChange={setZoom}
+									onZoomPresetChange={steps.fitFloor ? undefined : setZoom}
 								/>
 							</Phone.PhoneNavigator>
 						)}

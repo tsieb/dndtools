@@ -120,7 +120,7 @@ export function CountdownTemplate({ widget, data, onCommand }: WidgetTemplatePro
 						display: 'flex',
 						alignItems: 'center',
 						gap: 'var(--space-1-5)',
-						font: '700 26px var(--font-mono)',
+						font: '700 max(26px, var(--fit-text-min, 0px)) var(--font-mono)',
 						color: URGENCY_COLOR[countdown.urgency] ?? 'var(--color-text-primary)',
 						letterSpacing: '.04em',
 					}}

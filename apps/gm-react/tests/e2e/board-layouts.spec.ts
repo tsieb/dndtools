@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
 
 // RC-CAN-8.8 — Layouts and Configure dialogs. Both profiles: on a phone the Layouts panel is the
-// same 280px overlay over the canvas.
+// same 280px overlay over the current board posture.
 
 async function editBoard(page: Page) {
 	await markOnboarded(page);
@@ -21,7 +21,7 @@ async function editBoard(page: Page) {
 		{ timeout: 20_000 },
 	);
 	const sceneId = (await handle.jsonValue()) as string;
-	const frames = page.getByTestId('scene-board-bounded').locator('[data-testid^="widget-"]');
+	const frames = page.locator('#main-content [data-testid^="widget-"]');
 	await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
 	await expect(frames.first()).toBeVisible();
 	return { sceneId, frames };

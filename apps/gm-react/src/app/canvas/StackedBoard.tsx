@@ -9,12 +9,19 @@ import {
 } from 'react';
 import { Button, Icon, IconButton } from '../../ds';
 import { useI18n } from '../../i18n';
-import { visibilityChip, type BoardWidget } from '../board-helpers';
+import {
+	visibilityChip,
+	frameName,
+	widgetSizePresets,
+	isWidgetResizable,
+	type BoardWidget,
+} from '../board-helpers';
 import type { SceneBoardCanvasProps } from '../SceneBoardModel';
 import { useDirection } from '../useViewport';
 import { tileMetadataForWidget } from '../widgets/tileMeta';
 import { WidgetRenderSlot, type WidgetCommandHandler } from '../widgets/WidgetRenderSlot';
 import type { LayoutHistory } from './useLayoutHistory';
+import { TileActionMenu } from './TileActionMenu';
 import { WidgetGlyph } from './WidgetFrame';
 import {
 	PREFERENCE_KEYS,
@@ -46,8 +53,7 @@ import {
  * - Full screen fills the host's pane. AppShell already bounds `<main>` above the phone tab bar, so
  *   the bottom navigation stays in view and in reach; the host hides its own toolbar while a tile is
  *   full screen (`useStackedPosture().hideChrome`). Escape, or the same button, returns to the list.
- * - Editing stays spatial. A layout is an arrangement on the canvas, so the host's "Edit layout"
- *   swaps `SceneBoardCanvas` back in; this component never moves, resizes or removes anything.
+ * - Editing keeps the list mounted; handles and buttons commit reading order through core moves.
  */
 
 /** The header's height, which is also its touch target (`--space-12`). */
@@ -87,7 +93,7 @@ function writeExpanded(sceneId: string | null, expanded: ExpandedById): void {
 
 /**
  * Phones read panels by default; only an explicit canvas preference opts out. Unset, unreadable
- * and unrecognized preferences all retain the phone posture. Editing stays spatial. `hideChrome`
+ * and unrecognized preferences all retain the phone posture, including while editing. `hideChrome`
  * is a full-screen tile taking over the pane, which the host answers by hiding its own toolbar.
  */
 export function useStackedPosture(phoneReading: boolean) {
@@ -137,6 +143,13 @@ export interface StackedBoardProps {
 	/** Scopes the remembered panels. Null while the host's scene is still being created. */
 	sceneId: string | null | undefined;
 	widgets: BoardWidget[];
+	editing?: boolean;
+	selectedId?: string | null;
+	/** Enter on a tile while editing: the host's Inspector edits the selected tile. */
+	onSelect?: (id: string) => void;
+	onMove?: SceneBoardCanvasProps['onMove'];
+	onResize?: SceneBoardCanvasProps['onResize'];
+	onRemove?: SceneBoardCanvasProps['onRemove'];
 	onWidgetCommand?: SceneBoardCanvasProps['onWidgetCommand'];
 	history?: LayoutHistory;
 	emptyTitle: string;
@@ -158,7 +171,14 @@ function StackedList({
 	emptyTitle,
 	emptyHint,
 	onMaximizedChange,
+	editing = false,
+	selectedId,
+	onSelect,
+	onMove,
+	onResize,
+	onRemove,
 }: StackedBoardProps) {
+	const { t } = useI18n();
 	const scene = sceneId ?? null;
 	const ordered = useMemo(() => stackOrder(widgets), [widgets]);
 	const [expanded, setExpanded] = useState<ExpandedById>(() => readExpanded(scene));
@@ -190,6 +210,55 @@ function StackedList({
 		});
 		return () => cancelAnimationFrame(frame);
 	}, [maximized]);
+
+	const [notice, setNotice] = useState('');
+	const moving = useRef(false);
+	async function reorder(id: string, to: number) {
+		const from = ordered.findIndex((w) => w.id === id);
+		if (!onMove || moving.current || from < 0 || to < 0 || to >= ordered.length || from === to)
+			return;
+		// Rewrite the reading order as vertical slots, preserving widths and horizontal positions.
+		// Every slot commits through the same undoable core move as a canvas drag.
+		const next = [...ordered];
+		next.splice(to, 0, next.splice(from, 1)[0]);
+		moving.current = true;
+		try {
+			let complete = true;
+			const commit = async () => {
+				let y = 24;
+				for (const w of next) {
+					if (w.y !== y && (await onMove(w.id, w.x, y)) === false) {
+						complete = false;
+						return;
+					}
+					y += w.h + 24;
+				}
+			};
+			if (history) await history.oneStep(commit);
+			else await commit();
+			if (!complete) return;
+			setNotice(
+				t('boardArrange.position', {
+					name: ordered[from].title,
+					position: to + 1,
+					count: ordered.length,
+				}),
+			);
+		} finally {
+			moving.current = false;
+		}
+	}
+	const drag = useRef<{ id: string; y: number } | null>(null);
+	function drop(clientY: number) {
+		const start = drag.current;
+		drag.current = null;
+		if (!start || Math.abs(clientY - start.y) < 6) return;
+		const tiles = [
+			...(listRef.current?.querySelectorAll<HTMLElement>('[data-stacked-tile]') ?? []),
+		];
+		const target = tiles.findIndex((el) => clientY < el.getBoundingClientRect().bottom);
+		void reorder(start.id, target < 0 ? ordered.length - 1 : target);
+	}
 
 	function toggleFullScreen(id: string) {
 		returnFocusId.current = maximized === id ? id : null;
@@ -258,16 +327,87 @@ function StackedList({
 					/>
 				</div>
 			)}
-			{ordered.map((w) => (
+			<div
+				role="status"
+				style={{
+					position: 'absolute',
+					width: 1,
+					height: 1,
+					overflow: 'hidden',
+					clipPath: 'inset(50%)',
+				}}
+			>
+				{notice}
+			</div>
+			{ordered.map((w, index) => (
 				<StackedTile
 					key={w.id}
 					widget={w}
+					selected={editing && selectedId === w.id}
+					editControls={
+						editing ? (
+							<div style={EDIT_CONTROLS}>
+								<IconButton
+									icon="drag-handle"
+									variant="ghost"
+									label={t('boardArrange.drag', { name: w.title })}
+									style={{ ...TOUCH_TARGET, touchAction: 'none', cursor: 'grab' }}
+									onPointerDown={(e) => {
+										if (e.button !== 0) return;
+										e.currentTarget.setPointerCapture(e.pointerId);
+										drag.current = { id: w.id, y: e.clientY };
+									}}
+									onPointerUp={(e) => drop(e.clientY)}
+									onPointerCancel={() => {
+										drag.current = null;
+									}}
+									onKeyDown={(e) => {
+										if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+											e.preventDefault();
+											void reorder(w.id, index + (e.key === 'ArrowUp' ? -1 : 1));
+										}
+									}}
+								/>
+								<Button
+									size="sm"
+									disabled={index === 0}
+									onClick={() => void reorder(w.id, index - 1)}
+								>
+									{t('boardArrange.up')}
+								</Button>
+								<Button
+									size="sm"
+									disabled={index === ordered.length - 1}
+									onClick={() => void reorder(w.id, index + 1)}
+								>
+									{t('boardArrange.down')}
+								</Button>
+								<TileSizePresets widget={w} onResize={onResize} />
+							</div>
+						) : undefined
+					}
 					open={expanded[w.id] ?? true}
 					fullScreen={maximized === w.id}
 					hidden={maximized !== null && maximized !== w.id}
 					onToggle={() => toggle(w.id)}
 					onFullScreen={() => toggleFullScreen(w.id)}
-					onKeyDown={(e) => onTileKeyDown(e, w.id)}
+					history={history}
+					onKeyDown={(e) => {
+						if (editing && e.target === e.currentTarget) {
+							if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+								e.preventDefault();
+								void reorder(w.id, index + (e.key === 'ArrowUp' ? -1 : 1));
+							} else if (e.key === 'Delete' || e.key === 'Backspace') {
+								e.preventDefault();
+								onRemove?.(w.id);
+							} else if (e.key === 'Enter' && onSelect) {
+								// The canvas frame's own select gesture, so the Inspector reads the same here.
+								e.preventDefault();
+								onSelect(w.id);
+							}
+						}
+						onTileKeyDown(e, w.id);
+					}}
 					onCommand={
 						onWidgetCommand
 							? (commandType, payload) => onWidgetCommand(w.id, commandType, payload)
@@ -280,6 +420,9 @@ function StackedList({
 }
 
 interface StackedTileProps {
+	selected?: boolean;
+	history?: LayoutHistory;
+	editControls?: import('react').ReactNode;
 	widget: BoardWidget;
 	open: boolean;
 	fullScreen: boolean;
@@ -292,6 +435,9 @@ interface StackedTileProps {
 
 function StackedTile({
 	widget: w,
+	selected,
+	editControls,
+	history,
 	open,
 	fullScreen,
 	hidden,
@@ -317,23 +463,28 @@ function StackedTile({
 		<>
 			<WidgetGlyph icon={meta.icon} size={16} color={accent} />
 			<span style={TITLE}>{w.title}</span>
-			<span style={chip.players ? CHIP_PLAYERS : CHIP_DM}>
-				<Icon name={chip.players ? 'visibility-players' : 'dm-only'} size={11} />
-				{chip.label}
-			</span>
+			{w.visibility !== 'dm-only' && (
+				<span style={CHIP_PLAYERS}>
+					<Icon name={chip.players ? 'visibility-players' : 'dm-only'} size={11} />
+					{chip.label}
+				</span>
+			)}
 		</>
 	);
 
 	return (
 		<div
 			role="group"
-			aria-labelledby={headingId}
+			aria-labelledby={editControls ? undefined : headingId}
+			aria-label={editControls ? frameName(w, { editing: true, selected }) : undefined}
 			data-testid={`widget-${w.id}`}
 			data-stacked-tile=""
+			tabIndex={editControls ? 0 : undefined}
 			className={meta.silhouetteClass}
 			onKeyDown={onKeyDown}
 			style={{
 				...TILE,
+				...(selected ? { outline: '2px solid var(--color-accent)' } : {}),
 				// `display` rather than the `hidden` attribute, which an inline `display` would override.
 				// The tile stays MOUNTED while another is full screen, so its widget keeps its state.
 				display: hidden ? 'none' : 'flex',
@@ -377,19 +528,47 @@ function StackedTile({
 						</button>
 					)}
 				</h3>
-				<IconButton
-					icon={fullScreen ? 'minimize-2' : 'maximize-2'}
-					label={
-						fullScreen
-							? t('atlas.collapseMap', { name: w.title })
-							: t('atlas.expandMap', { name: w.title })
-					}
-					variant="ghost"
-					data-stacked-fullscreen={w.id}
-					onClick={onFullScreen}
-					style={TOUCH_TARGET}
-				/>
+				{editControls ? (
+					<span style={{ width: 44, flexShrink: 0 }} />
+				) : (
+					<IconButton
+						icon={fullScreen ? 'minimize-2' : 'maximize-2'}
+						label={
+							fullScreen
+								? t('atlas.collapseMap', { name: w.title })
+								: t('atlas.expandMap', { name: w.title })
+						}
+						variant="ghost"
+						data-stacked-fullscreen={w.id}
+						onClick={onFullScreen}
+						style={TOUCH_TARGET}
+					/>
+				)}
 			</div>
+			{editControls && (
+				<TileActionMenu
+					handle={null}
+					w={w}
+					scale={1}
+					resizable={false}
+					entityName={null}
+					history={history}
+				/>
+			)}
+			{selected && (
+				<span
+					data-testid="tile-selection-chip"
+					style={{
+						padding: 'var(--space-1)',
+						color: 'var(--color-accent-foreground)',
+						background: 'var(--color-accent)',
+						font: 'var(--text-xs) var(--font-sans)',
+					}}
+				>
+					{w.title}
+				</span>
+			)}
+			{editControls}
 			<div
 				id={bodyId}
 				data-testid="stacked-tile-body"
@@ -504,13 +683,6 @@ const CHIP: CSSProperties = {
 	whiteSpace: 'nowrap',
 };
 
-// Secondary, not tertiary, text on the sunken chip: the same 4.5:1 fix WidgetFrame's chip carries.
-const CHIP_DM: CSSProperties = {
-	...CHIP,
-	background: 'var(--color-surface-sunken)',
-	color: 'var(--color-text-secondary)',
-};
-
 const CHIP_PLAYERS: CSSProperties = {
 	...CHIP,
 	background: 'var(--color-accent-subtle)',
@@ -568,3 +740,38 @@ const EMPTY_HINT: CSSProperties = {
 	color: 'var(--color-text-tertiary)',
 	maxWidth: '20rem',
 };
+
+const EDIT_CONTROLS: CSSProperties = {
+	display: 'flex',
+	flexWrap: 'wrap',
+	gap: 'var(--space-1)',
+	padding: 'var(--space-2)',
+};
+export function TileSizePresets({
+	widget,
+	onResize,
+}: {
+	widget: BoardWidget;
+	onResize?: SceneBoardCanvasProps['onResize'];
+}) {
+	const { t } = useI18n();
+	if (!onResize || !isWidgetResizable(widget)) return null;
+	return (
+		<div
+			role="group"
+			aria-label={t('boardArrange.size', { name: widget.title })}
+			style={EDIT_CONTROLS}
+		>
+			{widgetSizePresets(widget, true, false).map((size, i) => (
+				<Button
+					key={i}
+					size="sm"
+					aria-pressed={widget.w === size.w && widget.h === size.h}
+					onClick={() => void onResize(widget.id, size.w, size.h)}
+				>
+					{t((['boardArrange.small', 'boardArrange.medium', 'boardArrange.large'] as const)[i])}
+				</Button>
+			))}
+		</div>
+	);
+}

@@ -1,4 +1,6 @@
 import {
+	cloneElement,
+	isValidElement,
 	useCallback,
 	useEffect,
 	useId,
@@ -17,54 +19,11 @@ import { ZOOM_PRESETS, type SceneBoardCanvasProps, type ZoomPreset } from '../Sc
 import { tileMetadataForWidget } from '../widgets/tileMeta';
 import { WidgetRenderSlot } from '../widgets/WidgetRenderSlot';
 import { extentOf } from './geometry';
-import { stackOrder, type StackedPosture } from './StackedBoard';
+import { TileSizePresets, stackOrder, type StackedPosture } from './StackedBoard';
+import { FitTextFloor, PhoneEditLoupe, useAfterTapClick } from './ZoomCluster';
 import { WidgetGlyph } from './WidgetFrame';
-
-/**
- * PhoneNavigator — RC-CAN-5.4, moving around a canvas screen on a phone.
- *
- * A phone opens a canvas screen as the RC-CAN-5.1 panel list. `PhoneViewSwitch` offers the other
- * reading, Layout: the spatial arrangement, drawn so that nothing on it is too small to read.
- *
- * - Layout never paints tile text under 12px. Comfortable (1×) and Detail (1.5×) are the real
- *   bounded canvas (`SceneBoardCanvas`, passed in as `children`), so every tile still operates and
- *   configures exactly as it does on a desktop. Fit is an overview this component draws itself: each
- *   tile at its fitted place, carrying its title at its natural size and no body, one tap from full
- *   screen. `PHONE_TEXT_FLOOR` lifts the 10px `--text-2xs` step to 12px for the whole phone board.
- * - One finger pans both axes natively, momentum included: the canvas and the overview are real
- *   scroll containers with `touch-action: pan-x pan-y`, which also keeps the browser from
- *   pinch-zooming the page. A two-finger pinch instead steps Fit ↔ Comfortable ↔ Detail — the named
- *   steps, never a free percentage — and keeps the point between the fingers where it was.
- * - Edge fades show which sides have more board past them.
- * - Under the layout, a minimap (tap to jump there) and "Jump to tile", a sheet listing every tile
- *   with Go to and Full screen. The minimap is a pointer shortcut and is hidden from assistive
- *   technology; the sheet is the path that works for everyone.
- * - A full-screen tile fills this component's box. AppShell bounds `<main>` above the phone tab bar,
- *   so the bottom navigation stays in view, and the host hides its toolbar meanwhile
- *   (`onFullScreenChange`). The canvas stays mounted underneath, hidden, so nothing loses its place.
- * - Edit mode stays the plain canvas (never at Fit — see `phoneZoomSteps`): arranging is spatial,
- *   and the reading aids here would sit on top of it.
- */
-
-/** Lifts the 10px `--text-2xs` step to the 12px `--text-xs` for everything under a phone board. */
 export const PHONE_TEXT_FLOOR = { '--text-2xs': 'var(--text-xs)' } as CSSProperties;
-
-/** The steps a phone can show: all three reading the Layout, never Fit while arranging tiles. */
-const EDIT_STEPS: readonly ZoomPreset[] = ['comfortable', 'detail'];
-
-/**
- * Which step the canvas paints and which ones the toolbar offers. On a phone Fit is the overview
- * (drawn by PhoneNavigator, not the canvas), so the canvas itself is never asked to paint at Fit.
- */
-export function phoneZoomSteps(phone: boolean, editing: boolean, zoom: ZoomPreset) {
-	if (!phone) return { canvas: zoom, pressed: zoom, presets: ZOOM_PRESETS };
-	const legible = zoom === 'fit' ? 'comfortable' : zoom;
-	return editing
-		? { canvas: legible, pressed: legible, presets: EDIT_STEPS }
-		: { canvas: legible, pressed: zoom, presets: ZOOM_PRESETS };
-}
-
-/** The phone toolbar's List | Layout pair (the CAN-5.1 posture and its device preference). */
+export { phoneZoomSteps } from './ZoomCluster';
 export function PhoneViewSwitch({ posture }: { posture: StackedPosture }) {
 	const { t } = useI18n();
 	if (!posture.available) return null;
@@ -75,7 +34,6 @@ export function PhoneViewSwitch({ posture }: { posture: StackedPosture }) {
 					key={String(list)}
 					variant={posture.stacked === list ? 'secondary' : 'ghost'}
 					size="sm"
-					icon={list ? 'layout-list' : 'minimap'}
 					aria-pressed={posture.stacked === list}
 					onClick={() => posture.setStacked(list)}
 				>
@@ -85,29 +43,24 @@ export function PhoneViewSwitch({ posture }: { posture: StackedPosture }) {
 		</div>
 	);
 }
-
 export interface PhoneNavigatorProps {
-	/** The phone tier. Anywhere else the canvas renders on its own. */
 	active: boolean;
-	/** Edit mode: keep the canvas, drop the reading aids. */
+	onMove?: SceneBoardCanvasProps['onMove'];
+	onResize?: SceneBoardCanvasProps['onResize'];
 	editing: boolean;
 	widgets: BoardWidget[];
 	zoom: ZoomPreset;
 	onZoom: (preset: ZoomPreset) => void;
 	onWidgetCommand?: SceneBoardCanvasProps['onWidgetCommand'];
 	onFullScreenChange?: (fullScreen: boolean) => void;
-	/** The bounded `SceneBoardCanvas`, drawn at Comfortable and Detail. */
+	/** Cleared when the loupe opens: it is the phone's editor for a touched tile. */
+	onSelect?: (id: string | null) => void;
 	children: ReactNode;
 }
-
-/** Overview inset, so a tile at the board's origin does not touch the frame. */
 const PAD = 8;
-/** A pinch has to open or close this far (ratio of finger spread) to take one step. */
 const PINCH_STEP = 1.25;
 const MINI = { width: 112, height: 64 };
-
 type Metrics = Record<'left' | 'top' | 'width' | 'height' | 'scrollWidth' | 'scrollHeight', number>;
-
 function readMetrics(el: HTMLElement): Metrics {
 	return {
 		left: el.scrollLeft,
@@ -118,14 +71,10 @@ function readMetrics(el: HTMLElement): Metrics {
 		scrollHeight: el.scrollHeight,
 	};
 }
-
-/** Scroll at once: the view has to be where the finger or the list put it before focus moves. */
 const place = (el: HTMLElement, left: number, top: number) =>
 	el.scrollTo({ left, top, behavior: 'instant' });
-
 const sameMetrics = (a: Metrics | null, b: Metrics) =>
 	!!a && (Object.keys(b) as (keyof Metrics)[]).every((key) => a[key] === b[key]);
-
 function spread(touches: TouchList | ReactTouchEvent['touches']) {
 	const [a, b] = [touches[0], touches[1]];
 	return {
@@ -134,12 +83,19 @@ function spread(touches: TouchList | ReactTouchEvent['touches']) {
 		y: (a.clientY + b.clientY) / 2,
 	};
 }
-
 export function PhoneNavigator(props: PhoneNavigatorProps) {
-	if (!props.active) return <>{props.children}</>;
+	if (!props.active)
+		return (
+			<div
+				className="board-fit-floor"
+				style={{ display: 'flex', flex: 1, minWidth: 0, minHeight: 0 }}
+			>
+				<FitTextFloor />
+				{props.children}
+			</div>
+		);
 	return <PhoneLayout {...props} />;
 }
-
 function PhoneLayout({
 	editing,
 	widgets,
@@ -147,24 +103,40 @@ function PhoneLayout({
 	onZoom,
 	onWidgetCommand,
 	onFullScreenChange,
+	onMove,
+	onResize,
+	onSelect,
 	children,
 }: PhoneNavigatorProps) {
 	const { t } = useI18n();
 	const aids = !editing;
-	const overview = aids && zoom === 'fit';
+	const overview = !editing && zoom === 'fit';
+	const touch = useRef<{ id: string; x: number; y: number; time: number } | null>(null);
 	const stageRef = useRef<HTMLDivElement>(null);
 	const overviewRef = useRef<HTMLDivElement>(null);
 	const [stageWidth, setStageWidth] = useState(0);
 	const [metrics, setMetrics] = useState<Metrics | null>(null);
 	const [sheetOpen, setSheetOpen] = useState(false);
+	const [loupeId, setLoupeId] = useState<string | null>(null);
+	const afterTapClick = useAfterTapClick();
 	const [fullId, setFullId] = useState<string | null>(null);
+	const previousWidgets = useRef(widgets);
+	useEffect(() => {
+		const added = widgets.find((w) => !previousWidgets.current.some((old) => old.id === w.id));
+		previousWidgets.current = widgets;
+		if (editing && loupeId && added) setLoupeId(added.id);
+	}, [widgets, editing, loupeId]);
 	const pendingJump = useRef<string | null>(null);
 	const anchor = useRef<{ fx: number; fy: number; ox: number; oy: number } | null>(null);
 	const ordered = useMemo(() => stackOrder(widgets), [widgets]);
 	const extent = useMemo(() => extentOf(widgets), [widgets]);
+	const loupe = editing ? ordered.find((w) => w.id === loupeId) : undefined;
+	const select = useRef(onSelect);
+	select.current = onSelect;
+	useEffect(() => {
+		if (loupe?.id) select.current?.(null);
+	}, [loupe?.id]);
 	const full = aids ? (ordered.find((w) => w.id === fullId) ?? null) : null;
-
-	/** The element that scrolls right now: the overview at Fit, else the canvas's own wrap. */
 	const scroller = useCallback(
 		(): HTMLElement | null =>
 			overview
@@ -172,7 +144,6 @@ function PhoneLayout({
 				: (stageRef.current?.querySelector<HTMLElement>('[data-testid^="scene-board-"]') ?? null),
 		[overview],
 	);
-
 	useEffect(() => {
 		const stage = stageRef.current;
 		if (!stage) return;
@@ -181,9 +152,6 @@ function PhoneLayout({
 		observer.observe(stage);
 		return () => observer.disconnect();
 	}, []);
-
-	// Scroll position and extent feed the edge fades and the minimap's viewport box. The canvas sizes
-	// its content in its own effects, so read once more on the next frame as well.
 	useEffect(() => {
 		const el = scroller();
 		if (!el || !aids) return;
@@ -202,8 +170,6 @@ function PhoneLayout({
 			observer.disconnect();
 		};
 	}, [scroller, aids, zoom, widgets, stageWidth, full]);
-
-	// A pinch keeps the board point between the fingers where it was, across the step it takes.
 	useEffect(() => {
 		const pin = anchor.current;
 		if (!pin) return;
@@ -215,13 +181,10 @@ function PhoneLayout({
 		});
 		return () => cancelAnimationFrame(frame);
 	}, [zoom, scroller]);
-
 	useEffect(() => {
 		onFullScreenChange?.(full !== null);
 	}, [full, onFullScreenChange]);
 	useEffect(() => () => onFullScreenChange?.(false), [onFullScreenChange]);
-
-	/** Bring a tile into the middle of the layout (its top-left when it is bigger than the view). */
 	const reveal = useCallback(
 		(id: string) => {
 			const el = scroller();
@@ -241,10 +204,6 @@ function PhoneLayout({
 		},
 		[scroller, overview],
 	);
-
-	// "Go to" closes the sheet first; the sheet hands focus back to its opener as it unmounts, and
-	// only then can the tile (inert behind the modal until now) take focus. Leaving full screen lands
-	// on the same tile in the layout, the way it went in.
 	useEffect(() => {
 		const id = pendingJump.current;
 		if (sheetOpen || full || id === null) return;
@@ -252,7 +211,6 @@ function PhoneLayout({
 		const frame = requestAnimationFrame(() => reveal(id));
 		return () => cancelAnimationFrame(frame);
 	}, [sheetOpen, full, reveal]);
-
 	function step(direction: 1 | -1, at: { x: number; y: number }) {
 		const index = ZOOM_PRESETS.indexOf(zoom) + direction;
 		const next = ZOOM_PRESETS[index];
@@ -273,10 +231,6 @@ function PhoneLayout({
 	}
 	const stepRef = useRef(step);
 	stepRef.current = step;
-
-	// A step can swap the canvas for the overview mid-gesture. The rest of that gesture's touch events
-	// still go to the elements the fingers started on, detached or not, but no longer bubble up to
-	// here or to the window, so the listeners sit on those targets and the next pinch clears them.
 	const endPinch = useRef<() => void>(() => {});
 	useEffect(() => () => endPinch.current(), []);
 	function onTouchStart(e: ReactTouchEvent) {
@@ -311,7 +265,6 @@ function PhoneLayout({
 			endPinch.current = () => {};
 		};
 	}
-
 	function jumpTo(id: string) {
 		pendingJump.current = id;
 		setSheetOpen(false);
@@ -324,17 +277,55 @@ function PhoneLayout({
 		pendingJump.current = fullId;
 		setFullId(null);
 	}
-
+	function closeLoupe() {
+		const id = loupeId;
+		setLoupeId(null);
+		requestAnimationFrame(() => {
+			if (id)
+				stageRef.current
+					?.querySelector<HTMLElement>(`[data-testid="widget-${CSS.escape(id)}"]`)
+					?.focus({ preventScroll: true });
+		});
+	}
 	const fades = aids && metrics && !full ? edgesOf(metrics) : null;
-
 	return (
 		<div data-testid="phone-navigator" style={ROOT}>
 			<div
 				ref={stageRef}
 				data-testid="phone-layout-stage"
 				onTouchStart={onTouchStart}
-				style={{ ...STAGE, display: full ? 'none' : 'flex' }}
+				className="board-fit-floor"
+				onPointerDownCapture={(e) => {
+					if (!editing || !onMove || e.pointerType !== 'touch') return;
+					const target = (e.target as HTMLElement).closest<HTMLElement>('[data-testid^="widget-"]');
+					if (target && !(e.target as HTMLElement).closest('button, input, select, textarea'))
+						touch.current = {
+							id: target.dataset.testid!.slice(7),
+							x: e.clientX,
+							y: e.clientY,
+							time: e.timeStamp,
+						};
+				}}
+				onPointerUpCapture={(e) => {
+					const start = touch.current;
+					touch.current = null;
+					if (
+						start &&
+						e.timeStamp - start.time < 400 &&
+						Math.hypot(e.clientX - start.x, e.clientY - start.y) < 6
+					)
+						afterTapClick(() => setLoupeId(start.id));
+				}}
+				onPointerCancelCapture={() => {
+					touch.current = null;
+				}}
+				style={{
+					...STAGE,
+					display: full ? 'none' : 'flex',
+					visibility: loupe ? 'hidden' : undefined,
+				}}
 			>
+				{editing && <FitTextFloor />}
 				{overview ? (
 					<Overview
 						scrollRef={overviewRef}
@@ -343,7 +334,7 @@ function PhoneLayout({
 						width={stageWidth}
 						onOpen={openFull}
 					/>
-				) : (
+				) : loupe ? null : (
 					children
 				)}
 				{fades &&
@@ -398,6 +389,50 @@ function PhoneLayout({
 					}
 				/>
 			)}
+			<PhoneEditLoupe open={!!loupe} onClose={closeLoupe} title={loupe?.title ?? 'Tile'}>
+				{loupe && (
+					<div data-testid="phone-edit-loupe" style={{ minWidth: 0 }}>
+						<TileSizePresets widget={loupe} onResize={onResize} />
+						<div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1)' }}>
+							{(['Left', 'Right', 'Up', 'Down'] as const).map((direction, i) => (
+								<Button
+									key={direction}
+									onClick={() =>
+										void onMove?.(
+											loupe.id,
+											Math.max(0, loupe.x + [-20, 20, 0, 0][i]),
+											Math.max(0, loupe.y + [0, 0, -20, 20][i]),
+										)
+									}
+								>
+									{t(
+										(
+											[
+												'boardArrange.left',
+												'boardArrange.right',
+												'boardArrange.up',
+												'boardArrange.down',
+											] as const
+										)[i],
+									)}
+								</Button>
+							))}
+						</div>
+						<div
+							style={{ height: Math.max(240, loupe.h + 48), display: 'flex', position: 'relative' }}
+						>
+							{isValidElement<SceneBoardCanvasProps>(children) &&
+								cloneElement(children, {
+									widgets: [{ ...loupe, x: 24, y: 24, w: Math.min(loupe.w, stageWidth - 50) }],
+									zoomPreset: 'comfortable',
+									onMove: (id, x, y) => onMove?.(id, loupe.x + x - 24, loupe.y + y - 24),
+									onResize: (id, w, h) =>
+										onResize?.(id, w + loupe.w - Math.min(loupe.w, stageWidth - 50), h),
+								})}
+						</div>
+					</div>
+				)}
+			</PhoneEditLoupe>
 			<Sheet
 				open={sheetOpen}
 				onClose={() => setSheetOpen(false)}
@@ -440,9 +475,7 @@ function PhoneLayout({
 		</div>
 	);
 }
-
 type Edge = 'left' | 'right' | 'top' | 'bottom';
-
 function edgesOf(m: Metrics): Record<Edge, boolean> {
 	return {
 		left: m.left > 1,
@@ -451,8 +484,6 @@ function edgesOf(m: Metrics): Record<Edge, boolean> {
 		bottom: m.top + m.height < m.scrollHeight - 1,
 	};
 }
-
-/** Fit on a phone: every tile at its fitted place, titled at a readable size, no body. */
 function Overview({
 	scrollRef,
 	widgets,
@@ -467,7 +498,7 @@ function Overview({
 	onOpen: (id: string) => void;
 }) {
 	const { t } = useI18n();
-	const scale = Math.min(1, Math.max(0.05, (width - 2 * PAD - 2) / extent.width));
+	const scale = Math.min(1, Math.max(0.001, (width - 2 * PAD - 2) / extent.width));
 	return (
 		<div
 			ref={scrollRef}
@@ -510,8 +541,6 @@ function Overview({
 		</div>
 	);
 }
-
-/** The whole board in a thumbnail, with the part in view outlined. Tap to centre the view there. */
 function Minimap({
 	widgets,
 	extent,
@@ -527,10 +556,10 @@ function Minimap({
 	const width = extent.width * scale;
 	const height = extent.height * scale;
 	const view = metrics && {
-		left: (metrics.left / metrics.scrollWidth) * width,
-		top: (metrics.top / metrics.scrollHeight) * height,
-		width: Math.min(1, metrics.width / metrics.scrollWidth) * width,
-		height: Math.min(1, metrics.height / metrics.scrollHeight) * height,
+		left: (metrics.left / Math.max(1, metrics.scrollWidth)) * width,
+		top: (metrics.top / Math.max(1, metrics.scrollHeight)) * height,
+		width: Math.min(1, metrics.width / Math.max(1, metrics.scrollWidth)) * width,
+		height: Math.min(1, metrics.height / Math.max(1, metrics.scrollHeight)) * height,
 	};
 	return (
 		<div
@@ -558,8 +587,6 @@ function Minimap({
 		</div>
 	);
 }
-
-/** One tile filling the navigator's box — above the tab bar, which AppShell keeps outside `<main>`. */
 function FullScreenTile({
 	widget: w,
 	onClose,
@@ -573,7 +600,6 @@ function FullScreenTile({
 	const headingId = useId();
 	const rootRef = useRef<HTMLDivElement>(null);
 	const meta = tileMetadataForWidget(w);
-	// Its opener (a sheet row, an overview tile) is gone or hidden now, so focus starts on the way out.
 	useEffect(() => {
 		rootRef.current
 			?.querySelector<HTMLElement>('[data-testid="phone-fullscreen-close"]')
@@ -614,10 +640,8 @@ function FullScreenTile({
 		</div>
 	);
 }
-
 const STAGE: CSSProperties = { flex: 1, minWidth: 0, minHeight: 0, position: 'relative' };
 const ROOT: CSSProperties = { ...STAGE, display: 'flex', flexDirection: 'column' };
-
 const SWITCH: CSSProperties = {
 	display: 'flex',
 	flexWrap: 'wrap',
@@ -625,7 +649,6 @@ const SWITCH: CSSProperties = {
 	flex: '0 1 auto',
 	minWidth: 0,
 };
-
 const OVERVIEW: CSSProperties = {
 	flex: 1,
 	minWidth: 0,
@@ -637,7 +660,6 @@ const OVERVIEW: CSSProperties = {
 	border: '1px solid var(--color-border)',
 	borderRadius: 'var(--radius-lg)',
 };
-
 const OVERVIEW_TILE: CSSProperties = {
 	position: 'absolute',
 	boxSizing: 'border-box',
@@ -656,14 +678,12 @@ const OVERVIEW_TILE: CSSProperties = {
 	textAlign: 'start',
 	cursor: 'pointer',
 };
-
 const OVERVIEW_TITLE: CSSProperties = {
 	minWidth: 0,
 	overflow: 'hidden',
 	textOverflow: 'ellipsis',
 	whiteSpace: 'nowrap',
 };
-
 const fade = (edge: Edge): CSSProperties => {
 	const across = edge === 'left' || edge === 'right';
 	return {
@@ -676,11 +696,9 @@ const fade = (edge: Edge): CSSProperties => {
 		background: `linear-gradient(to ${{ left: 'right', right: 'left', top: 'bottom', bottom: 'top' }[edge]}, color-mix(in srgb, var(--color-text-primary) 22%, transparent), transparent)`,
 	};
 };
-
 const FADE = Object.fromEntries(
 	(['left', 'right', 'top', 'bottom'] as const).map((edge) => [edge, fade(edge)]),
 ) as Record<Edge, CSSProperties>;
-
 const BAR: CSSProperties = {
 	flex: '0 0 auto',
 	display: 'flex',
@@ -689,7 +707,6 @@ const BAR: CSSProperties = {
 	gap: 'var(--space-2)',
 	paddingTop: 'var(--space-2)',
 };
-
 const MINIMAP: CSSProperties = {
 	position: 'relative',
 	flex: '0 0 auto',
@@ -701,21 +718,18 @@ const MINIMAP: CSSProperties = {
 	cursor: 'pointer',
 	touchAction: 'manipulation',
 };
-
 const MINI_TILE: CSSProperties = {
 	position: 'absolute',
 	boxSizing: 'border-box',
 	background: 'var(--color-surface-raised)',
 	border: '1px solid var(--color-border-strong)',
 };
-
 const MINI_VIEW: CSSProperties = {
 	position: 'absolute',
 	boxSizing: 'border-box',
 	border: '2px solid var(--color-accent)',
 	pointerEvents: 'none',
 };
-
 const JUMP_LIST: CSSProperties = {
 	listStyle: 'none',
 	margin: 'var(--space-0)',
@@ -724,16 +738,13 @@ const JUMP_LIST: CSSProperties = {
 	flexDirection: 'column',
 	gap: 'var(--space-1)',
 };
-
 const JUMP_ROW: CSSProperties = { display: 'flex', alignItems: 'center', gap: 'var(--space-1)' };
-
 const JUMP_BUTTON: CSSProperties = {
 	flex: '1 1 auto',
 	minWidth: 0,
 	justifyContent: 'flex-start',
 	textAlign: 'start',
 };
-
 const JUMP_TITLE: CSSProperties = {
 	minWidth: 0,
 	overflow: 'hidden',
@@ -741,21 +752,17 @@ const JUMP_TITLE: CSSProperties = {
 	whiteSpace: 'nowrap',
 	color: 'var(--color-text-primary)',
 };
-
 const JUMP_TYPE: CSSProperties = {
 	flex: '0 0 auto',
 	marginInlineStart: 'auto',
 	font: 'var(--text-xs) var(--font-sans)',
 	color: 'var(--color-text-secondary)',
 };
-
-// The design package's touch floor on the phone tier (44px there, via the density lock).
 const TOUCH_TARGET: CSSProperties = {
 	width: 'var(--density-touch-target)',
 	height: 'var(--density-touch-target)',
 	flex: '0 0 auto',
 };
-
 const FULL: CSSProperties = {
 	flex: 1,
 	minHeight: 0,
@@ -766,7 +773,6 @@ const FULL: CSSProperties = {
 	border: '1px solid var(--color-border)',
 	borderRadius: 'var(--radius-md)',
 };
-
 const FULL_HEADER: CSSProperties = {
 	flex: '0 0 auto',
 	display: 'flex',
@@ -776,7 +782,6 @@ const FULL_HEADER: CSSProperties = {
 	paddingInline: 'var(--space-3) var(--space-1)',
 	borderBottom: '1px solid var(--color-border)',
 };
-
 const FULL_TITLE: CSSProperties = {
 	flex: '1 1 auto',
 	minWidth: 0,
@@ -787,7 +792,6 @@ const FULL_TITLE: CSSProperties = {
 	textOverflow: 'ellipsis',
 	whiteSpace: 'nowrap',
 };
-
 const FULL_BODY: CSSProperties = {
 	flex: '1 1 auto',
 	minHeight: 0,

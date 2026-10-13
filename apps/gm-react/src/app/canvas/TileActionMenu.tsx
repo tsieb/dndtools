@@ -24,7 +24,7 @@ import {
 	type BoardWidget,
 } from '../board-helpers';
 import { T } from '../screen-kit';
-import { GRID } from '../SceneBoardModel';
+import { GRID, triggerNudge } from '../SceneBoardModel';
 import { useEditWidget } from '../../screens/extensions/WidgetBuilder';
 import { bindingSlot, sceneInstance, TileBindDialog, TileConfigureDialog } from './TileDialogs';
 import { widgetSettingsFields } from '../widgetBuilder/draft';
@@ -225,6 +225,13 @@ export function TileActionMenu({
 	} | null>(null);
 	const [subOpen, setSubOpen] = useState(false);
 	const [dialog, setDialog] = useState<'bind' | 'configure' | null>(null);
+	// RC-CAN-8.6 — `triggerNudge`, re-measured every render: tile size and canvas scale both move it.
+	const [nudge, setNudge] = useState(0);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	useLayoutEffect(() => {
+		const next = triggerNudge(anchorRef.current, nudge);
+		if (Math.abs(next - nudge) > 0.5) setNudge(next);
+	});
 	// RC-WID-6.6 — "Edit widget": the builder on this tile's definition, copied first when not the GM's.
 	const edit = useEditWidget(w.id, w.type);
 	const label = t('boardCanvas.tileMenu.actions', { title: w.title });
@@ -250,6 +257,10 @@ export function TileActionMenu({
 		if (!box) return;
 		const dismiss = (e: Event) => {
 			if (e.target instanceof Element && e.target.closest('[data-testid="tile-actions-menu"]'))
+				return;
+			// Late scroll events (e.g. from bringing the trigger into view) leave an unmoved trigger open.
+			const rect = anchorRef.current?.getBoundingClientRect();
+			if (!box.at && rect && Math.abs(rect.top - box.top) < 1 && Math.abs(rect.left - box.left) < 1)
 				return;
 			setBox(null);
 		};
@@ -402,7 +413,7 @@ export function TileActionMenu({
 				top: 6,
 				right: 6,
 				// Held at screen size, like the selection chip: at Fit a 1:1 trigger is half a fingertip.
-				transform: `scale(${1 / scale})`,
+				transform: `translateX(${nudge / scale}px) scale(${1 / scale})`,
 				transformOrigin: 'top right',
 			}}
 		>

@@ -72,6 +72,7 @@ import { useI18n } from '../i18n';
 const NO_SECTIONS: SectionLayoutRegion[] = [];
 
 export function SceneBoardCanvas({
+	fitFloor = FIT_FLOOR,
 	widgets: authoredWidgets,
 	policy,
 	editing,
@@ -236,7 +237,7 @@ export function SceneBoardCanvas({
 
 	const contentExtent = extentOf([...authoredWidgets, ...rects, ...sections.map((s) => s.bounds)]);
 
-	const fitScale = wrapWidth > 0 ? clamp((wrapWidth - 16) / contentExtent.width, FIT_FLOOR, 1) : 1;
+	const fitScale = wrapWidth > 0 ? clamp((wrapWidth - 16) / contentExtent.width, fitFloor, 1) : 1;
 	const scaleForPreset = useCallback(
 		(p: ZoomPreset) => (p === 'fit' ? fitScale : FIXED_PRESET_SCALE[p]),
 		[fitScale],

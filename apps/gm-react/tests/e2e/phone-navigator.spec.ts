@@ -54,7 +54,11 @@ async function openLayout(page: Page, size: { width: number; height: number }) {
 	await board.getByRole('button', { name: 'Layout' }).click();
 	await expect(page.getByTestId('phone-navigator')).toBeVisible();
 	await expect(page.getByTestId('scene-board-bounded')).toBeVisible();
-	await expect(zoomStep(page, 'Comfortable')).toHaveAttribute('aria-pressed', 'true');
+	await expectZoom(page, 'Comfortable');
+}
+
+async function expectZoom(page: Page, name: 'Fit' | 'Comfortable' | 'Detail') {
+	await expect(zoomStep(page, name)).toHaveAttribute('aria-pressed', 'true');
 }
 
 function zoomStep(page: Page, name: 'Fit' | 'Comfortable' | 'Detail'): Locator {
@@ -263,7 +267,7 @@ for (const size of PHONES) {
 			const cdp = await page.context().newCDPSession(page);
 			const tiles = await homeTiles(page);
 			await pinch(cdp, page, 100, 150);
-			await expect(zoomStep(page, 'Detail')).toHaveAttribute('aria-pressed', 'true');
+			await expectZoom(page, 'Detail');
 			await expect
 				.poll(() =>
 					page
@@ -277,11 +281,11 @@ for (const size of PHONES) {
 				.toBe(true);
 			// Further out than the last step stays on it: no free percentage past Detail.
 			await pinch(cdp, page, 100, 150);
-			await expect(zoomStep(page, 'Detail')).toHaveAttribute('aria-pressed', 'true');
+			await expectZoom(page, 'Detail');
 			await pinch(cdp, page, 150, 100);
-			await expect(zoomStep(page, 'Comfortable')).toHaveAttribute('aria-pressed', 'true');
+			await expectZoom(page, 'Comfortable');
 			await pinch(cdp, page, 150, 100);
-			await expect(zoomStep(page, 'Fit')).toHaveAttribute('aria-pressed', 'true');
+			await expectZoom(page, 'Fit');
 			const overview = page.getByTestId('phone-layout-overview');
 			await expect(overview).toBeVisible();
 			await expect(page.getByTestId('scene-board-bounded')).toHaveCount(0);
@@ -297,7 +301,7 @@ for (const size of PHONES) {
 			await expect(page.getByTestId(`phone-overview-${tiles[0].id}`)).toBeFocused();
 			// Pinching out of the overview returns to the real tiles.
 			await pinch(cdp, page, 100, 150);
-			await expect(zoomStep(page, 'Comfortable')).toHaveAttribute('aria-pressed', 'true');
+			await expectZoom(page, 'Comfortable');
 			await expect(page.getByTestId('scene-board-bounded')).toBeVisible();
 		});
 
@@ -325,7 +329,7 @@ for (const size of PHONES) {
 			const tiles = await homeTiles(page);
 			for (const step of ['Comfortable', 'Detail', 'Fit'] as const) {
 				await zoomStep(page, step).click();
-				await expect(zoomStep(page, step)).toHaveAttribute('aria-pressed', 'true');
+				await expectZoom(page, step);
 				expect(await smallText(page), `Layout at ${step}`).toEqual([]);
 			}
 			// A full-screen tile, and the jump sheet.
@@ -344,10 +348,12 @@ for (const size of PHONES) {
 				.click();
 			await expect(page.getByTestId('stacked-board')).toBeVisible();
 			expect(await smallText(page), 'panel list').toEqual([]);
-			// Edit mode keeps the canvas, but never at Fit.
+			// Editing retains the List; the alternative Layout stays fitted.
 			await page.getByRole('button', { name: 'Edit layout' }).click();
+			await expect(page.getByTestId('stacked-board')).toBeVisible();
+			await page.getByRole('button', { name: 'Layout', exact: true }).click();
 			await expect(page.getByTestId('scene-board-bounded')).toBeVisible();
-			await expect(zoomStep(page, 'Fit')).toHaveCount(0);
+			await expectZoom(page, 'Fit');
 			expect(await smallText(page), 'edit mode').toEqual([]);
 		});
 	});

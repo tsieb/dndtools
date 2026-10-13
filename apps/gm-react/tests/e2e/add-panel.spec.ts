@@ -2,8 +2,8 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
 
-// RC-CAN-8.5 — an Add panel a GM can read. Both profiles: on a phone, Edit layout switches the
-// board to its canvas and the panel is a bottom Sheet holding the same rows.
+// RC-CAN-8.5 — an Add panel a GM can read. Both profiles: on a phone, the
+// board stays in its List posture and the panel is a bottom Sheet holding the same rows.
 
 async function editBoard(page: Page) {
 	await markOnboarded(page);
@@ -11,7 +11,7 @@ async function editBoard(page: Page) {
 	await seedFresh(page);
 	await page.goto('/#/board');
 	await waitReady(page);
-	const frames = page.getByTestId('scene-board-bounded').locator('[data-testid^="widget-"]');
+	const frames = page.locator('[data-testid^="widget-"][role="group"]');
 	await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
 	await expect(frames.first()).toBeVisible();
 	return frames;
@@ -55,6 +55,8 @@ test('a GM scrolled down a long board gets the new tile where they are looking',
 	page,
 }) => {
 	const frames = await editBoard(page);
+	if (await page.getByTestId('stacked-board').isVisible())
+		await page.getByRole('button', { name: 'Layout', exact: true }).click();
 	// Move the top-left tile far below the rest: the top row now has a free slot, out of sight.
 	const { sceneId, first, actorId } = await page.evaluate(() => {
 		const rt = window.__rt!;
