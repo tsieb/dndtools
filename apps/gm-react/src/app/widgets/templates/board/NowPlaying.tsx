@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement } from 'react';
 import { Icon, IconButton } from '../../../../ds';
 import { useI18n } from '../../../../i18n';
 import { Muted } from '../../../widget-body-kit';
@@ -21,7 +21,7 @@ export function NowPlayingTemplate(props: WidgetTemplateProps) {
 	// region announces the track and not the link. The host resolves each for the viewer and draws
 	// nothing the viewer cannot follow. Both branches wrap the same way, so the region keeps its place.
 	const intents = onCommand ? (definition?.intents ?? []) : [];
-	const withIntents = (readout: ReactNode) =>
+	const withIntents = (readout: ReactElement) =>
 		intents.length === 0 ? (
 			readout
 		) : (

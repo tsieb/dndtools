@@ -1972,8 +1972,8 @@ export function createSystemWidgetPackages(now = '2026-06-03T00:00:00.000Z'): Wi
 		diceWidget,
 		initiativeWidget,
 		timerWidget,
-		asBuilderSaves(
-			systemWidget({
+		asBuilderSaves({
+			...systemWidget({
 				type: 'audio',
 				displayName: 'Audio',
 				category: 'Atmosphere',
@@ -1985,18 +1985,18 @@ export function createSystemWidgetPackages(now = '2026-06-03T00:00:00.000Z'): Wi
 				configFields: [toggleField('loop', 'Loop playback', true)],
 				// Shared: a player's read is the player-safe track, without titles or the ambience mix.
 				dataQueries: [dataQuery('audio', 'What is playing', 'session-audio')],
-				// RC-CAN-8.7 — the atmosphere widget links to the scene cards; the host refuses it to a player.
-				intents: [
-					{
-						id: 'scene-cards',
-						displayName: i18n('sceneCards.title'),
-						kind: 'open-route',
-						route: '/scene-cards',
-						icon: 'scene',
-					},
-				],
 			}),
-		),
+			// RC-CAN-8.7 — the atmosphere widget links to the scene cards; the host refuses it to a player.
+			intents: [
+				{
+					id: 'scene-cards',
+					displayName: i18n('sceneCards.title'),
+					kind: 'open-route',
+					route: '/scene-cards',
+					icon: 'scene',
+				},
+			],
+		}),
 		// SES-004 — a handout is delivered as a Scene widget. It references the handout BY ID through
 		// its configuration (never a content clone — Contract 4 embed/projection). Binding-free; the
 		// actor-filtered handout read decides which sections each recipient may see.

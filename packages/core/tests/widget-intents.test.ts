@@ -134,6 +134,7 @@ const INTENTS: WidgetIntentDescriptor[] = [
 	{ id: 'open-screen', displayName: 'Open screen', kind: 'open-screen' },
 	{ id: 'scenes', displayName: 'Scenes', kind: 'open-route', route: '/scenes' },
 	{ id: 'roster', displayName: 'Characters', kind: 'open-route', route: '/characters' },
+	{ id: 'scene-cards', displayName: 'Scene cards', kind: 'open-route', route: '/scene-cards' },
 	{ id: 'new-map', displayName: 'New map', kind: 'create', target: 'map' },
 	{ id: 'new-character', displayName: 'New character', kind: 'create', target: 'character' },
 	{ id: 'new-widget', displayName: 'New widget', kind: 'create', target: 'widget' },
@@ -453,6 +454,16 @@ describe('RC-WID-5.1: the intent resolver', () => {
 		});
 		expect(resolve(state, DM_ACTOR.id, 'permissions').decision).toBe('resolved');
 		expect(resolve(state, PLAYER_ACTOR.id, 'permissions').decision).toBe('not-authorized');
+	});
+
+	// RC-CAN-8.7 — the scene cards page authors atmosphere and has no section gate of its own.
+	it('opens the scene cards for the DM only', () => {
+		const { state } = vault();
+		expect(resolve(state, DM_ACTOR.id, 'scene-cards').destination).toEqual({
+			path: '/scene-cards',
+			state: null,
+		});
+		expect(resolve(state, PLAYER_ACTOR.id, 'scene-cards').decision).toBe('not-authorized');
 	});
 
 	it('an actor the vault does not know resolves nothing', () => {
