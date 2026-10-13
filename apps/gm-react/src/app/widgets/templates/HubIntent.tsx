@@ -1,14 +1,16 @@
 import type { ReactNode, CSSProperties } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
 	WIDGET_TEXT_MESSAGE_PREFIX,
 	resolveWidgetIntent,
 	type WidgetIntentDescriptor,
+	type WidgetIntentDestination,
 	type WidgetIntentRequest,
 } from '@dndtools/core';
 import { Button, Toaster } from '../../../ds';
 import { useI18n, type MessageKey } from '../../../i18n';
 import { useRuntime } from '../../../runtime/RuntimeContext';
+import type { CompanionPreviewState } from '../../ViewAsControl';
 import { decideIntent } from '../hostBridge';
 import type { WidgetTemplateProps } from './shared';
 
@@ -23,6 +25,34 @@ export function useHubText(): (value: string | null | undefined) => string {
 		return value.startsWith(WIDGET_TEXT_MESSAGE_PREFIX)
 			? t(value.slice(WIDGET_TEXT_MESSAGE_PREFIX.length) as MessageKey)
 			: value;
+	};
+}
+
+/**
+ * Follow what the host gate resolved for a template's intent. RC-SES-7.3 — a `preview-participant`
+ * destination names a preview: it is entered first, then the companion opens with the page the GM
+ * left as its return (RC-CHR-6.5's "Preview as", the same runtime gate). A refusal says so.
+ */
+export function useFollowIntent(): (destination: WidgetIntentDestination | null) => void {
+	const runtime = useRuntime();
+	const navigate = useNavigate();
+	const location = useLocation();
+	const { t } = useI18n();
+	return (destination) => {
+		if (destination?.preview) {
+			runtime.enterPreview(destination.preview);
+			if (runtime.preview) {
+				const state: CompanionPreviewState = {
+					previewFrom: `${location.pathname}${location.search}`,
+				};
+				navigate(destination.path, { state });
+				return;
+			}
+		} else if (destination) {
+			navigate(destination.path, { state: destination.state });
+			return;
+		}
+		Toaster.error(t('widgetTemplate.intentUnavailable'));
 	};
 }
 
@@ -105,8 +135,7 @@ function IntentControl({
 
 function LiveHubIntent(props: HubActionProps) {
 	const runtime = useRuntime();
-	const navigate = useNavigate();
-	const { t } = useI18n();
+	const follow = useFollowIntent();
 	const request = { intentId: props.intent.id, targetId: props.targetId };
 	if (
 		resolveWidgetIntent({
@@ -122,19 +151,18 @@ function LiveHubIntent(props: HubActionProps) {
 	return (
 		<IntentControl
 			{...props}
-			onIntent={(next) => {
-				const result = decideIntent(
-					props.widget.id,
-					props.definition!,
-					next,
-					[],
-					runtime.state,
-					runtime.activeActorId,
-				);
-				if (result.destination)
-					navigate(result.destination.path, { state: result.destination.state });
-				else Toaster.error(t('widgetTemplate.intentUnavailable'));
-			}}
+			onIntent={(next) =>
+				follow(
+					decideIntent(
+						props.widget.id,
+						props.definition!,
+						next,
+						[],
+						runtime.state,
+						runtime.activeActorId,
+					).destination,
+				)
+			}
 		/>
 	);
 }

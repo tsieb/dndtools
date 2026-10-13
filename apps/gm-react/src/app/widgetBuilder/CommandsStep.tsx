@@ -559,7 +559,10 @@ interface TargetOption {
  * What an open intent can point at, read the way the author sees the vault. These are the same
  * actor-filtered reads the destinations use; the viewer's own gate is applied again at press time.
  */
-function useIntentTargets(): Record<WidgetIntentEntityKind | 'screen', TargetOption[]> {
+function useIntentTargets(): Record<
+	WidgetIntentEntityKind | 'screen' | 'participant',
+	TargetOption[]
+> {
 	const runtime = useRuntime();
 	const state = runtime.state;
 	const actorId = runtime.defaultActorId;
@@ -590,6 +593,11 @@ function useIntentTargets(): Record<WidgetIntentEntityKind | 'screen', TargetOpt
 				value: screen.id,
 				label: screen.name,
 			})),
+			// The seats a `preview-participant` intent may name (the host checks the role again).
+			participant: Object.values(permissions.actors)
+				.filter((actor) => actor.role === 'player' || actor.role === 'observer')
+				.map((actor) => ({ value: actor.id, label: actor.displayName }))
+				.sort(byName),
 		};
 	}, [state, actorId]);
 }
@@ -641,7 +649,10 @@ function IntentsSection({ draft, patch, issues }: StepProps) {
 						{t(group === 'open' ? 'builder.intents.groupOpen' : 'builder.intents.groupCreate')}
 					</span>
 					<div style={{ display: 'flex', flexWrap: 'wrap', gap: T.space.two }}>
-						{INTENT_CATALOG.filter((entry) => entry.group === group).map((entry) => (
+						{INTENT_CATALOG.filter(
+							(entry) =>
+								entry.group === group && !(custom && entry.seed.kind === 'preview-participant'),
+						).map((entry) => (
 							<CatalogChip
 								key={entry.label}
 								label={t(entry.label)}
@@ -707,7 +718,7 @@ function IntentTargetField({
 }: {
 	intent: WidgetIntentDescriptor;
 	custom: boolean;
-	targets: Record<WidgetIntentEntityKind | 'screen', TargetOption[]>;
+	targets: Record<WidgetIntentEntityKind | 'screen' | 'participant', TargetOption[]>;
 	onChange: (next: WidgetIntentDescriptor) => void;
 }) {
 	const { t } = useI18n();
@@ -761,6 +772,23 @@ function IntentTargetField({
 							label: t(SETTINGS_TAB_LABEL[tab]),
 						}))}
 						onChange={onValue((value) => ({ ...intent, tab: value as WidgetIntentSettingsTab }))}
+					/>
+				</Field>
+			);
+		case 'preview-participant':
+			// RC-SES-7.3 — a fixed participant, or (the default) the one each row of the list names.
+			return (
+				<Field label={t('builder.intents.participant')}>
+					<Select
+						value={intent.targetId ?? ''}
+						options={[
+							{ value: '', label: t('builder.intents.eachRowParticipant') },
+							...targets.participant,
+						]}
+						onChange={onValue((value) => {
+							const { targetId: _previous, ...rest } = intent;
+							return value === '' ? rest : { ...rest, targetId: value };
+						})}
 					/>
 				</Field>
 			);

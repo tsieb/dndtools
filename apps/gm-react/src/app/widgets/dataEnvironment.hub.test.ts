@@ -527,9 +527,19 @@ const CASES: Case[] = [
 	{
 		source: 'player-projections',
 		dm: (r) => {
-			expect(r.rows.find((row) => row.id === OTHER_PLAYER.id)?.secondary).toBe(`${SECRET} Lair`);
+			// Role, connection, stage, handouts and sheets, in the one line a list template draws.
+			expect(r.rows.find((row) => row.id === OTHER_PLAYER.id)?.secondary).toMatch(
+				new RegExp(`^Player · Offline · Stage: ${SECRET} Lair · Handouts: \\d+ · Sheets: Aria$`),
+			);
+			expect(r.rows.find((row) => row.id === OBSERVER_ACTOR.id)?.secondary).toContain(
+				'No full sheets',
+			);
+			expect(printed(r)).not.toContain(`${SECRET} Spy`);
 		},
-		player: (r) => expect(r.rows.every((row) => row.id !== OTHER_PLAYER.id)).toBe(true),
+		player: (r) => {
+			expect(r.rows.map((row) => row.id)).toEqual([PLAYER_ACTOR.id]);
+			expect(r.rows[0]?.secondary).toContain('Sheets: Aria');
+		},
 	},
 	{
 		source: 'initiative-call',

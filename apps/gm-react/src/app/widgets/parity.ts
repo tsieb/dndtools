@@ -116,6 +116,8 @@ export function intentRoutes(openRoutes: readonly string[]): Record<WidgetIntent
 		'open-route': [...openRoutes],
 		create: ['/scenes', '/characters', '/atlas', '/knowledge', '/board'],
 		'open-settings': ['/settings'],
+		// RC-SES-7.3 — the companion, previewed as the participant the intent names.
+		'preview-participant': ['/play'],
 	};
 }
 
@@ -297,7 +299,6 @@ export const BUILTIN_PARITY: Readonly<Record<BuiltinWidgetType, BuiltinBodyParit
 	'data-hub': { queries: ['table-scenes', 'vault-counts'], commands: [], intents: [] },
 	atlas: { queries: ['maps', 'map-projection'], commands: [], intents: [] },
 	characters: { queries: ['visible-characters'], commands: [], intents: [] },
-	'player-views': { queries: ['player-view-controller'], commands: [], intents: [] },
 	// RC-CAN-7.8: the tracker view's encounter builder reads the scenes, the system and the GM screen.
 	combat: {
 		queries: ['current-combatants', 'encounters', 'session-state', 'resume'],

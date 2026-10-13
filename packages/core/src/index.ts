@@ -1709,8 +1709,15 @@ export type {
 	PlayerViewControllerSceneOption,
 	PlayerViewControllerTableView,
 	SessionTableView,
+	PlayerViewSummaryParticipant,
+	PlayerViewSummaryQueryResult,
 } from './queries/player-view-control';
-export { canShowSceneToTable, getPlayerViewController } from './queries/player-view-control';
+export {
+	PLAYER_SUMMARY_WIDGET,
+	canShowSceneToTable,
+	getPlayerViewController,
+	getPlayerViewSummary,
+} from './queries/player-view-control';
 
 // UX-CMD-003 / UX-CMD-012 — the viewer-gated Command Center home read model: the glanceable session
 // status strip + the role-differentiated home decision (the single no-leak choke point for `/`).

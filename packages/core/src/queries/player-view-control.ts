@@ -1,7 +1,12 @@
 import { hasDmAuthority } from '../state/permission-state';
-import type { CoreStateSlice } from '../commands/types';
+import type { CommandResult, CoreEnvironment, CoreStateSlice } from '../commands/types';
 import type { ActorId } from '../state/ids';
 import type { ActorRole } from '../state/permission-state';
+import { normalizeOnlineStatus, type PresenceOnlineStatus } from '../state/presence-state';
+import { getPlayerViewForActor } from './scene';
+import { deliveredMapIdsForActor, getMapViewForActor } from './map-query';
+import { getContentItemsForActor } from './content-query';
+import { listCharactersForActor } from './character-query';
 import { isLiveScene, screenMetaOf, type Scene, type SceneVisibility } from '../state/scene-state';
 import type {
 	PlayerViewDeliveryStatus,
@@ -215,5 +220,176 @@ export function getPlayerViewController(
 		sceneOptions,
 		participants,
 		tableView,
+	};
+}
+
+export interface PlayerViewSummaryParticipant {
+	actorId: ActorId;
+	displayName: string;
+	role: Exclude<ActorRole, 'dm' | 'co-dm'>;
+	connection: PresenceOnlineStatus;
+	stage: { id: string; name: string } | null;
+	projectedMap: { id: string; name: string } | null;
+	/** The handouts their companion lists: the notes and objects revealed to this seat. */
+	handoutCount: number;
+	/** Full sheets available to this seat, not the public party overview. */
+	characters: { id: string; name: string }[];
+}
+
+export type PlayerViewSummaryQueryResult =
+	| { kind: 'available'; participants: PlayerViewSummaryParticipant[] }
+	| { kind: 'denied'; reason: 'unknown-actor' };
+
+/**
+ * RC-SES-7.3 — what each seat can actually open. A DM/co-DM sees the same registered
+ * player/observer roster as the controller; participants see only themselves. Resolve every
+ * resource as the participant, even for a DM caller, so authoring names never stand in for
+ * unavailable content. Presence is ephemeral: saved delivery acknowledgements are not a
+ * connection signal. An explicitly projected private scene follows the companion's existing
+ * projection policy; unrelated private scenes and authoring metadata never enter this result.
+ */
+export function getPlayerViewSummary(
+	state: CoreStateSlice,
+	actorId: ActorId,
+): PlayerViewSummaryQueryResult {
+	const viewer = state.permissions.actors[actorId];
+	if (!viewer) return { kind: 'denied', reason: 'unknown-actor' };
+	const participants = Object.values(state.permissions.actors)
+		.filter(
+			(actor): actor is typeof actor & { role: PlayerViewSummaryParticipant['role'] } =>
+				!hasDmAuthority(actor.role) && (hasDmAuthority(viewer.role) || actor.id === actorId),
+		)
+		.sort(
+			(a, b) =>
+				PARTICIPANT_ROLE_ORDER[a.role] - PARTICIPANT_ROLE_ORDER[b.role] ||
+				a.displayName.localeCompare(b.displayName) ||
+				a.id.localeCompare(b.id),
+		)
+		.map((actor): PlayerViewSummaryParticipant => {
+			const stage = getPlayerViewForActor(
+				state.scenes,
+				state.permissions,
+				state.session,
+				actor.id,
+				{
+					widgetPackages: state.widgets,
+				},
+			);
+			// Same selection order as the companion's resolveProjectedMapForViewer.
+			const delivered = deliveredMapIdsForActor(state.session, actor.id);
+			const mapId = state.session.activeMapProjections[actor.id]?.mapId ?? [...delivered][0];
+			const map =
+				mapId && delivered.has(mapId)
+					? getMapViewForActor(state.maps, state.permissions, actor.id, mapId, {
+							deliveredMapIds: delivered,
+							combat: state.session.combat,
+						})
+					: null;
+			return {
+				actorId: actor.id,
+				displayName: actor.displayName,
+				role: actor.role,
+				connection: normalizeOnlineStatus(state.presence?.entries[actor.id]?.status),
+				stage: stage.kind === 'assigned' ? { id: stage.id, name: stage.name } : null,
+				projectedMap: map?.kind === 'available' ? { id: map.mapId, name: map.name } : null,
+				// The companion's Handouts page lists exactly these (viewModels' `handouts`).
+				handoutCount: getContentItemsForActor(state.content, state.permissions, actor.id).length,
+				characters: listCharactersForActor(state.characters, state.permissions, actor.id)
+					.filter((character) => character.kind === 'pc')
+					.map(({ id, name }) => ({ id, name })),
+			};
+		});
+	return { kind: 'available', participants };
+}
+
+/** RC-SES-7.3 — the Session screen row that renders {@link getPlayerViewSummary}. */
+export const PLAYER_SUMMARY_WIDGET = Object.freeze({
+	type: 'player-views',
+	configuration: Object.freeze({ title: 'What players see', presentation: 'bare' }),
+});
+
+/**
+ * RC-SES-7.3 — place the "What players see" row on a Session screen `command-center.ensure-home` has
+ * just provisioned, directly under the Table roster in the side column; everything after the roster
+ * moves down one row and one step in reading and focus order. Only a screen this result CREATED is
+ * changed (and its `scene.create` operation with it, so a replay builds the same screen); an existing
+ * Session screen, customized or not, is never touched. `commands/dispatch.ts` applies this to the
+ * command's result.
+ */
+export function withPlayerSummaryOnNewSessionScreen(
+	env: CoreEnvironment,
+	result: CommandResult,
+): CommandResult {
+	if (result.status !== 'accepted') return result;
+	const created = result.events.flatMap((event) =>
+		event.kind === 'scene.created' ? [event.sceneId] : [],
+	);
+	const screen = created
+		.map((id) => result.nextState.scenes.scenes[id])
+		.find((scene) => scene && screenMetaOf(scene).origin?.defaultKey === 'session');
+	if (!screen) return result;
+	const roster = screen.widgets.find(
+		(widget) => widget.type === 'session' && widget.configuration.view === 'roster',
+	);
+	if (!roster || screen.widgets.some((widget) => widget.type === PLAYER_SUMMARY_WIDGET.type))
+		return result;
+	// The screen is built in reading order, so everything after the roster's slot moves down.
+	const index = screen.widgets.indexOf(roster) + 1;
+	const bump = (order: number | null) => (order === null ? null : order + 1);
+	const shifted = screen.widgets.map((widget, position) =>
+		position < index
+			? widget
+			: {
+					...widget,
+					layout: {
+						...widget.layout,
+						y:
+							widget.layout.groupId === roster.layout.groupId
+								? widget.layout.y + roster.layout.h
+								: widget.layout.y,
+						z: widget.layout.z + 1,
+						focusOrder: bump(widget.layout.focusOrder),
+					},
+				},
+	);
+	const placed: Scene = {
+		...screen,
+		widgets: [
+			...shifted.slice(0, index),
+			{
+				id: env.ids(),
+				type: PLAYER_SUMMARY_WIDGET.type,
+				version: roster.version,
+				layout: {
+					...roster.layout,
+					y: roster.layout.y + roster.layout.h,
+					z: roster.layout.z + 1,
+					focusOrder: bump(roster.layout.focusOrder),
+				},
+				configuration: { ...PLAYER_SUMMARY_WIDGET.configuration },
+				localState: {},
+				binding: null,
+				disabled: null,
+			},
+			...shifted.slice(index),
+		],
+	};
+	const { nextState } = result;
+	return {
+		...result,
+		nextState: {
+			...nextState,
+			scenes: { ...nextState.scenes, scenes: { ...nextState.scenes.scenes, [placed.id]: placed } },
+			sync: {
+				...nextState.sync,
+				operations: nextState.sync.operations.map((op) =>
+					op.entityId === placed.id &&
+					op.opType === 'scene.create' &&
+					result.operationIds.includes(op.id)
+						? { ...op, value: placed }
+						: op,
+				),
+			},
+		},
 	};
 }

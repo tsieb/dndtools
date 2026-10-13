@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	DM_ACTOR,
+	OBSERVER_ACTOR,
 	PLAYER_ACTOR,
 	buildInitialState,
 	makeEnvironment,
@@ -8,9 +9,15 @@ import {
 import {
 	ALL_HOST_PERMISSIONS,
 	PERMISSION_GATED_CAPABILITIES,
+	PREVIEW_PLAYER_ACTOR_ID,
 	auditScopeBoundary,
 	dispatchCommand,
+	findWidgetDefinition,
+	getPlayerViewForActor,
+	getPlayerViewSummary,
+	permissionsWithPreviewActors,
 	resolveHostCapability,
+	resolvePreviewActor,
 	resolveWidgetIntent,
 	widgetMayNavigate,
 	type CoreCommand,
@@ -132,6 +139,13 @@ const INTENTS: WidgetIntentDescriptor[] = [
 	{ id: 'new-widget', displayName: 'New widget', kind: 'create', target: 'widget' },
 	{ id: 'permissions', displayName: 'Permissions', kind: 'open-settings', tab: 'permissions' },
 	{ id: 'appearance', displayName: 'Appearance', kind: 'open-settings', tab: 'appearance' },
+	{ id: 'preview', displayName: 'Preview', kind: 'preview-participant' },
+	{
+		id: 'preview-fixed',
+		displayName: 'Preview the player',
+		kind: 'preview-participant',
+		targetId: PLAYER_ACTOR.id,
+	},
 ];
 
 function definition(
@@ -445,6 +459,159 @@ describe('RC-WID-5.1: the intent resolver', () => {
 		const { state } = vault();
 		expect(resolve(state, 'actor-stranger', 'appearance').decision).toBe('not-authorized');
 		expect(resolve(state, 'actor-stranger', 'roster').decision).toBe('not-authorized');
+	});
+});
+
+describe('RC-SES-7.3: the participant-preview intent', () => {
+	const CO_DM = { id: 'actor-co-dm', role: 'co-dm' as const, displayName: 'Test Co-DM' };
+	function seated() {
+		return buildInitialState(DM_ACTOR, PLAYER_ACTOR, OBSERVER_ACTOR, CO_DM);
+	}
+
+	it('opens the companion previewed as the row participant, for the DM', () => {
+		const state = seated();
+		expect(resolve(state, DM_ACTOR.id, 'preview', { targetId: PLAYER_ACTOR.id })).toMatchObject({
+			decision: 'resolved',
+			destination: {
+				path: '/play',
+				state: null,
+				preview: { role: 'player', playerActorId: PLAYER_ACTOR.id },
+			},
+		});
+		// An observer row previews that observer's seat, not the generic observer.
+		expect(
+			resolve(state, DM_ACTOR.id, 'preview', { targetId: OBSERVER_ACTOR.id }).destination,
+		).toEqual({
+			path: '/play',
+			state: null,
+			preview: { role: 'observer', playerActorId: OBSERVER_ACTOR.id },
+		});
+	});
+
+	it('each row’s Preview shows the stage that row reports, observers included', () => {
+		let state = seated();
+		state = run(state, {
+			type: 'scene.create',
+			actorId: DM_ACTOR.id,
+			payload: { name: 'Observer table stage', visibility: 'shared' },
+		} as CoreCommand);
+		const scene = Object.values(state.scenes.scenes).find(
+			(entry) => entry.name === 'Observer table stage',
+		)!;
+		state = run(state, {
+			type: 'session.set-workflow',
+			actorId: DM_ACTOR.id,
+			payload: { workflow: 'active', activeSceneId: scene.id },
+		} as CoreCommand);
+		const summary = getPlayerViewSummary(state, DM_ACTOR.id);
+		if (summary.kind !== 'available') throw new Error(summary.reason);
+		const definition = findWidgetDefinition(state.widgets, 'player-views')!;
+		const permissions = permissionsWithPreviewActors(state.permissions);
+		for (const row of summary.participants) {
+			const { destination } = resolveWidgetIntent({
+				state,
+				actorId: DM_ACTOR.id,
+				widgetInstanceId: 'summary',
+				definition,
+				approvedPermissions: [],
+				request: { intentId: 'preview', targetId: row.actorId },
+			});
+			const preview = resolvePreviewActor(state.permissions, destination!.preview!);
+			expect(preview, row.actorId).toMatchObject({ actorId: row.actorId, specific: true });
+			const stage = getPlayerViewForActor(
+				state.scenes,
+				permissions,
+				state.session,
+				preview.actorId,
+				{
+					widgetPackages: state.widgets,
+				},
+			);
+			expect(stage, row.actorId).toMatchObject({ kind: 'assigned', id: row.stage?.id });
+		}
+		expect(summary.participants.map((row) => row.stage?.id)).toContain(scene.id);
+	});
+
+	it('is the DM’s alone: a co-DM, a player, an observer and a stranger are refused', () => {
+		const state = seated();
+		for (const viewer of [CO_DM.id, PLAYER_ACTOR.id, OBSERVER_ACTOR.id, 'actor-stranger'])
+			expect(
+				resolve(state, viewer, 'preview', { targetId: PLAYER_ACTOR.id }).decision,
+				viewer,
+			).toBe('not-authorized');
+	});
+
+	it('previews only a registered player or observer seat, one outcome for every other id', () => {
+		// The previewing runtime seats the generic preview actors; they are never a preview target.
+		const generic = { id: PREVIEW_PLAYER_ACTOR_ID, role: 'player' as const, displayName: 'Player' };
+		const state = buildInitialState(DM_ACTOR, PLAYER_ACTOR, OBSERVER_ACTOR, CO_DM, generic);
+		const refusals = [DM_ACTOR.id, CO_DM.id, PREVIEW_PLAYER_ACTOR_ID, 'no-such-actor'].map(
+			(targetId) => resolve(state, DM_ACTOR.id, 'preview', { targetId }),
+		);
+		for (const refusal of refusals) {
+			expect(refusal.decision).toBe('not-visible');
+			expect(refusal.destination).toBeNull();
+			expect(refusal.audit.reason).toBe(refusals[0]!.audit.reason);
+		}
+		expect(resolve(state, DM_ACTOR.id, 'preview').decision).toBe('missing-target');
+	});
+
+	it('a declared participant cannot be swapped for the request’s', () => {
+		const state = seated();
+		expect(
+			resolve(state, DM_ACTOR.id, 'preview-fixed', { targetId: OBSERVER_ACTOR.id }).destination
+				?.preview,
+		).toEqual({ role: 'player', playerActorId: PLAYER_ACTOR.id });
+	});
+
+	it('custom code never previews, even with navigate approved', () => {
+		const state = seated();
+		const result = resolve(state, DM_ACTOR.id, 'preview', {
+			targetId: PLAYER_ACTOR.id,
+			runtime: 'custom-html-js',
+			approved: ['navigate'],
+		});
+		expect(result.decision).toBe('not-authorized');
+		expect(result.audit.reason).not.toContain(PLAYER_ACTOR.id);
+	});
+
+	it('the schema takes an actor id and nothing that could carry a path', () => {
+		const parse = (intent: unknown) =>
+			widgetPackageDefinitionSchema.safeParse({
+				id: 'workspace.preview',
+				version: '1.0.0',
+				displayName: 'Preview',
+				widgets: [
+					{
+						type: 'preview',
+						version: '1.0.0',
+						displayName: 'Preview',
+						author: 'workspace',
+						supportedProfiles: ['desktop'],
+						defaultSize: { width: 200, height: 120 },
+						minSize: { width: 120, height: 80 },
+						resizePolicy: 'free',
+						requiredBindings: [],
+						optionalBindings: [],
+						configurationSchema: { type: 'object' },
+						capabilitySets: ['viewer'],
+						commands: [],
+						intents: [intent],
+						events: [],
+						hostPermissions: [],
+					},
+				],
+			}).success;
+		expect(parse({ id: 'p', displayName: 'P', kind: 'preview-participant' })).toBe(true);
+		expect(
+			parse({ id: 'p', displayName: 'P', kind: 'preview-participant', targetId: 'actor-1' }),
+		).toBe(true);
+		expect(parse({ id: 'p', displayName: 'P', kind: 'preview-participant', route: '/play' })).toBe(
+			false,
+		);
+		expect(parse({ id: 'p', displayName: 'P', kind: 'preview-participant', role: 'co-dm' })).toBe(
+			false,
+		);
 	});
 });
 

@@ -48,17 +48,20 @@ checked against `now`.
 A command writes to the campaign. An **intent** writes nothing: it takes the viewer somewhere
 (RC-WID-5.1). `WidgetDefinition.intents` is optional and is a closed union on `kind`:
 
-| `kind`          | Target                                                                       | Destination                                                                                                                                                                                 |
-| --------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `open-screen`   | `targetId` (a scene; ADR-041)                                                | `/scene/:id`                                                                                                                                                                                |
-| `open-entity`   | `entityKind` (`character` \| `map` \| `note` \| `quest`) and `targetId`      | `/characters/:id`, `/atlas?map=`, `/knowledge/:id`, `/campaign` with `openQuestId`                                                                                                          |
-| `open-route`    | `route`, one of `WIDGET_INTENT_ROUTES` (section roots only)                  | that path                                                                                                                                                                                   |
-| `create`        | `target` (`scene` \| `screen` \| `character` \| `map` \| `note` \| `widget`) | the existing creation flow: `/scenes` with `{ createScreen: true }` for scene/screen, or `/characters`, `/atlas`, `/knowledge` with `{ create: true }`, `/board` with `{ addWidget: true }` |
-| `open-settings` | `tab`, one of `WIDGET_INTENT_SETTINGS_TABS`                                  | `/settings?tab=`                                                                                                                                                                            |
+| `kind`                | Target                                                                       | Destination                                                                                                                                                                                 |
+| --------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `open-screen`         | `targetId` (a scene; ADR-041)                                                | `/scene/:id`                                                                                                                                                                                |
+| `open-entity`         | `entityKind` (`character` \| `map` \| `note` \| `quest`) and `targetId`      | `/characters/:id`, `/atlas?map=`, `/knowledge/:id`, `/campaign` with `openQuestId`                                                                                                          |
+| `open-route`          | `route`, one of `WIDGET_INTENT_ROUTES` (section roots only)                  | that path                                                                                                                                                                                   |
+| `create`              | `target` (`scene` \| `screen` \| `character` \| `map` \| `note` \| `widget`) | the existing creation flow: `/scenes` with `{ createScreen: true }` for scene/screen, or `/characters`, `/atlas`, `/knowledge` with `{ create: true }`, `/board` with `{ addWidget: true }` |
+| `open-settings`       | `tab`, one of `WIDGET_INTENT_SETTINGS_TABS`                                  | `/settings?tab=`                                                                                                                                                                            |
+| `preview-participant` | `targetId` (a player or observer seat; RC-SES-7.3)                           | `/play` previewed as that seat (RC-CHR-6.5), returning to the page it was opened from                                                                                                       |
 
 Every variant is a strict schema, so no descriptor has a field a URL could hide in. Intent ids are
-unique within a definition. An open intent may fix its `targetId`; a custom widget may leave it out
-and supply one when it asks, but a fixed target is never replaced by the requested one.
+unique within a definition. An open or preview intent may fix its `targetId`; a custom widget may
+leave it out and supply one when it asks, but a fixed target is never replaced by the requested
+one. A hub template (`card-grid`, `link-list`) binds an untargeted open or preview intent to each
+query row and supplies the row's id.
 
 On `/campaign`, `openQuestId` opens the quest editor for an author. A reader who cannot author
 the quest has no editor, so the page scrolls to that quest's card, focuses it and marks it
@@ -75,13 +78,21 @@ the quest has no editor, so the page scrolls to that quest's card, focuses it an
    `getContentItemDetailForActor`, `resolveSectionRouteAccess`). A hidden target and a missing one
    both return `not-visible`, so a widget cannot probe for ids. Creation flows require authoring
    authority. The Settings tabs `players`, `permissions`, `plugins` and `systems` require DM
-   authority (`not-authorized`).
-4. Only then is an in-app destination built.
+   authority (`not-authorized`). A `preview-participant` intent resolves only for the vault's DM,
+   the one role `SceneRuntime.enterPreview` admits (a co-DM, a participant, or a DM already
+   previewing gets `not-authorized`), and only for a registered player or observer seat. The DM,
+   a co-DM, the generic preview actors and unknown ids are all `not-visible`. A `custom-html-js`
+   widget never resolves one, even with `navigate` approved.
+4. Only then is an in-app destination built. A preview destination also carries the typed
+   `preview` selection (`{ role, playerActorId }` for the target seat, player or observer), so
+   the preview shows the stage and deliveries that seat's row reports.
 
 Each outcome carries a non-leaking audit record naming the declared intent, never the requested
 target. The action-panel template renders one button per intent after its commands. On a live
 surface it omits any intent the viewer could not follow, resolves again on press, and reports a
-refusal. While the layout is being edited, the buttons are inert.
+refusal. While the layout is being edited, the buttons are inert. The template executors follow a
+resolved destination through `useFollowIntent` (`templates/HubIntent.tsx`): a preview destination
+enters the preview first, then opens `/play` with the current page as the companion's return.
 
 ### 2.2 Commands and executors
 
@@ -260,7 +271,7 @@ sources the SCREENS_PARITY gap register (§4.1 G-02) lists.
 | `continuity-digest`   | `getPrepRecapDigest`                                            | Nothing (DM-only read)                                                  |
 | `rest-log`            | ledger of characters `listCharactersForActor` returned          | Rests of characters they may see                                        |
 | `presence`            | `projectSessionPresence` with scene-hint stripping              | Participants; a hint naming a hidden screen is removed                  |
-| `player-projections`  | `session.playerViewAssignments` (DM) / `getPlayerViewForActor`  | Their own row only                                                      |
+| `player-projections`  | `getPlayerViewSummary` (RC-SES-7.3), resolved as each seat      | Their own row only                                                      |
 | `initiative-call`     | `getCombatTrackerForActor` log                                  | Awaiting / rolled / adjusted for visible combatants                     |
 | `combatant-status`    | `getCombatTrackerForActor`                                      | Conditions, concentration, death saves only where vitals are exposed    |
 | `capture-candidates`  | `listCharactersForActor` + `getContentItemsForActor`            | References to what they may list                                        |
@@ -1142,3 +1153,42 @@ controls use `fitWidgetSize`. S is the minimum, M the definition default and L 1
 of that default, fitted to the declared limits. The corner handle appears on
 selection or hover in edit mode; the tile menu's Resize enters keyboard move mode,
 where Shift+Arrow resizes. View-mode content recovery remains available separately.
+
+### What players see (RC-SES-7.3)
+
+`getPlayerViewSummary(state, actorId)` (`queries/player-view-control.ts`) returns the registered
+player and observer rows for a DM or co-DM, and only the requesting seat for a player or observer.
+Unknown actors, including the generic preview actors, are denied. Each row holds the seat's
+ephemeral connection status, the scene on its stage, its projected map, the number of handouts its
+companion lists and the PCs whose full sheet it holds. Every field is resolved as that participant
+with the companion's own reads, even for a DM caller: the stage is `getPlayerViewForActor`, the map
+follows `resolveProjectedMapForViewer`'s selection, the handouts are `getContentItemsForActor` (the
+companion's Handouts page) and the sheets are `listCharactersForActor` PCs. A missing or withheld
+resource has no row value, so an authoring name never stands in for something the seat cannot open.
+
+The public `player-projections` query source serves the same read. `primary` is the name and
+`secondary` one line: role, connection, `Stage:`, `Map:` when one is projected, `Handouts:` and the
+full-sheet PC names (or "No full sheets"). `meta` is the connection status, `value` the handout count
+and `active` whether anything is on the stage.
+
+The `player-views` widget is a system TEMPLATE widget with no hand-written body: the `link-list`
+template over `player-projections`, plus one untargeted `preview-participant` intent, `preview`
+("Preview"). Like the Command Center's parts, it is built by `homePart` to match the builder's first
+save, and `isCopyableSystemWidget` admits it. "Edit widget" therefore forks it into the builder, and
+the copy exports byte-identical. The template draws one row per participant and binds the intent to
+each row, so the whole row is the Preview control and names its action. The host gate leaves a row
+inert for a viewer who cannot preview: a participant reading their own row, a co-DM, or a DM already
+previewing. Preview enters the RC-CHR-6.5 preview for that seat and opens `/play`, whose exit banner
+returns to the Session screen. The WID-5.5 parity gate reports no finding for `player-views`, and the
+test asserts that on the unfiltered findings.
+
+A freshly provisioned Session screen places it under the Table roster, bare, with the heading "What
+players see": `withPlayerSummaryOnNewSessionScreen` (`queries/player-view-control.ts`, applied to
+`command-center.ensure-home` in `commands/dispatch.ts`) inserts the part into the screen and its
+`scene.create` operation, moving the parts after the roster down one row. `SESSION_SCREEN_PARTS` is
+unchanged, so the unsaved copy a participant's device or a GM preview draws has no such row. Screens
+provisioned earlier keep their layout.
+
+Session handouts pushed from the Session screen's Handouts panel (`session.deliver-handout`) do not
+reach the companion today; the companion's Handouts page lists revealed notes and objects. The row
+counts what the companion lists, so a pushed handout does not change it.

@@ -3,6 +3,7 @@ import {
 	SESSION_SCREEN_DEFAULT_KEY,
 	SESSION_PANEL_VIEWS,
 	SESSION_SCREEN_PARTS,
+	PLAYER_SUMMARY_WIDGET,
 	dispatchCommand,
 	findHomeScreen,
 	findSessionScreen,
@@ -47,6 +48,11 @@ function ensure(state: CoreStateSlice, env: Env, session = true) {
 	);
 }
 
+/** RC-SES-7.3 — the parts a fresh Session screen holds: the "What players see" row under the roster. */
+const PARTS = SESSION_SCREEN_PARTS.flatMap((part) =>
+	part.configuration.view === 'roster' ? [part, PLAYER_SUMMARY_WIDGET] : [part],
+);
+
 function sessionScreen(state: CoreStateSlice): Scene {
 	const screen = findSessionScreen(state.scenes);
 	if (!screen) throw new Error('no Session screen');
@@ -74,12 +80,13 @@ describe('RC-CAN-7.8 the Session screen', () => {
 		expect(events).toEqual([{ kind: 'scene.created', sceneId: screen.id, actorId: DM_ACTOR.id }]);
 		expect(operationIds).toHaveLength(1);
 		// One widget per Session row group, in the console's reading order, each with its own settings.
-		expect(screen.widgets.map((widget) => widget.type)).toEqual(
-			SESSION_SCREEN_PARTS.map((part) => part.type),
-		);
+		expect(screen.widgets.map((widget) => widget.type)).toEqual(PARTS.map((part) => part.type));
 		expect(screen.widgets.map((widget) => widget.configuration)).toEqual(
-			SESSION_SCREEN_PARTS.map((part) => part.configuration),
+			PARTS.map((part) => part.configuration),
 		);
+		// The recorded operation builds the same screen on replay.
+		const op = nextState.sync.operations.find((entry) => entry.id === operationIds[0]);
+		expect(op?.value).toEqual(screen);
 	});
 
 	it('lays the status across the top and the tracker beside one stacked column', () => {
@@ -186,15 +193,18 @@ describe('RC-CAN-7.8 the Session screen', () => {
 			.filter((widget) => widget.type === 'session')
 			.map((widget) => widget.configuration.view);
 		expect(sessionViews).toEqual(['console', ...SESSION_PANEL_VIEWS.map(({ view }) => view)]);
+		// RC-SES-7.3 — so is the `player-views` row; the tracker and the tray are named by their type.
 		expect(new Set(screen.widgets.map((widget) => widget.configuration.title)).size).toBe(
-			screen.widgets.filter((widget) => widget.type === 'session').length + 1,
+			screen.widgets.filter((widget) => widget.type === 'session' || widget.type === 'player-views')
+				.length + 1,
 		);
 		// Every view the screen uses is one the Inspector offers ("Shows").
 		const options = (type: string) =>
 			findWidgetDefinition(nextState.widgets, type)
 				?.configFields?.find((field) => field.key === 'view')
 				?.options?.map((option) => option.value) ?? [];
-		for (const widget of screen.widgets)
+		// `player-views` has one view, so it has no "Shows" setting.
+		for (const widget of screen.widgets.filter((part) => part.type !== 'player-views'))
 			expect(options(widget.type), widget.type).toContain(widget.configuration.view);
 		for (const type of ['session', 'combat']) {
 			const definition = findWidgetDefinition(nextState.widgets, type)!;
@@ -206,5 +216,14 @@ describe('RC-CAN-7.8 the Session screen', () => {
 		const dice = findWidgetDefinition(nextState.widgets, 'dice')!;
 		expect(dice.renderEntrypoint).toMatchObject({ runtime: 'template', template: 'dice-roller' });
 		expect(isCopyableSystemWidget(dice)).toBe(true);
+		// RC-SES-7.3 — "What players see" draws only through its template, so the GM can copy it.
+		const playerViews = findWidgetDefinition(nextState.widgets, 'player-views')!;
+		expect(playerViews.renderEntrypoint).toMatchObject({
+			runtime: 'template',
+			template: 'link-list',
+		});
+		expect(playerViews.dataQueries?.map((query) => query.source)).toEqual(['player-projections']);
+		expect(playerViews.intents?.map((intent) => intent.kind)).toEqual(['preview-participant']);
+		expect(isCopyableSystemWidget(playerViews)).toBe(true);
 	});
 });

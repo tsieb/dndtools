@@ -19,7 +19,6 @@ export const allow = {
 	'apps/gm-react/src/app/widgets/builtin/CharacterBody.tsx': 2,
 	'apps/gm-react/src/app/widgets/builtin/CharactersBody.tsx': 1,
 	'apps/gm-react/src/app/widgets/builtin/CombatBody.tsx': 1,
-	'apps/gm-react/src/app/widgets/builtin/PlayerViewsBody.tsx': 1,
 	'apps/gm-react/src/app/widgets/builtin/SearchBody.tsx': 1,
 	'apps/gm-react/src/app/widgets/builtin/SessionBody.tsx': 1,
 	'apps/gm-react/src/app/widgets/builtin/ToolsBody.tsx': 1,

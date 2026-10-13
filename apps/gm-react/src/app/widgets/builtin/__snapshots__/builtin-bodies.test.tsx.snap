@@ -26,8 +26,6 @@ exports[`every system widget type has a body > note renders a body the DM can re
 
 exports[`every system widget type has a body > notes renders a body the DM can read 1`] = `"Tavern rumours1 of 1 notes"`;
 
-exports[`every system widget type has a body > player-views renders a body the DM can read 1`] = `"Players1Assigned0Test Player · no view"`;
-
 exports[`every system widget type has a body > prep renders a body the DM can read 1`] = `"Tavern rumours1 of 1 prep notes"`;
 
 exports[`every system widget type has a body > quick-reference renders a body the DM can read 1`] = `"No reference objects visible yet — imported spells and objects appear here."`;

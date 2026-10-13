@@ -390,6 +390,13 @@ export const INTENT_CATALOG: IntentSeed[] = [
 			tab: 'appearance',
 		},
 	},
+	// RC-SES-7.3 — the companion as one participant. Template widgets only: the host refuses it to
+	// custom code. Without a fixed participant, each row of a participant list previews its own.
+	{
+		label: 'builder.intents.previewParticipant',
+		group: 'open',
+		seed: { id: 'preview', displayName: 'Preview', kind: 'preview-participant' },
+	},
 	...WIDGET_INTENT_CREATE_TARGETS.map((target) => ({
 		label: CREATE_LABEL[target][0],
 		group: 'create' as const,

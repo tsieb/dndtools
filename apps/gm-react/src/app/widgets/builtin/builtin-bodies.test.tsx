@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	BOARD_TOOL_WIDGET_TYPES,
 	HOME_WIDGET_TYPES,
+	isCopyableSystemWidget,
 	createSystemWidgetPackages,
 	dispatchCommand,
 	type CoreCommand,
@@ -190,12 +191,12 @@ function campaign(): CoreStateSlice {
 }
 
 // RC-CAN-7.6 — the Command Center's parts are system widgets with NO builtin body: they render
-// through their hub templates, which is the point of them (a GM-built copy draws the same). The hub
-// templates carry their own tests (`templates/Hub.test.tsx`, `screens/CommandCenter.baseline.test.tsx`).
-const HOME_PARTS: ReadonlySet<string> = new Set(HOME_WIDGET_TYPES);
+// through their hub templates, which is the point of them (a GM-built copy draws the same). So does
+// RC-SES-7.3's `player-views`. The hub templates carry their own tests (`templates/Hub.test.tsx`,
+// `screens/CommandCenter.baseline.test.tsx`).
 const SYSTEM_DEFINITIONS: WidgetDefinition[] = Object.values(createSystemWidgetPackages().packages)
 	.flatMap((record) => record.package.widgets)
-	.filter((definition) => !HOME_PARTS.has(definition.type));
+	.filter((definition) => !isCopyableSystemWidget(definition));
 
 /** A placed instance of one system widget definition, with the definition's declared defaults. */
 function boardWidget(definition: WidgetDefinition): BoardWidget {
@@ -285,10 +286,6 @@ describe('Command Center bodies stay actor-scoped', () => {
 		// the core, so the count is absent from their tile rather than blanked out in the GUI.
 		expect(renderBody(byType('session'), DM_ACTOR.id)).toContain('1 player');
 		expect(renderBody(byType('session'), PLAYER_ACTOR.id)).not.toContain('1 player');
-	});
-
-	it('tells a player the player-view controls are DM only rather than showing an empty roster', () => {
-		expect(renderBody(byType('player-views'), PLAYER_ACTOR.id)).toContain('DM only');
 	});
 
 	it('shows a player no prepared encounter on the combat body', () => {

@@ -303,6 +303,20 @@ describe('builder parity gate: default screens', () => {
 		);
 	});
 
+	// RC-SES-7.3 — "What players see" sits on the fresh Session screen and owes nothing: no builtin
+	// body, no private read, no private route. Checked on the raw findings, not through the ledger.
+	it('player-views has no parity finding on the provisioned Session screen', () => {
+		const { state } = provisionedVault();
+		const session = findSessionScreen(state.scenes)!;
+		expect(session.widgets.map((widget) => widget.type)).toContain('player-views');
+		expect(BUILTIN_WIDGET_TYPES as readonly string[]).not.toContain('player-views');
+		const findings = [...check(bodyUses()), ...screenFindings()];
+		expect(findings.filter((finding) => finding.startsWith('player-views'))).toEqual([]);
+		expect(PARITY_DEBT_LEDGER.filter((debt) => debt.finding.startsWith('player-views'))).toEqual(
+			[],
+		);
+	});
+
 	it.each([
 		'home-hero',
 		'home-scenes',
@@ -311,6 +325,7 @@ describe('builder parity gate: default screens', () => {
 		'home-library',
 		// RC-WID-5.7 — the fresh GM board's tools.
 		...BOARD_TOOL_WIDGET_TYPES,
+		'player-views',
 	])('%s exports identical bytes after its first builder import/install/export', (type) => {
 		const { env, state } = provisionedVault();
 		const record = findPackageRecordForWidgetType(state.widgets, type)!;

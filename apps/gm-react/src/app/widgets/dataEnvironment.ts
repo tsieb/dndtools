@@ -18,6 +18,7 @@ import {
 	getMapViewForActor,
 	getPlayerViewController,
 	getPlayerViewForActor,
+	getPlayerViewSummary,
 	getPrepRecapDigest,
 	getQuickReferencePanelsForActor,
 	getSavedSearchesForActor,
@@ -1047,6 +1048,13 @@ const PEER_ROLE_WORD: Record<NonNullable<WidgetLivePeer['role']>, string> = {
 	'co-dm': 'Co-DM',
 };
 
+/** RC-SES-7.3 — a participant's connection, as the roster words it. */
+const CONNECTION_LABEL: Readonly<Record<string, string>> = {
+	online: 'Online',
+	away: 'Away',
+	offline: 'Offline',
+};
+
 function plural(count: number, one: string, many: string): string {
 	return `${count} ${count === 1 ? one : many}`;
 }
@@ -1387,44 +1395,34 @@ function resolveHubSource(
 			};
 		}
 		case 'player-projections': {
-			// The DM sees every player and observer; anyone else sees their own row and nothing about
-			// who else is being shown what.
-			if (!isDm) {
-				const view = getPlayerViewForActor(state.scenes, state.permissions, state.session, actorId);
-				return {
-					header: null,
-					emptyLabel: 'Nothing projected to you.',
-					rows: [
-						row(actorId, actor.displayName, {
-							secondary: view.kind === 'assigned' ? view.name : 'Nothing projected',
-							meta: actor.role,
-							active: view.kind === 'assigned',
-						}),
-					],
-				};
-			}
-			const scenes = new Map(
-				listScenesForActor(state.scenes, state.permissions, actorId).map((scene) => [
-					scene.id,
-					scene.name,
-				]),
-			);
+			// RC-SES-7.3 — the actor-scoped summary: the DM sees every player and observer; anyone else
+			// sees their own row and nothing about who else is being shown what. Every field is resolved
+			// as the participant, so a DM-only name never stands in for something they cannot open.
+			const summary = getPlayerViewSummary(state, actorId);
 			return {
 				header: null,
-				emptyLabel: 'No players registered yet.',
-				rows: Object.values(state.permissions.actors)
-					.filter((other) => other.role === 'player' || other.role === 'observer')
-					.sort((a, b) => a.displayName.localeCompare(b.displayName))
-					.map((other) => {
-						const assignment = state.session.playerViewAssignments[other.id];
-						return row(other.id, other.displayName, {
-							secondary: assignment
-								? (scenes.get(assignment.target.sceneId) ?? 'Unknown screen')
-								: 'Nothing projected',
-							meta: other.role,
-							active: assignment !== undefined,
-						});
+				emptyLabel: isDm ? 'No players registered yet.' : 'Nothing projected to you.',
+				rows: (summary.kind === 'available' ? summary.participants : []).map((participant) =>
+					row(participant.actorId, participant.displayName, {
+						// One line a list template draws whole: role, connection, stage, map, handouts, sheets.
+						secondary: [
+							PEER_ROLE_WORD[participant.role],
+							CONNECTION_LABEL[participant.connection] ?? participant.connection,
+							`Stage: ${participant.stage?.name ?? 'Nothing projected'}`,
+							participant.projectedMap && `Map: ${participant.projectedMap.name}`,
+							`Handouts: ${participant.handoutCount}`,
+							participant.characters.length
+								? `Sheets: ${participant.characters.map((character) => character.name).join(', ')}`
+								: 'No full sheets',
+						]
+							.filter(Boolean)
+							.join(' · '),
+						meta: participant.connection,
+						value: participant.handoutCount,
+						active: participant.stage !== null,
+						avatar: initialsOf(participant.displayName),
 					}),
+				),
 			};
 		}
 		case 'initiative-call': {

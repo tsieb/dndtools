@@ -5,6 +5,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+	PLAYER_SUMMARY_WIDGET,
 	SESSION_SCREEN_PARTS,
 	findSessionScreen,
 	findWidgetDefinition,
@@ -237,9 +238,11 @@ const REGIONS = [
 	'9. Prep & recap',
 	'10. End-of-session capture',
 	'11. Table roster',
-	'12. Party',
-	'13. Rests this session',
-	'14. Schedule next session',
+	// RC-SES-7.3 — what each participant sees, under the roster.
+	'12. What players see',
+	'13. Party',
+	'14. Rests this session',
+	'15. Schedule next session',
 ];
 
 /** Each grid cell: the widget in it, where it sits, and whether it is in the layout at all. */
@@ -369,8 +372,11 @@ describe('Session as a screen (RC-CAN-7.8)', () => {
 		const main = await renderSession();
 		const screen = sessionScreen();
 		expect(screen.screen?.layoutPolicy).toBe('flow');
+		// RC-SES-7.3 — the parts, with the "What players see" row under the roster.
 		expect(screen.widgets.map((widget) => widget.type)).toEqual(
-			SESSION_SCREEN_PARTS.map((part) => part.type),
+			SESSION_SCREEN_PARTS.flatMap((part) =>
+				part.configuration.view === 'roster' ? [part, PLAYER_SUMMARY_WIDGET] : [part],
+			).map((part) => part.type),
 		);
 		// The documented difference from the baselines: one labelled region per widget.
 		expect(
@@ -382,15 +388,15 @@ describe('Session as a screen (RC-CAN-7.8)', () => {
 		const grid = main.querySelector<HTMLElement>('[data-testid="session-screen"]')!;
 		expect(cells(grid)).toEqual([
 			{ part: REGIONS[0], column: '1 / span 12', row: '1', shown: true },
-			{ part: REGIONS[1], column: '1 / span 7', row: '2 / span 11', shown: true },
-			...REGIONS.slice(2, 12).map((part, index) => ({
+			{ part: REGIONS[1], column: '1 / span 7', row: '2 / span 12', shown: true },
+			...REGIONS.slice(2, 13).map((part, index) => ({
 				part,
 				column: '8 / span 5',
 				row: String(index + 2),
 				shown: true,
 			})),
-			{ part: REGIONS[12], column: '', row: '', shown: false },
-			{ part: REGIONS[13], column: '8 / span 5', row: '12', shown: true },
+			{ part: REGIONS[13], column: '', row: '', shown: false },
+			{ part: REGIONS[14], column: '8 / span 5', row: '13', shown: true },
 		]);
 	});
 
@@ -455,6 +461,6 @@ describe('Session as a screen (RC-CAN-7.8)', () => {
 		const grid = (await renderSession()).querySelector<HTMLElement>(
 			'[data-testid="session-screen"]',
 		)!;
-		expect(cells(grid).find((cell) => cell.part === REGIONS[12])).toMatchObject({ shown: true });
+		expect(cells(grid).find((cell) => cell.part === REGIONS[13])).toMatchObject({ shown: true });
 	});
 });

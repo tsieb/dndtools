@@ -48,10 +48,10 @@ export function isPreviewActorId(actorId: string): boolean {
 	return RESERVED_PREVIEW_IDS.has(actorId);
 }
 
-/** What the DM asked to preview: a role, optionally a specific connected player to emulate. */
+/** What the DM asked to preview: a role, optionally a specific participant of that role to emulate. */
 export interface PreviewSelection {
 	role: PreviewRole;
-	/** When previewing a specific player's exact grants (UX-PERM-006 AC3). */
+	/** When previewing a specific participant's exact grants (UX-PERM-006 AC3, RC-SES-7.3). */
 	playerActorId?: ActorId | null;
 }
 
@@ -59,9 +59,9 @@ export interface PreviewSelection {
 export interface ResolvedPreview {
 	role: PreviewRole;
 	actorId: ActorId;
-	/** Banner label: "Player", "Observer", or "Maya (Player)" for a specific player. */
+	/** Banner label: "Player", "Observer", or "Maya (Player)" for a specific participant. */
 	label: string;
-	/** True when a specific player's exact grants are being emulated. */
+	/** True when a specific participant's exact grants are being emulated. */
 	specific: boolean;
 }
 
@@ -96,22 +96,19 @@ function normalizePreviewRole(role: unknown): PreviewRole {
 
 /**
  * Resolve a preview selection to the actor the shell renders as. Fail closed: a specific
- * `playerActorId` is honoured ONLY when it names a known actor whose role is `player`; anything
- * else (unknown id, a DM id, an observer id, a reserved preview id) falls back to the generic
- * zero-grant actor for the requested role.
+ * `playerActorId` is honoured ONLY when it names a known actor whose role is the requested role;
+ * anything else (unknown id, a DM id, a seat of another role, a reserved preview id) falls back to
+ * the generic zero-grant actor for the requested role.
  */
 export function resolvePreviewActor(
 	permissions: PermissionState,
 	selection: PreviewSelection,
 ): ResolvedPreview {
 	const role = normalizePreviewRole(selection.role);
-	// A specific participant is honoured for `player` and `co-dm` only when the named actor exists AND
-	// holds exactly that role (fail closed for observers, unknown ids, and reserved preview ids).
-	if (
-		(role === 'player' || role === 'co-dm') &&
-		selection.playerActorId &&
-		!isPreviewActorId(selection.playerActorId)
-	) {
+	// A specific participant is honoured only when the named actor exists AND holds exactly the
+	// requested role (fail closed for a role mismatch, unknown ids, and reserved preview ids). An
+	// observer seat keeps its own deliveries under the observer ceiling (RC-SES-7.3).
+	if (selection.playerActorId && !isPreviewActorId(selection.playerActorId)) {
 		const actor = permissions.actors[selection.playerActorId];
 		if (actor && actor.role === role) {
 			return {

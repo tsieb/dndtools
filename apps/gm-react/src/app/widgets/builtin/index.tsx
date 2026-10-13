@@ -9,7 +9,6 @@ import { CombatBody } from './CombatBody';
 import { DataHubBody } from './DataHubBody';
 import { GettingStartedBody } from './GettingStartedBody';
 import { NotesBody } from './NotesBody';
-import { PlayerViewsBody } from './PlayerViewsBody';
 import { SearchBody } from './SearchBody';
 import { SessionBody } from './SessionBody';
 import { ToolsBody } from './ToolsBody';
@@ -59,7 +58,6 @@ export const BUILTIN_WIDGET_TYPES = [
 	'data-hub',
 	'atlas',
 	'characters',
-	'player-views',
 	'combat',
 	'notes',
 	'search',
@@ -103,7 +101,6 @@ export const BUILTIN_SIZE_BOUNDS: Record<
 	'data-hub': boardBounds(),
 	atlas: boardBounds(),
 	characters: boardBounds(),
-	'player-views': boardBounds(),
 	combat: boardBounds(),
 	notes: boardBounds(),
 	search: boardBounds(),
@@ -156,8 +153,6 @@ export function WidgetBody({
 			return <AtlasBody widget={widget} />;
 		case 'characters':
 			return <CharactersBody widget={widget} />;
-		case 'player-views':
-			return <PlayerViewsBody />;
 		case 'combat':
 			// RC-CAN-7.8 — the tracker view binds its bare-key model only in view mode.
 			return <CombatBody widget={widget} interactive={!!onCommand} />;

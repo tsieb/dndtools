@@ -460,7 +460,8 @@ export function readWidgetShownMessage(
  * RC-WID-5.1 — an INTENT: a place a widget can take its viewer, declared beside its commands.
  *
  * A command writes to the campaign; an intent writes nothing. It asks the host to open a screen, an
- * entity, an in-app page, a creation flow or a Settings tab. The set is closed on purpose: every
+ * entity, an in-app page, a creation flow, a Settings tab or (RC-SES-7.3) the companion previewed as
+ * one participant. The set is closed on purpose: every
  * target is an enum or an id the host checks against the viewer's read gate
  * (`resolveWidgetIntent`), and no variant has anywhere to put a URL. A template widget's intents are
  * data rendered by first-party code; a custom widget can follow one only with the `navigate` host
@@ -471,7 +472,8 @@ export type WidgetIntentKind =
 	| 'open-entity'
 	| 'open-route'
 	| 'create'
-	| 'open-settings';
+	| 'open-settings'
+	| 'preview-participant';
 export type WidgetIntentEntityKind = 'character' | 'map' | 'note' | 'quest';
 export type WidgetIntentCreateTarget = 'scene' | 'screen' | 'character' | 'map' | 'note' | 'widget';
 
@@ -564,7 +566,17 @@ export type WidgetIntentDescriptor =
 	  })
 	| (WidgetIntentBase & { kind: 'open-route'; route: WidgetIntentRoute })
 	| (WidgetIntentBase & { kind: 'create'; target: WidgetIntentCreateTarget })
-	| (WidgetIntentBase & { kind: 'open-settings'; tab: WidgetIntentSettingsTab });
+	| (WidgetIntentBase & { kind: 'open-settings'; tab: WidgetIntentSettingsTab })
+	| (WidgetIntentBase & {
+			/**
+			 * RC-SES-7.3 — open the companion (`/play`) previewed as one registered player or observer,
+			 * the RC-CHR-6.5 preview. Only the vault's DM may follow it, and the target must be a
+			 * participant seat; a custom widget never can.
+			 */
+			kind: 'preview-participant';
+			/** A fixed participant. Absent: the row the template draws supplies the actor id. */
+			targetId?: string;
+	  });
 
 export interface WidgetEventDescriptor {
 	type: string;
@@ -1348,10 +1360,17 @@ export function isCopyableSystemWidget(
 	return (
 		widget.author === 'system' &&
 		widget.renderEntrypoint?.runtime === 'template' &&
-		((HOME_WIDGET_TYPES as readonly string[]).includes(widget.type) ||
+		((COPYABLE_SYSTEM_TEMPLATE_TYPES as readonly string[]).includes(widget.type) ||
 			(BOARD_TOOL_WIDGET_TYPES as readonly string[]).includes(widget.type))
 	);
 }
+
+/**
+ * The system widgets that draw only through their template, so a GM can copy one into the builder:
+ * the Command Center's parts and (RC-SES-7.3) the Session screen's "What players see" list. The GM
+ * board's tools (BOARD_TOOL_WIDGET_TYPES) are copyable too.
+ */
+const COPYABLE_SYSTEM_TEMPLATE_TYPES = [...HOME_WIDGET_TYPES, 'player-views'] as const;
 
 /** Placeable on any screen, but not offered in the add gallery: the home screen places them. */
 const HOME_PLACEMENT: WidgetPlacement = { surfaces: ['scene'], libraryListed: false };
@@ -1378,7 +1397,7 @@ function textDefaultField(key: string, label: string, value: string): WidgetConf
 }
 
 function homePart(input: {
-	type: HomeWidgetType;
+	type: (typeof COPYABLE_SYSTEM_TEMPLATE_TYPES)[number];
 	displayName: string;
 	icon: string;
 	description: string;
@@ -2102,12 +2121,26 @@ export function createSystemWidgetPackages(now = '2026-06-03T00:00:00.000Z'): Wi
 			configFields: [toggleField('showVitals', 'HP / AC vitals', true)],
 			dataQueries: [dataQuery('party', 'Party', 'visible-characters', 'dm')],
 		}),
-		commandCenterWidget({
+		// RC-SES-7.3 — "What players see": one row per participant from the public `player-projections`
+		// source, each row a Preview intent. A template part like the Command Center's, so the GM's
+		// copy in the builder is this widget exactly (§0.3 rule 12).
+		homePart({
 			type: 'player-views',
 			displayName: 'Player Views',
 			icon: 'preview',
-			description: 'Per-participant Player View assignment + projection.',
+			description: 'What each participant sees, with a preview of their companion.',
+			template: 'link-list',
 			size: { width: 400, height: 300 },
+			configFields: [textDefaultField('heading', 'Heading', i18n('session.playerSummary.title'))],
+			dataQueries: [dataQuery('participants', 'Participants', 'player-projections')],
+			intents: [
+				{
+					id: 'preview',
+					displayName: i18n('session.playerSummary.preview'),
+					kind: 'preview-participant',
+					icon: 'preview',
+				},
+			],
 		}),
 		commandCenterWidget({
 			type: 'combat',

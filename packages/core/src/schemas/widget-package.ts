@@ -77,7 +77,7 @@ const widgetCommandDescriptorSchema = z
 	})
 	.strict();
 
-// RC-WID-5.1 — an intent is one of five closed shapes. Each variant is strict, so a descriptor has
+// RC-WID-5.1 — an intent is one of six closed shapes. Each variant is strict, so a descriptor has
 // no field a URL could hide in, and every target outside an id is an enum.
 const widgetIntentBase = {
 	id: idSchema,
@@ -121,6 +121,14 @@ const widgetIntentDescriptorSchema = z.discriminatedUnion('kind', [
 			...widgetIntentBase,
 			kind: z.literal('open-settings'),
 			tab: z.enum(WIDGET_INTENT_SETTINGS_TABS),
+		})
+		.strict(),
+	// RC-SES-7.3 — preview the companion as one participant: an actor id, never a path.
+	z
+		.object({
+			...widgetIntentBase,
+			kind: z.literal('preview-participant'),
+			targetId: idSchema.optional(),
 		})
 		.strict(),
 ]);

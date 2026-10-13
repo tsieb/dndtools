@@ -83,6 +83,27 @@ describe('resolvePreviewActor', () => {
 		});
 	});
 
+	it('emulates a specific observer seat by exact id, and never an observer as a player', () => {
+		expect(
+			resolvePreviewActor(permissions, { role: 'observer', playerActorId: OBSERVER_ACTOR.id }),
+		).toEqual({
+			role: 'observer',
+			actorId: OBSERVER_ACTOR.id,
+			label: `${OBSERVER_ACTOR.displayName} (Observer)`,
+			specific: true,
+		});
+		for (const playerActorId of [
+			'actor-nobody',
+			DM_ACTOR.id,
+			PLAYER_ACTOR.id,
+			PREVIEW_OBSERVER_ACTOR_ID,
+		]) {
+			const resolved = resolvePreviewActor(permissions, { role: 'observer', playerActorId });
+			expect(resolved.actorId).toBe(PREVIEW_OBSERVER_ACTOR_ID);
+			expect(resolved.specific).toBe(false);
+		}
+	});
+
 	it('fails closed: unknown, DM, observer, or reserved ids collapse to the generic actor', () => {
 		for (const playerActorId of [
 			'actor-nobody',

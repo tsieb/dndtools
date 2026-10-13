@@ -3,6 +3,7 @@ import { getCharacterForActor } from '../queries/character-query';
 import { actorCanAuthorContent, getContentItemDetailForActor } from '../queries/content-query';
 import { listMapsForActor } from '../queries/map-query';
 import { resolveSectionRouteAccess } from '../queries/navigation';
+import { isPreviewActorId, type PreviewSelection } from '../queries/preview-mode';
 import { listScreensForActor } from '../queries/screens';
 import { hasDmAuthority } from '../state/permission-state';
 import { VAULT_OBJECT_SUBTYPE_KEY } from '../state/vault-object';
@@ -279,6 +280,11 @@ export interface WidgetIntentRequest {
 export interface WidgetIntentDestination {
 	path: string;
 	state: Record<string, unknown> | null;
+	/**
+	 * RC-SES-7.3 — a `preview-participant` intent: the preview the host enters before it opens `path`
+	 * (the companion), exactly as the top bar's "Preview as" does (RC-CHR-6.5).
+	 */
+	preview?: PreviewSelection;
 }
 
 /**
@@ -367,7 +373,12 @@ export function widgetMayNavigate(
 
 /** The target of an open intent: the declared one wins, so a template's fixed target can't be swapped. */
 function intentTarget(intent: WidgetIntentDescriptor, request: WidgetIntentRequest): string | null {
-	if (intent.kind !== 'open-screen' && intent.kind !== 'open-entity') return null;
+	if (
+		intent.kind !== 'open-screen' &&
+		intent.kind !== 'open-entity' &&
+		intent.kind !== 'preview-participant'
+	)
+		return null;
 	const target = intent.targetId ?? request.targetId ?? null;
 	return typeof target === 'string' && target.trim() !== '' ? target : null;
 }
@@ -458,6 +469,24 @@ function destinationFor(
 		case 'open-settings':
 			if (DM_SETTINGS_TABS.has(intent.tab) && !isDm) return 'not-authorized';
 			return { path: `/settings?tab=${intent.tab}`, state: null };
+		case 'preview-participant': {
+			// The runtime admits a preview for the vault's DM only (`SceneRuntime.enterPreview`); a
+			// co-DM, a participant, or a DM already previewing (the viewer is then the preview actor) is
+			// refused here too, so the control is never drawn for them.
+			if (actor.role !== 'dm') return 'not-authorized';
+			const id = intentTarget(intent, request);
+			if (!id) return 'missing-target';
+			// Only a registered player or observer seat is previewed: the DM, a co-DM, the generic
+			// preview actors and unknown ids are one outcome.
+			const target = isPreviewActorId(id) ? undefined : state.permissions.actors[id];
+			if (!target || (target.role !== 'player' && target.role !== 'observer')) return 'not-visible';
+			// The seat itself, not the generic actor of its role: the row reports this seat's stage.
+			return {
+				path: '/play',
+				state: null,
+				preview: { role: target.role, playerActorId: target.id },
+			};
+		}
 	}
 }
 
@@ -492,6 +521,12 @@ export function resolveWidgetIntent(input: WidgetIntentInput): WidgetIntentResol
 	if (!widgetMayNavigate(widgetInstanceId, definition, approvedPermissions)) {
 		return refuse('permission-denied');
 	}
+	// RC-SES-7.3 — code nobody here has read never puts the GM into another participant's view.
+	if (
+		intent.kind === 'preview-participant' &&
+		definition.renderEntrypoint?.runtime === 'custom-html-js'
+	)
+		return refuse('not-authorized');
 	const destination = destinationFor(intent, request, state, actorId);
 	if (typeof destination === 'string') return refuse(destination);
 	return {
