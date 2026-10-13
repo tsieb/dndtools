@@ -1,5 +1,8 @@
 import {
 	Component,
+	memo,
+	lazy,
+	Suspense,
 	useSyncExternalStore,
 	useEffect,
 	useRef,
@@ -18,8 +21,6 @@ import { useRuntime } from '../../runtime/RuntimeContext';
 import { WidgetBody, hasBuiltinBody, type WidgetCommandHandler } from '../widget-bodies';
 import type { BoardWidget } from '../board-helpers';
 import { TEMPLATE_RENDERER_ENTRIES } from './templates';
-import { SandboxHost } from './SandboxHost';
-import { WorkerHost } from './WorkerHost';
 import { WidgetPlaceholder } from './WidgetPlaceholder';
 import {
 	resolveWidgetRenderer,
@@ -71,8 +72,11 @@ export const TEMPLATE_RENDERERS = new Map<WidgetTemplateKind, WidgetRenderer>(
 	TEMPLATE_RENDERER_ENTRIES,
 );
 
+/** Load custom hosts (including iframe font payloads) only when a custom widget is present. */
 /** The sandboxed `custom-html-js` host, landed by RC-WID-1.3 (`SandboxHost`, ADR-031 §1). */
-export const CUSTOM_WIDGET_HOST: WidgetRenderer | null = SandboxHost;
+export const CUSTOM_WIDGET_HOST: WidgetRenderer | null = lazy(() =>
+	import('./SandboxHost').then((module) => ({ default: module.SandboxHost })),
+);
 
 /**
  * The DATA-ONLY host for the same runtime, landed by RC-WID-1.4. A package that pairs
@@ -80,7 +84,9 @@ export const CUSTOM_WIDGET_HOST: WidgetRenderer | null = SandboxHost;
  * with no DOM at all and its result is drawn by one of the eight templates. Same branch of the
  * resolver, same protocol, same policy — a different place for the code to run.
  */
-export const WORKER_WIDGET_HOST: WidgetRenderer | null = WorkerHost;
+export const WORKER_WIDGET_HOST: WidgetRenderer | null = lazy(() =>
+	import('./WorkerHost').then((module) => ({ default: module.WorkerHost })),
+);
 
 /**
  * Re-exported from its own module so the sandbox host can render the SAME "disabled, preserved" card
@@ -322,8 +328,10 @@ export function WidgetRegion({
 	// with the tile, so one measured delta is not always the last. Bounded, so it cannot loop.
 	const growPasses = useRef(0);
 	const grow = useRef(onGrow);
+	const restoring = useRef(false);
 	useEffect(() => {
 		grow.current = onGrow;
+		restoring.current = !!onRestore;
 	});
 	useEffect(() => {
 		const node = scrollRef.current;
@@ -333,7 +341,15 @@ export function WidgetRegion({
 		const measure = () => {
 			cancelAnimationFrame(raf);
 			raf = requestAnimationFrame(() => {
-				const next = regionFit(node, content);
+				// RC-ENG-3.2 — a region with nothing to scroll hides nothing: every rect the walk could
+				// find ends inside its scroll height. Only a grown tile's footer and a Grow pass need
+				// the line positions, so a fitting tile skips the walk (a board mounts fifty at once).
+				const next =
+					growPasses.current === 0 &&
+					!restoring.current &&
+					node.scrollHeight - node.clientHeight <= 1
+						? { ...NO_OVERFLOW, top: node.scrollTop, view: node.clientHeight }
+						: regionFit(node, content);
 				const short = Math.ceil(next.extent + FOOTER_CLEARANCE - next.view);
 				if (growPasses.current > 0 && short > 1 && grow.current) {
 					growPasses.current -= 1;
@@ -551,12 +567,14 @@ function renderPlan(
 			const worker = plan.entrypoint.sandbox === 'worker';
 			const Host = worker ? WORKER_WIDGET_HOST : CUSTOM_WIDGET_HOST;
 			return Host ? (
-				<ThemeAwareWidgetHost
-					Host={Host}
-					followsTheme={followsTheme && !worker}
-					followsContrast={!worker}
-					{...props}
-				/>
+				<Suspense fallback={null}>
+					<ThemeAwareWidgetHost
+						Host={Host}
+						followsTheme={followsTheme && !worker}
+						followsContrast={!worker}
+						{...props}
+					/>
+				</Suspense>
 			) : (
 				<WidgetPlaceholder diagnostic={WIDGET_PLACEHOLDER_COPY.customHostUnavailable} />
 			);
@@ -566,7 +584,7 @@ function renderPlan(
 	}
 }
 
-export function WidgetRenderSlot({
+export const WidgetRenderSlot = memo(function WidgetRenderSlot({
 	widget,
 	onCommand,
 	...fit
@@ -620,4 +638,4 @@ export function WidgetRenderSlot({
 			</WidgetRegion>
 		</WidgetStyleScope>
 	);
-}
+});

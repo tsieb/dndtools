@@ -17,7 +17,7 @@ import {
 } from './board-helpers';
 import { getSceneForActor, type CoreCommand, type SectionLayoutRegion } from '@dndtools/core';
 import { useParams } from 'react-router-dom';
-import { EmptyCanvas, HistoryCluster, WidgetFrame } from './canvas/WidgetFrame';
+import { EmptyCanvas, HistoryCluster } from './canvas/WidgetFrame';
 import {
 	arrangeCommand,
 	arrangeShortcut,
@@ -66,6 +66,8 @@ import {
 } from './SceneBoardModel';
 export { ZOOM_PRESETS, ZOOM_PRESET_KEY, type ZoomPreset } from './SceneBoardModel';
 export { WidgetGlyph } from './canvas/WidgetFrame';
+import { useWidgetCommands } from './widgets/useWidgetCommands';
+import { BoardFrame, useFrameHandlers, usePaneWidth } from './widgets/boardFrames';
 import { srOnly } from './screen-kit';
 import { useI18n } from '../i18n';
 
@@ -92,7 +94,8 @@ export function SceneBoardCanvas({
 	onZoomPresetChange,
 }: SceneBoardCanvasProps) {
 	const wrapRef = useRef<HTMLDivElement | null>(null);
-	const [wrapWidth, setWrapWidth] = useState(0);
+	// RC-ENG-3.2 — read before the first paint, so a Fit board does not paint at 100% and re-render.
+	const wrapWidth = usePaneWidth(wrapRef);
 	const dragRef = useRef<Drag | null>(null);
 	const resizeMoved = useRef(false);
 	const [notice, announce] = A11y.useOperationNotice();
@@ -141,14 +144,18 @@ export function SceneBoardCanvas({
 			),
 		[runtime.state, authoredWidgets, routeSceneId, policy],
 	);
-	const summary = scene
-		? getSceneForActor(
-				runtime.state.scenes,
-				runtime.state.permissions,
-				runtime.defaultActorId,
-				scene.id,
-			)
-		: null;
+	const summary = useMemo(
+		() =>
+			scene
+				? getSceneForActor(
+						runtime.state.scenes,
+						runtime.state.permissions,
+						runtime.defaultActorId,
+						scene.id,
+					)
+				: null,
+		[scene, runtime.state.scenes, runtime.state.permissions, runtime.defaultActorId],
+	);
 	const sections = summary && !('kind' in summary) ? summary.sections : NO_SECTIONS;
 	const background = summary && !('kind' in summary) ? summary.visualSettings.background : 'paper';
 	const surfaceTheme =
@@ -214,16 +221,6 @@ export function SceneBoardCanvas({
 		},
 		[onMove],
 	);
-
-	useEffect(() => {
-		const node = wrapRef.current;
-		if (!node) return;
-		const update = () => setWrapWidth(node.clientWidth);
-		update();
-		const observer = new ResizeObserver(update);
-		observer.observe(node);
-		return () => observer.disconnect();
-	}, []);
 
 	// A pane that changes width re-scales a Fit board, moving every tile. Keep whatever has focus in
 	// view across it: closing the Add panel widens the pane after the gallery has scrolled the new
@@ -621,13 +618,24 @@ export function SceneBoardCanvas({
 		else void (key.kind === 'undo' ? history?.undo() : history?.redo());
 	};
 
+	const commands = useWidgetCommands(authoredWidgets, onWidgetCommand);
+	const frameHandlers = useFrameHandlers(widgets, frameRefs, {
+		onKeyDown: (w, e) => frameKeyDown(e, w),
+		onFocusIn: (w) => setFocusedId(w.id),
+		onStartMove: (w, e) => startMove(e, w),
+		onStartResize: (w, e) => startResize(e, w),
+		onCycleSize: cycleSize,
+		onResizeStep: (w, dx, dy) => keyboardResize(w, dx, dy),
+	});
+	// One settle callback for every frame: a fresh closure per render would defeat `BoardFrame`'s memo.
+	const settle = useCallback(() => historyRef.current?.settle(), []);
 	const frames = orderedWidgets.map((w) => {
 		const pos = posDraft[w.id] ?? { x: w.x, y: w.y };
 		const size = sizeDraft[w.id] ?? { w: w.w, h: w.h };
 		const selected = editing && selection.includes(w.id);
 		const resizable = editing && isWidgetResizable(w) && (canResize?.(w) ?? true);
 		return (
-			<WidgetFrame
+			<BoardFrame
 				key={w.id}
 				history={history}
 				w={w}
@@ -644,22 +652,9 @@ export function SceneBoardCanvas({
 				tabbable
 				stackOrder={widgets.indexOf(w)}
 				ariaLabel={frameName(w, { editing, selected: selected && multi.length > 0 })}
-				onKeyDown={(e) => frameKeyDown(e, w)}
-				onFocusIn={() => setFocusedId(w.id)}
-				onSettle={() => history?.settle()}
-				registerRef={(el) => {
-					if (el) frameRefs.current.set(w.id, el);
-					else frameRefs.current.delete(w.id);
-				}}
-				onStartMove={(e) => startMove(e, w)}
-				onStartResize={(e) => startResize(e, w)}
-				onCycleSize={() => void cycleSize(w)}
-				onResizeStep={(dx, dy) => keyboardResize(w, dx, dy)}
-				onCommand={
-					!editing && onWidgetCommand
-						? (commandType, payload) => onWidgetCommand(w.id, commandType, payload)
-						: undefined
-				}
+				onSettle={settle}
+				{...frameHandlers(w.id)}
+				onCommand={editing ? undefined : commands.get(w.id)}
 			/>
 		);
 	});

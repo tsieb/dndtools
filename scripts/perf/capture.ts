@@ -42,6 +42,8 @@
  * that changes speed mid-job moves both revisions together instead of reading as drift.
  */
 
+import { captureRevision, assertSameRevision } from './provenance';
+import { seedLargeScene } from './scene-fixture';
 import { spawn, spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { createWriteStream, mkdirSync, writeFileSync } from 'node:fs';
@@ -109,12 +111,14 @@ interface Page {
 }
 
 interface BrowserContext {
+	storageState(options: { indexedDB: true }): Promise<Record<string, unknown>>;
 	newPage(): Promise<Page>;
 	close(): Promise<void>;
 }
 
 interface Browser {
 	newContext(options?: {
+		storageState?: Record<string, unknown>;
 		baseURL?: string;
 		viewport?: { width: number; height: number };
 		deviceScaleFactor?: number;
@@ -151,6 +155,7 @@ export interface PerfRunFile {
 	readonly schemaVersion: 1;
 	readonly capturedAt: string;
 	readonly commit: string;
+	readonly sourceTree?: string;
 	readonly aggregation: 'median-of-batches-v1';
 	readonly host: {
 		readonly hostname: string;
@@ -327,8 +332,10 @@ async function newPage(
 	port: number,
 	profile: 'desktop' | 'slim',
 	vaultProfile: Options['vaultProfile'] = 'standard',
+	storageState?: Record<string, unknown>,
 ): Promise<{ page: Page; close: () => Promise<void> }> {
 	const context = await browser.newContext({
+		storageState,
 		baseURL: `http://localhost:${port}`,
 		viewport: profile === 'desktop' ? { width: 1280, height: 800 } : { width: 390, height: 844 },
 		deviceScaleFactor: 1,
@@ -421,6 +428,7 @@ function samplePages(
 	browser: Browser,
 	port: number,
 	vaultProfile: Options['vaultProfile'],
+	storageState?: Record<string, unknown>,
 ): { next: () => Promise<Page>; close: () => Promise<void> } {
 	let current: { page: Page; close: () => Promise<void> } | null = null;
 	return {
@@ -433,7 +441,7 @@ function samplePages(
 			}
 			await current?.close();
 			current = null;
-			current = await newPage(browser, port, 'desktop', vaultProfile);
+			current = await newPage(browser, port, 'desktop', vaultProfile, storageState);
 			return current.page;
 		},
 		close: async () => {
@@ -522,12 +530,59 @@ async function seedNotes(
 						visibility: i % 3 === 0 ? 'dm-only' : 'player-visible',
 					},
 				});
-				if (res.status === 'accepted') accepted += 1;
+				if (res.status !== 'accepted') throw new Error(`Fixture note ${i} rejected`);
+				accepted += 1;
 			}
 			return accepted;
 		},
 		{ actor, count },
 	);
+}
+
+// RC-ENG-3.2 — the standard row's search and graph vault: at least 2,000 notes seeded once per port
+// and restored into a fresh context for every batch, including the complete command log. Only the
+// durable fixture is reused, never a page or an in-memory index.
+const noteCampaigns = new Map<string, { storageState: Record<string, unknown>; seeded: number }>();
+async function noteCampaign(browser: Browser, options: Options) {
+	const count = Math.max(2000, options.notes);
+	const key = `${options.port}:${count}`;
+	const existing = noteCampaigns.get(key);
+	if (existing) return existing;
+	const setup = await newPage(browser, options.port, 'desktop');
+	try {
+		await gotoRoute(setup.page, '/settings');
+		const seeded = await seedNotes(setup.page, count, 'standard');
+		const storageState = await setup.page.context().storageState({ indexedDB: true });
+		const campaign = { storageState, seeded };
+		noteCampaigns.set(key, campaign);
+		return campaign;
+	} finally {
+		await setup.close();
+	}
+}
+
+/** RC-ENG-3.2 — the standard scene: the demo home scene grown to 50 widgets, 10 bound to maps. */
+const sceneCampaigns = new Map<number, Promise<Record<string, unknown>>>();
+function sceneCampaign(browser: Browser, port: number): Promise<Record<string, unknown>> {
+	let campaign = sceneCampaigns.get(port);
+	if (!campaign) {
+		campaign = (async () => {
+			const setup = await newPage(browser, port, 'desktop');
+			try {
+				await gotoRoute(setup.page, '/board');
+				await setup.page
+					.locator('[data-testid^="widget-"]')
+					.first()
+					.waitFor({ state: 'attached', timeout: READY_TIMEOUT });
+				await setup.page.evaluate(seedLargeScene);
+				return await setup.page.context().storageState({ indexedDB: true });
+			} finally {
+				await setup.close();
+			}
+		})();
+		sceneCampaigns.set(port, campaign);
+	}
+	return campaign;
 }
 
 // ── Scenarios ────────────────────────────────────────────────────────────────────────────────────
@@ -723,21 +778,25 @@ const sceneFirstRender: Scenario = {
 	run: async ({ browser, options }) => {
 		const samples: number[] = [];
 		let widgetCount = 0;
-		const pages = samplePages(browser, options.port, options.vaultProfile);
+		const large = options.vaultProfile === 'large';
+		// RC-ENG-3.2 — the standard row measures the budget's dataset: a prepared durable campaign whose
+		// home scene holds 50 widgets, 10 of them map tiles bound to maps. Every sample starts cold.
+		const storageState = large ? undefined : await sceneCampaign(browser, options.port);
+		const pages = samplePages(browser, options.port, options.vaultProfile, storageState);
 		// As in app-startup, the first navigation warms the dev server's module graph and is discarded.
 		try {
 			for (let i = -1; i < 3; i += 1) {
 				const page = await pages.next();
 				await gotoDocument(page, '/board');
-				await page.waitForFunction(
-					() => {
+				await page.waitForFunction<boolean>(
+					(wantsDataset) => {
 						const rt = (
 							window as unknown as {
 								__rt?: {
 									loaded?: boolean;
 									state: {
 										commandCenter: { homeSceneId: string | null };
-										scenes: { scenes: Record<string, { widgets: unknown[] }> };
+										scenes: { scenes: Record<string, { widgets: { binding?: unknown }[] }> };
 									};
 								};
 							}
@@ -745,13 +804,24 @@ const sceneFirstRender: Scenario = {
 						if (!rt?.loaded) return false;
 						const id = rt.state.commandCenter.homeSceneId;
 						if (!id) return false;
-						if ((rt.state.scenes.scenes[id]?.widgets.length ?? 0) === 0) return false;
-						// The painted widgets, not just the state: the board's own rendered children, which
-						// `SceneBoardCanvas` tags `data-testid="widget-<id>"`.
+						const widgets = rt.state.scenes.scenes[id]?.widgets ?? [];
+						if (widgets.length === 0) return false;
+						if (!wantsDataset) {
+							// The painted widgets, not just the state: the board's own rendered children,
+							// which `SceneBoardCanvas` tags `data-testid="widget-<id>"`.
+							const board = document.querySelector('[data-testid="scene-board-bounded"]');
+							return !!board && board.querySelectorAll('[data-testid^="widget-"]').length > 0;
+						}
+						if (widgets.length !== 50 || widgets.filter((w) => w.binding).length !== 10)
+							return false;
 						const board = document.querySelector('[data-testid="scene-board-bounded"]');
-						return !!board && board.querySelectorAll('[data-testid^="widget-"]').length > 0;
+						return (
+							!!board &&
+							board.querySelectorAll('[data-testid^="widget-"]').length === 50 &&
+							board.querySelectorAll('[data-testid="map-tile"]').length === 10
+						);
 					},
-					undefined,
+					!large,
 					{ timeout: READY_TIMEOUT, polling: 'raf' },
 				);
 				if (i < 0) continue;
@@ -780,7 +850,9 @@ const sceneFirstRender: Scenario = {
 		return {
 			samples,
 			scenario: 'Cold context → /board → home scene widgets painted on the bounded GM Screen.',
-			fixture: `Demo-seeded home scene, ${widgetCount} painted widgets (budget dataset: 50 widgets / 10 active bindings)`,
+			fixture: large
+				? `Demo-seeded home scene, ${widgetCount} painted widgets (budget dataset: 50 widgets / 10 active bindings)`
+				: `Cold context with prepared durable campaign, ${widgetCount} painted widgets / 10 active map bindings (budget dataset: 50 widgets / 10 active bindings)`,
 			profile: 'desktop',
 		};
 	},
@@ -980,22 +1052,20 @@ const LARGE_SEARCH_RESET = 'rc-perf-no-match';
 const search: Scenario = {
 	budgetId: 'search',
 	run: async ({ browser, options }) => {
-		const { page: initialPage, close } = await newPage(
+		// The standard row restores the prepared note campaign (RC-ENG-3.2); the large vault was
+		// restored before this document loaded. Either way the query runs against stored data.
+		const large = options.vaultProfile === 'large';
+		const campaign = large ? null : await noteCampaign(browser, options);
+		const { page, close } = await newPage(
 			browser,
 			options.port,
 			'desktop',
 			options.vaultProfile,
+			campaign?.storageState,
 		);
-		let page = initialPage;
 		try {
 			await gotoRoute(page, '/graph');
-			const seeded = await seedNotes(page, options.notes, options.vaultProfile);
-			// In-page seeding is reopened so the query runs against the vault loaded from storage. The
-			// large vault was restored before this document loaded, so it already is.
-			if (options.vaultProfile !== 'large') {
-				page = await reopenPage(page);
-				await waitReady(page);
-			}
+			const seeded = campaign?.seeded ?? (await seedNotes(page, options.notes, 'large'));
 			const box = page.getByRole('textbox', { name: 'Search the graph' });
 			await box.waitFor({ state: 'visible', timeout: READY_TIMEOUT });
 			const samples: number[] = [];
@@ -1054,20 +1124,24 @@ const search: Scenario = {
 const graphIndexing: Scenario = {
 	budgetId: 'graph-indexing',
 	run: async ({ browser, options }) => {
-		const { page: initialPage, close } = await newPage(
+		const large = options.vaultProfile === 'large';
+		const campaign = large ? null : await noteCampaign(browser, options);
+		const { page, close } = await newPage(
 			browser,
 			options.port,
 			'desktop',
 			options.vaultProfile,
+			campaign?.storageState,
 		);
-		let page = initialPage;
 		try {
 			await gotoRoute(page, '/graph');
-			const seeded = await seedNotes(page, options.notes, options.vaultProfile);
-			if (options.vaultProfile !== 'large') {
-				page = await reopenPage(page);
-				await waitReady(page);
-			}
+			const seeded = campaign?.seeded ?? (await seedNotes(page, options.notes, 'large'));
+			// `gotoRoute` resolves once the shell exists, before the lazy Graph screen has fetched and
+			// rendered. Wait for it as `search` does, so the first sample times one note's update, not
+			// however much of the screen's first mount happened to overlap it (RC-ENG-3.2).
+			await page
+				.getByRole('textbox', { name: 'Search the graph' })
+				.waitFor({ state: 'visible', timeout: READY_TIMEOUT });
 			const actor = await actorId(page);
 			const samples = await page.evaluate<
 				number[],
@@ -1161,6 +1235,21 @@ async function seedPanZoomMap(
 			unavailableReason: `map.create was ${created.status}${created.rejection?.message ? `: ${created.rejection.message}` : ''}; no map to pan.`,
 		};
 	}
+	// RC-ENG-3.2 — the budget's map carries generated world output, not just hand-placed POIs.
+	const generated = await dispatch(page, {
+		type: 'map.generate',
+		actorId: actor,
+		payload: {
+			mapId,
+			generatorId: 'world.continent',
+			seed: 'runtime-recovery',
+			params: {},
+			idPrefix: 'perf-world',
+			visibility: 'dm-only',
+		},
+	});
+	if (generated.status !== 'accepted')
+		throw new Error(`World generation rejected: ${JSON.stringify(generated.rejection)}`);
 	const layerIds = await page.evaluate<string[], string>(
 		(id) =>
 			Object.values(
@@ -1275,6 +1364,10 @@ function mapPanZoom(budgetId: string, profile: 'desktop' | 'slim'): Scenario {
 					};
 				}
 				const { mapName, poiCount } = seeded;
+				const fixture =
+					options.vaultProfile === 'large'
+						? `4 layers / ${poiCount} POIs`
+						: `world.continent default output (seed runtime-recovery) + 4 layers / ${poiCount} additional POIs`;
 
 				// Open the map in the full-screen editor — the only surface where the canvas is pannable.
 				// A map seeded in-page is reloaded first; the large snapshot's map was restored before
@@ -1298,7 +1391,7 @@ function mapPanZoom(budgetId: string, profile: 'desktop' | 'slim'): Scenario {
 					return {
 						samples: [],
 						scenario: 'Pan and zoom the full-screen map editor while sampling animation frames.',
-						fixture: `4 layers / ${poiCount} POIs`,
+						fixture,
 						profile,
 						unavailableReason: 'the editor canvas had no layout box to pan.',
 					};
@@ -1357,7 +1450,7 @@ function mapPanZoom(budgetId: string, profile: 'desktop' | 'slim'): Scenario {
 					samples,
 					scenario:
 						'Drag-pan the full-screen map editor 8× across the canvas and wheel-zoom twice, sampling every animation frame.',
-					fixture: `4 layers / ${poiCount} POIs`,
+					fixture,
 					profile,
 				};
 			} finally {
@@ -1530,6 +1623,7 @@ async function main(): Promise<void> {
 	}
 	sides.push({ label: 'candidate', root: REPO_ROOT, port: options.port, out: options.out });
 	const paired = sides.length > 1;
+	const revisions = new Map(sides.map((side) => [side.label, captureRevision(side.root)]));
 
 	const needsBrowser = selected.some((scenario) => !scenario.budgetId.startsWith('smoke-ci'));
 	const servers: Array<{ stop: () => Promise<void> }> = [];
@@ -1575,11 +1669,17 @@ async function main(): Promise<void> {
 				);
 				for (let repeat = shared ? 7 : 0; repeat < 7; repeat += 1) {
 					for (const side of interleavedOrder(sides, repeat)) {
-						const batch = await scenario.run({
-							browser: browser as Browser,
-							options: { ...options, port: side.port },
-							root: side.root,
-						});
+						const batch = await scenario
+							.run({
+								browser: browser as Browser,
+								options: { ...options, port: side.port },
+								root: side.root,
+							})
+							.catch((error: unknown) => {
+								throw new Error(`${side.label} batch ${repeat + 1}: ${String(error)}`, {
+									cause: error,
+								});
+							});
 						if (batch.samples.length === 0) {
 							throw new Error(`${side.label}: ${batch.unavailableReason ?? 'empty batch'}`);
 						}
@@ -1625,16 +1725,17 @@ async function main(): Promise<void> {
 		for (const server of servers) await server.stop();
 	}
 
+	// RC-ENG-3.2 — each run file names the exact tree it measured, and a checkout that moved mid-capture
+	// fails instead of mislabelling its numbers.
+	for (const side of sides) assertSameRevision(side.root, revisions.get(side.label)!);
 	const capturedAt = new Date().toISOString();
 	for (const side of sides) {
 		const budgets = captured.get(side.label)!;
 		const run: PerfRunFile = {
 			schemaVersion: 1,
 			capturedAt,
-			commit: spawnSync('git', ['rev-parse', 'HEAD'], {
-				cwd: side.root,
-				encoding: 'utf8',
-			}).stdout.trim(),
+			commit: revisions.get(side.label)!.commit,
+			sourceTree: revisions.get(side.label)!.tree,
 			aggregation: 'median-of-batches-v1',
 			host: hostDescription(),
 			budgets,

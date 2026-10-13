@@ -157,6 +157,9 @@ export async function preferTier(
  */
 const pristineOps = new WeakMap<Page, number>();
 
+/** The route each page last asked `gotoRoute` for, before any alias redirected it. */
+const requestedRoutes = new WeakMap<Page, string>();
+
 /**
  * What Chromium fails every in-flight request with, loopback ones included, when an interface on
  * the host changes: a Wi-Fi switch, a VPN, a bridged container starting (docs/development/TESTING.md
@@ -236,6 +239,7 @@ export async function waitReady(page: Page): Promise<void> {
  */
 export async function gotoRoute(page: Page, path: string): Promise<void> {
 	watchNetworkChanges(page);
+	requestedRoutes.set(page, path);
 	await page.goto(`/#${path}`, { waitUntil: 'domcontentloaded' });
 	await waitReady(page);
 	// The per-route <h1> is always in the DOM but is visually hidden in the compact/mobile layout,
@@ -267,6 +271,15 @@ export async function seedFresh(page: Page): Promise<void> {
 			}),
 		DB_NAME,
 	);
+	// `/board` redirects to its home screen's `/screen/:id` once the board chunk has loaded, and that
+	// id belongs to the vault just deleted: reloading it shows "screen unavailable" and never
+	// provisions the new home. Reload the route the spec asked for. Replacing the entry without a
+	// navigation event keeps the old vault's router from seeing it.
+	if (requestedRoutes.get(page) === '/board')
+		await page.evaluate(() => {
+			if (window.location.hash.startsWith('#/screen/'))
+				window.history.replaceState(window.history.state, '', '#/board');
+		});
 	watchNetworkChanges(page);
 	await page.reload({ waitUntil: 'domcontentloaded' });
 	await waitReady(page);

@@ -127,3 +127,48 @@ The historical `baseline.json` has explicit null large entries because that
 workstation run did not measure them. They are not CI evidence. Hosted CI writes
 fresh numeric values for both rows into every `tmp/perf/baseline-N.json` and
 uploads the paired raw captures. No hosted result is implied by this configuration.
+
+## Standard-row datasets (RC-ENG-3.2)
+
+The standard row measures each budget's declared dataset where the harness can build it
+honestly through real commands:
+
+- `scene-first-render` prepares one durable campaign per revision whose home scene holds
+  50 widgets, 10 of them map tiles bound to maps (`scene-fixture.ts`). Every sample opens
+  that campaign in a cold browser context, and the sample only ends once all 50 widgets
+  and all 10 map tiles have painted.
+- `search` and `graph-indexing` restore a 2,000-note campaign, seeded once per revision
+  through `content.create-item` (with its full command log), into a fresh context for
+  every batch. A rejected fixture note fails the capture.
+- The map pan/zoom map carries `world.continent` output (seed `runtime-recovery`) under the
+  4 layers / 100 POIs.
+
+The large row keeps its own snapshot (above). Every run file records the commit and
+source tree it measured, and a checkout that changes during a capture fails it.
+
+## Supplemental large-scene measurement
+
+With isolated reference and candidate dev servers already running:
+
+```sh
+node scripts/perf/scene-stress.mjs http://localhost:16373 http://localhost:16273 tmp/perf/scene-stress.json
+```
+
+Record the two server revisions with the output; the script cannot authenticate
+an arbitrary already-running server's revision. It creates 50 widgets through real
+commands: ten map tiles bound to an existing map, and forty non-map demo tiles.
+After reloading, it requires all fifty widget frames and exactly ten map bodies.
+Seven alternating pairs follow one warmup per revision, at 2x CPU throttle. Raw
+samples and medians are retained. This is a persisted-vault reload through two
+paint frames, not the cold-context demo-first-render scenario, and does not replace
+the standard budget comparison or the hosted stability workflow.
+
+## Graph readiness before graph-indexing
+
+`gotoRoute` resolves once the runtime has loaded and the shell's main landmark exists. `/graph` is a
+lazy route, so at that point the Graph screen may not have fetched or rendered yet. `search` already
+waited for the graph's search box before its first query; since RC-ENG-3.2 `graph-indexing` waits
+for the same box before its first timed note. Before that, whichever part of the screen's first mount
+overlapped the first sample was timed as that note's update, and because the budget grades each
+batch's slowest sample, a race decided the batch. The five timed notes, the 10-second render
+deadline and the 500 ms target are unchanged, and both revisions run the candidate's harness.

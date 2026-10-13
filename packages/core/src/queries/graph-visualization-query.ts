@@ -2,8 +2,8 @@ import type { PermissionState } from '../state/permission-state';
 import type { VaultContentState } from '../state/content';
 import type { MapState } from '../state/map-state';
 import type { SessionState } from '../state/session-state';
-import { parseMarkdownNote } from '../state/markdown';
 import { VAULT_OBJECT_SUBTYPE_KEY } from '../state/vault-object';
+import { parseNoteCached } from './parsed-note-cache';
 import type { GraphEdge, GraphNode, GraphNodeKind } from '../state/graph-index';
 import { GRAPH_NODE_KINDS } from '../state/graph-index';
 import type { GraphSourceKind } from '../state/graph-source-index';
@@ -227,25 +227,34 @@ function classifyEdge(
 }
 
 /**
- * GRAPH-004 — build the ACTOR-FILTERED visualization view model. Composes the GRAPH-001/008 source graph
- * (nodes + edges + provenance), enriches note/object nodes with folder + tags from the SAME actor-filtered
- * content read, then applies the visibility-safe filter (folder, tag, entity type, source, relationship type,
- * search text). An unknown/unauthenticated actor receives the EMPTY model (fail closed). Pure + deterministic.
- *
- * @param defaultSourceId the source the local records came from (always available — its content is cached).
- * @param filter          the visibility-safe filter; an empty filter shows the whole visible graph.
- * @param availability    additional configured sources to index across, with their cache availability.
+ * The filter-independent part of a visualization read: the actor's visible nodes (folder + tags joined,
+ * degree 0) in node order, every visible edge classified and in edge order, the facets, and the source
+ * status. It depends only on the vault and the actor, so a screen that changes the filter (every keystroke
+ * of a graph search) can build it once per vault change and run only {@link filterGraphVisualization}
+ * per filter. Treat it as opaque; {@link filterGraphVisualization} never mutates it and returns fresh
+ * objects, so a caller mutating its result cannot change the base or another result (RC-ENG-3.2).
  */
-export function getGraphVisualizationForActor(
+export interface GraphVisualizationBase {
+	readonly nodes: readonly GraphVizNode[];
+	readonly edges: readonly GraphVizEdge[];
+	readonly facets: GraphVizFacets;
+	readonly partial: boolean;
+	readonly sourceDiagnostics: readonly GraphSourceDiagnostic[];
+}
+
+/**
+ * GRAPH-004 — the filter-independent half of {@link getGraphVisualizationForActor}; see
+ * {@link GraphVisualizationBase}. An unknown/unauthenticated actor receives the EMPTY base (fail closed).
+ */
+export function buildGraphVisualizationBase(
 	content: VaultContentState,
 	maps: MapState,
 	session: SessionState | undefined,
 	permissions: PermissionState,
 	actorId: string,
 	defaultSourceId: string,
-	filter: GraphVizFilter = {},
 	availability: SourceGraphAvailability = {},
-): GraphVisualization {
+): GraphVisualizationBase {
 	if (!permissions.actors[actorId]) return emptyGraphVisualization();
 
 	// The actor's VISIBLE source graph (nodes + edges + per-node provenance). One graph, already filtered.
@@ -270,14 +279,14 @@ export function getGraphVisualizationForActor(
 		subtypeById.set(view.id, view.fields[VAULT_OBJECT_SUBTYPE_KEY]);
 		tagsById.set(
 			view.id,
-			parseMarkdownNote(view.body).tags.map((tag) => tag.toLowerCase()),
+			parseNoteCached(view.body).tags.map((tag) => tag.toLowerCase()),
 		);
 	}
 
 	// The structural kind of each node, used to classify edges and enrich nodes.
 	const kindById = new Map<string, GraphNodeKind>(graph.nodes.map((node) => [node.id, node.kind]));
 
-	// Project every visible node onto the view-model node (degree is filled in after the edge pass).
+	// Project every visible node onto the view-model node (degree is filled in by the filter pass).
 	const allNodes: GraphVizNode[] = graph.nodes.map((node: GraphNode) => ({
 		id: node.id,
 		kind: kindWordFor(node.kind, subtypeById.get(node.id)),
@@ -292,15 +301,45 @@ export function getGraphVisualizationForActor(
 	// FACETS over the unfiltered visible graph (so a facet never reveals hidden content). Computed BEFORE the
 	// filter is applied — the facets describe what the actor COULD filter by, not the current result.
 	const facets = buildFacets(allNodes, graph.edges, kindById);
-	const totalVisibleNodes = allNodes.length;
 
+	// Sorted once here. The sorts are stable and neither key reads degree or depends on the filter, so
+	// filtering these lists yields exactly the order sorting each filtered result would.
+	const edges: GraphVizEdge[] = graph.edges
+		.map((edge) => ({
+			fromId: edge.fromId,
+			toId: edge.toId,
+			via: edge.via,
+			relationship: classifyEdge(edge, kindById),
+		}))
+		.sort(compareEdges);
+
+	return {
+		nodes: allNodes.sort(compareNodes),
+		edges,
+		facets,
+		partial:
+			sourceIndex.status === 'partial' ||
+			sourceIndex.status === 'stale' ||
+			sourceIndex.status === 'unknown',
+		sourceDiagnostics: getSourceGraphDiagnosticsForActor(sourceIndex),
+	};
+}
+
+/**
+ * GRAPH-004 — apply the visibility-safe filter to a {@link GraphVisualizationBase}. Every node, edge,
+ * list and diagnostic in the result is a fresh object. Pure + deterministic.
+ */
+export function filterGraphVisualization(
+	base: GraphVisualizationBase,
+	filter: GraphVizFilter = {},
+): GraphVisualization {
 	// Apply the per-node facets (folder, tags, entity type, source, text). A node must satisfy ALL provided
 	// facets to survive. The text needle matches a node's title, folder, or a tag — never hidden content.
 	const needle = filter.text?.trim().toLowerCase() ?? '';
 	const tagFilter = (filter.tags ?? []).map((tag) => tag.toLowerCase()).filter((tag) => tag !== '');
 	const kindFilter = filter.kinds ? new Set(filter.kinds) : null;
 	const sourceFilter = filter.sources ? new Set(filter.sources) : null;
-	const survivors = allNodes.filter((node) => {
+	const survivors = base.nodes.filter((node) => {
 		if (filter.folder !== undefined && node.folder !== filter.folder) return false;
 		if (tagFilter.length > 0 && !tagFilter.every((tag) => node.tags.includes(tag))) return false;
 		if (kindFilter && !kindFilter.has(node.kind)) return false;
@@ -316,31 +355,68 @@ export function getGraphVisualizationForActor(
 	const relationshipFilter = filter.relationships ? new Set(filter.relationships) : null;
 	const edges: GraphVizEdge[] = [];
 	const degreeById = new Map<string, number>();
-	for (const edge of graph.edges) {
+	for (const edge of base.edges) {
 		if (!survivorIds.has(edge.fromId) || !survivorIds.has(edge.toId)) continue;
-		const relationship = classifyEdge(edge, kindById);
-		if (relationshipFilter && !relationshipFilter.has(relationship)) continue;
-		edges.push({ fromId: edge.fromId, toId: edge.toId, via: edge.via, relationship });
+		if (relationshipFilter && !relationshipFilter.has(edge.relationship)) continue;
+		edges.push({ ...edge });
 		degreeById.set(edge.fromId, (degreeById.get(edge.fromId) ?? 0) + 1);
 		degreeById.set(edge.toId, (degreeById.get(edge.toId) ?? 0) + 1);
 	}
-	edges.sort(compareEdges);
 
-	const nodes = survivors
-		.map((node) => ({ ...node, degree: degreeById.get(node.id) ?? 0 }))
-		.sort(compareNodes);
+	const nodes = survivors.map((node) => ({
+		...node,
+		tags: [...node.tags],
+		degree: degreeById.get(node.id) ?? 0,
+	}));
 
 	return {
 		nodes,
 		edges,
-		facets,
-		totalVisibleNodes,
-		partial:
-			sourceIndex.status === 'partial' ||
-			sourceIndex.status === 'stale' ||
-			sourceIndex.status === 'unknown',
-		sourceDiagnostics: getSourceGraphDiagnosticsForActor(sourceIndex),
+		facets: {
+			folders: [...base.facets.folders],
+			tags: [...base.facets.tags],
+			kinds: [...base.facets.kinds],
+			sources: [...base.facets.sources],
+			relationships: [...base.facets.relationships],
+		},
+		totalVisibleNodes: base.nodes.length,
+		partial: base.partial,
+		sourceDiagnostics: base.sourceDiagnostics.map((diagnostic) => ({ ...diagnostic })),
 	};
+}
+
+/**
+ * GRAPH-004 — build the ACTOR-FILTERED visualization view model. Composes the GRAPH-001/008 source graph
+ * (nodes + edges + provenance), enriches note/object nodes with folder + tags from the SAME actor-filtered
+ * content read, then applies the visibility-safe filter (folder, tag, entity type, source, relationship type,
+ * search text). An unknown/unauthenticated actor receives the EMPTY model (fail closed). Pure + deterministic.
+ *
+ * @param defaultSourceId the source the local records came from (always available — its content is cached).
+ * @param filter          the visibility-safe filter; an empty filter shows the whole visible graph.
+ * @param availability    additional configured sources to index across, with their cache availability.
+ */
+export function getGraphVisualizationForActor(
+	content: VaultContentState,
+	maps: MapState,
+	session: SessionState | undefined,
+	permissions: PermissionState,
+	actorId: string,
+	defaultSourceId: string,
+	filter: GraphVizFilter = {},
+	availability: SourceGraphAvailability = {},
+): GraphVisualization {
+	return filterGraphVisualization(
+		buildGraphVisualizationBase(
+			content,
+			maps,
+			session,
+			permissions,
+			actorId,
+			defaultSourceId,
+			availability,
+		),
+		filter,
+	);
 }
 
 /** Whether the free-text needle matches a node's title, folder, or one of its tags (case-insensitive). Pure. */

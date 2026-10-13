@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
 	findWidgetDefinition,
@@ -41,8 +41,6 @@ import { AddWidgetGallery } from '../app/canvas/AddWidgetGallery';
 import { FlowBoard } from '../app/canvas/FlowBoard';
 import { BoardLayoutBanner } from './board/BoardLayoutBanner';
 import { TemplatePicker, TemplateStartEntry } from '../app/canvas/TemplatePicker';
-import { GenerateDialog } from '../app/widgetBuilder/GenerateDialog';
-import { WidgetBuilder } from './extensions/WidgetBuilder';
 import {
 	ScreenEditClip,
 	ScreenInspector,
@@ -52,6 +50,15 @@ import {
 import { ScreenToolbar } from './sceneEditor/SceneToolbar';
 import { usePreviewActions } from '../app/ViewAsControl';
 import { readPlayerPreview } from './sceneEditor/playerPreview';
+// Load authoring tools on demand; local Suspense keeps the board mounted.
+const GenerateDialog = lazy(() =>
+	import('../app/widgetBuilder/GenerateDialog').then((module) => ({
+		default: module.GenerateDialog,
+	})),
+);
+const WidgetBuilder = lazy(() =>
+	import('./extensions/WidgetBuilder').then((module) => ({ default: module.WidgetBuilder })),
+);
 
 /**
  * Board — the board engine behind `/screen/:id` (ADR-041): one screen rendered by its layout policy
@@ -243,12 +250,14 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 
 	// Presets and safe points are `command-center.*` commands on the HOME board, so only it offers them.
 	const isHomeBoard = sceneId === runtime.state.commandCenter.homeSceneId;
-	const summary = getSceneForActor(
-		runtime.state.scenes,
-		runtime.state.permissions,
-		actorId,
-		sceneId,
-		{ widgetPackages: runtime.state.widgets },
+	// RC-ENG-3.2 — memoised on what it reads, so an unrelated runtime change does not hand the canvas
+	// a fresh widget list (and every frame new props).
+	const scenes = runtime.state.scenes;
+	const permissions = runtime.state.permissions;
+	const widgetPackages = runtime.state.widgets;
+	const summary = useMemo(
+		() => getSceneForActor(scenes, permissions, actorId, sceneId, { widgetPackages }),
+		[scenes, permissions, actorId, sceneId, widgetPackages],
 	);
 	const ready = !('kind' in summary);
 	const previewBlocked =
@@ -780,21 +789,25 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 					setEditing(true);
 				}}
 			/>
-			<GenerateDialog
-				open={generateOpen}
-				onClose={() => setGenerateOpen(false)}
-				onGenerated={(pkg) => {
-					setGenerateOpen(false);
-					setBuilder({ pkg });
-				}}
-			/>
-			{builder && (
-				<WidgetBuilder
-					generatedPackage={builder.pkg}
-					onClose={() => setBuilder(null)}
-					onInstalled={setBuilt}
-				/>
-			)}
+			<Suspense fallback={<p role="status">{t('common.state.loading')}</p>}>
+				{generateOpen && (
+					<GenerateDialog
+						open={generateOpen}
+						onClose={() => setGenerateOpen(false)}
+						onGenerated={(pkg) => {
+							setGenerateOpen(false);
+							setBuilder({ pkg });
+						}}
+					/>
+				)}
+				{builder && (
+					<WidgetBuilder
+						generatedPackage={builder.pkg}
+						onClose={() => setBuilder(null)}
+						onInstalled={setBuilt}
+					/>
+				)}
+			</Suspense>
 		</div>
 	);
 }

@@ -7,6 +7,7 @@ import {
 	getPlayerScopedHealthSummary,
 	kindWordFor,
 	type ContentKindWord,
+	type CoreStateSlice,
 	type GraphVizNode,
 } from '@dndtools/core';
 import { T } from '../../app/screen-kit';
@@ -88,7 +89,9 @@ export const BAND_LABEL: Record<string, MessageKey> = {
 };
 
 /** Deterministic, force-free ellipse layout — the core graph carries no coordinates (it is a pure model). */
-export function positioned(nodes: GraphVizNode[]): (GraphVizNode & { x: number; y: number })[] {
+export function positioned(
+	nodes: readonly GraphVizNode[],
+): (GraphVizNode & { x: number; y: number })[] {
 	const n = nodes.length;
 	const cx = 50;
 	const cy = 35;
@@ -263,25 +266,24 @@ export function useLabelPlacement(canvas: HTMLElement | null, key: string) {
 }
 
 /** Preserve the same actor-scoped health reads and memoization as the graph screen. */
-export function useGraphHealth(view: 'dm' | 'player', dmId: string, playerId: string) {
-	const runtime = useRuntime();
+export function useGraphHealth(
+	state: CoreStateSlice,
+	view: 'dm' | 'player',
+	dmId: string,
+	playerId: string,
+) {
 	const health = useMemo(() => {
 		const now = new Date().toISOString();
 		return view === 'dm'
 			? {
 					kind: 'dm' as const,
-					report: getGraphHealthForDm(runtime.state.content, runtime.state.permissions, dmId, now),
+					report: getGraphHealthForDm(state.content, state.permissions, dmId, now),
 				}
 			: {
 					kind: 'player' as const,
-					summary: getPlayerScopedHealthSummary(
-						runtime.state.content,
-						runtime.state.permissions,
-						playerId,
-						now,
-					),
+					summary: getPlayerScopedHealthSummary(state.content, state.permissions, playerId, now),
 				};
-	}, [runtime.state, view, dmId, playerId]);
+	}, [state, view, dmId, playerId]);
 
 	return health;
 }

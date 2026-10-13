@@ -3631,6 +3631,8 @@ export type {
 	WikilinkDomains,
 	WikilinkRenamePropagation,
 } from './queries/wikilink-graph';
+// RC-ENG-3.2: the graph reads' note-parse memo; a host clears it when it replaces the vault's content.
+export { clearParsedNoteCache } from './queries/parsed-note-cache';
 export {
 	applyLinkRepairForActor,
 	buildWikilinkCandidatesForActor,
@@ -3935,11 +3937,14 @@ export type {
 	GraphVizFacets,
 	GraphVizFilter,
 	GraphVizNode,
+	GraphVisualizationBase,
 } from './queries/graph-visualization-query';
 export {
 	CONTENT_KIND_WORDS,
 	GRAPH_RELATIONSHIP_KINDS,
+	buildGraphVisualizationBase,
 	emptyGraphVisualization,
+	filterGraphVisualization,
 	getGraphVisualizationForActor,
 	kindWordFor,
 } from './queries/graph-visualization-query';

@@ -1,6 +1,6 @@
 import type { PermissionState } from '../state/permission-state';
 import type { VaultContentState } from '../state/content';
-import { parseMarkdownNote } from '../state/markdown';
+import { parseNoteCached } from './parsed-note-cache';
 import type { ContentSourceId } from '../state/content-constraints';
 import {
 	applyLinkRepair,
@@ -85,7 +85,7 @@ function itemAvailable(view: ContentItemView): boolean {
 }
 
 function itemAliases(view: ContentItemView): string[] {
-	const parsed = parseMarkdownNote(view.body);
+	const parsed = parseNoteCached(view.body);
 	return parsed.aliases;
 }
 
@@ -102,7 +102,7 @@ export function buildWikilinkCandidatesForActor(
 ): ActorWikilinkTarget[] {
 	const visible = getContentItemsForActor(content, permissions, actorId);
 	const targets: ActorWikilinkTarget[] = visible.map((view) => {
-		const parsed = parseMarkdownNote(view.body);
+		const parsed = parseNoteCached(view.body);
 		return {
 			id: view.id,
 			entityId: view.id,
@@ -122,7 +122,7 @@ export function buildWikilinkCandidatesForActor(
 	if (domains.characters) {
 		for (const character of listCharactersForActor(domains.characters, permissions, actorId)) {
 			const body = typeof character.data.body === 'string' ? character.data.body : '';
-			const parsed = parseMarkdownNote(body);
+			const parsed = parseNoteCached(body);
 			targets.push({
 				id: character.id,
 				entityId: character.id,
@@ -146,7 +146,7 @@ export function buildWikilinkCandidatesForActor(
 			});
 			if (map.kind !== 'available') continue;
 			const route = `/atlas?map=${encodeURIComponent(mapId)}`;
-			const parsedMap = parseMarkdownNote(map.description);
+			const parsedMap = parseNoteCached(map.description);
 			targets.push({
 				id: mapId,
 				entityId: mapId,
@@ -161,7 +161,7 @@ export function buildWikilinkCandidatesForActor(
 				route,
 			});
 			for (const poi of map.pois) {
-				const parsedPoi = parseMarkdownNote(poi.notes);
+				const parsedPoi = parseNoteCached(poi.notes);
 				targets.push({
 					id: `poi:${mapId}:${poi.id}`,
 					entityId: poi.id,

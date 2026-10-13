@@ -54,12 +54,18 @@ const SceneEditor = lazy(() =>
 	import('./screens/sceneEditor').then((m) => ({ default: m.SceneEditor })),
 );
 // RC-CAN-7.3 / ADR-041 — `/screen/:id` renders any screen; `/board` resolves to the GM screen's.
-const ScreenView = lazy(() =>
-	import('./screens/screen/ScreenView').then((m) => ({ default: m.ScreenView })),
-);
-const BoardAlias = lazy(() =>
-	import('./screens/screen/ScreenView').then((m) => ({ default: m.BoardAlias })),
-);
+const loadScreenView = () => import('./screens/screen/ScreenView');
+// RC-ENG-3.2 — routes render only once the vault has loaded, so a cold open of a screen fetched its
+// chunk after hydration. Start it now instead; it downloads while the vault loads. Its deepest import
+// chains (board → widget bodies → map canvas) start alongside it rather than one level at a time.
+if (/^#\/(?:board|screen\/)/.test(window.location.hash)) {
+	void loadScreenView();
+	void import('./screens/Board');
+	void import('./app/widget-bodies');
+	void import('./app/map/canvas/MapCanvas');
+}
+const ScreenView = lazy(() => loadScreenView().then((m) => ({ default: m.ScreenView })));
+const BoardAlias = lazy(() => loadScreenView().then((m) => ({ default: m.BoardAlias })));
 const Session = lazy(() => import('./screens/session').then((m) => ({ default: m.Session })));
 const Characters = lazy(() =>
 	import('./screens/characters').then((m) => ({ default: m.Characters })),
