@@ -2,7 +2,6 @@ import { useLayoutEffect, useRef } from 'react';
 import { Toaster } from '../../ds';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import type { BoardWidget } from '../../app/board-helpers';
-import { usePanelFocusReturn } from '../../app/usePanelFocusReturn';
 import { useI18n } from '../../i18n';
 import { SceneMetaPanel } from './SceneMetaPanel';
 import { Inspector } from './Inspector';
@@ -65,7 +64,6 @@ export function ScreenInspector({
 	const scene = runtime.state.scenes.scenes[sceneId];
 	const instance = scene?.widgets.find((widget) => widget.id === selectedId);
 	const widget = widgets.find((widget) => widget.id === selectedId);
-	usePanelFocusReturn(metaOpen || !!widget);
 	if (!scene) return null;
 	function configure(key: string, value: unknown) {
 		configQueue.current = configQueue.current.then(async () => {

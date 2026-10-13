@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState, type ComponentProps, type SyntheticEvent } from 'react';
 import './sceneEditor.css';
+import { usePanelFocusReturn } from '../../app/usePanelFocusReturn';
 
 // The parts of the editor a screen board borrows. They live apart from `SceneEditor` so `/board`
 // does not load the whole editor page, its widget builder and the assistant run; the inspector and
@@ -14,6 +15,10 @@ const LazyPreviewOverlay = lazy(() =>
 
 /** The screen board borrows the editor's drawers, with its own dispatch and undo stack. */
 export function ScreenInspector(props: ComponentProps<typeof LazyInspector>) {
+	// Out here, not in the lazy part: it must see the opener focused before the drawer first loads.
+	usePanelFocusReturn(
+		props.metaOpen || props.widgets.some((widget) => widget.id === props.selectedId),
+	);
 	return (
 		<Suspense fallback={null}>
 			<LazyInspector {...props} />
