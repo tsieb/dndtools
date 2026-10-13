@@ -31,8 +31,8 @@ import { StatBlockTemplate } from '../widgets/templates/StatBlock';
 import { StatusListTemplate } from '../widgets/templates/StatusList';
 import { TrackerTemplate } from '../widgets/templates/Tracker';
 import { WidgetLibraryCard } from './WidgetFrame';
-import { InPlaceEnable } from '../../screens/extensions/WidgetBuilder';
-import { CreateEntry, GenerateGateNote, useGenerateGate } from '../widgetBuilder/GenerateDialog';
+import { InPlaceEnable } from '../../screens/extensions/InPlaceEnable';
+import { CreateEntry, GenerateGateNote, useGenerateGate } from '../widgetBuilder/generateGate';
 
 // The free-slot search moved beside the palette rows that share it (RC-CAN-8.5), and the "More ways
 // to add" card beside the Generate gate that can turn it into a note (RC-WID-6.7).

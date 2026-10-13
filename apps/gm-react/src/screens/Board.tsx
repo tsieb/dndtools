@@ -46,7 +46,7 @@ import {
 	ScreenInspector,
 	ScreenPreviewOverlay,
 	useQuietPlacement,
-} from './sceneEditor';
+} from './sceneEditor/screenParts';
 import { ScreenToolbar } from './sceneEditor/SceneToolbar';
 import { usePreviewActions } from '../app/ViewAsControl';
 import { readPlayerPreview } from './sceneEditor/playerPreview';

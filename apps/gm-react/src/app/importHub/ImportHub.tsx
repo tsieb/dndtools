@@ -19,8 +19,9 @@ export const IMPORT_HUB_ROWS = {
 	scene: 'importHub.scene',
 } as const satisfies Record<ImporterId, MessageKey>;
 
-export function ImportHub() {
-	const [open, setOpen] = useState(false);
+/** `defaultOpen`: the help host mounts the hub on its first open event, so it starts open. */
+export function ImportHub({ defaultOpen = false }: { defaultOpen?: boolean }) {
+	const [open, setOpen] = useState(defaultOpen);
 	const { t } = useI18n();
 	const navigate = useNavigate();
 	const runtime = useRuntime();

@@ -1,5 +1,5 @@
 import { openImportHub } from './importHub/registry';
-import { HelpMenu } from './help/HelpMenu';
+import { HelpMenu } from './help/HelpPanel';
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
