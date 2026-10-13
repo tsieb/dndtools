@@ -34,6 +34,11 @@ test.describe('graph: large vault canvas', () => {
 		);
 		await page.goto('/#/graph', { waitUntil: 'domcontentloaded' });
 		await waitReady(page);
+		// RC-KNW-6.5 — on a phone the results list is the graph; the canvas opens on request. The screen
+		// loads lazily, so wait for it before asking whether the button is there.
+		await page.getByRole('textbox', { name: 'Search the graph' }).waitFor();
+		const showMap = page.getByRole('button', { name: 'Show map', exact: true });
+		if (await showMap.isVisible()) await showMap.click();
 		await expect(page.getByTestId('graph-node').first()).toBeAttached();
 	});
 
