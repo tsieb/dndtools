@@ -170,3 +170,34 @@ Final results are recorded below. Earlier failed attempts are retained as diagno
   - Regenerated with `--update-snapshots=changed`: 36 PNGs. Recompressed them losslessly with zopfli; decoded RGBA is identical for all 36 (pngjs check). Baseline budget **37668.4 / 37888.0 KiB**.
   - Compare on the final source (`golden-routes`, `scene-editor-polish`, `board-layouts`, `add-panel`; all profiles; `--update-snapshots=none`): **246 passed** (`/tmp/rc86-r9-visual-compare.log`). The full visual suite was not re-run after the re-baseline. Every spec outside these four passed in the pre-re-baseline full run.
 - Local commits only. No push, promotion, dispatcher-control edits or extra agents.
+
+## Operator completion (2026-10-12)
+
+Finished by the operator session from the dispatcher attempt's head `cb9312209`, instead of another
+dispatcher round. The branch was squashed and rebased onto `loop/rc` `163357b9a` (RC-WID-5.7,
+RC-SES-7.3, RC-CAN-8.7 and RC-UX-6.5 landed). Only PNGs conflicted. I took `loop/rc`'s and
+re-baselined below.
+
+- `canvas-copy.test.ts` (RC-CAN-8.7's literal ratchet) now lists the tile menu's clamped transform
+  (`translateX( px) scale( )` in place of `scale( )`). It carries no language.
+- `StackedBoard.tsx`: with RC-CAN-8.7, the audio tile draws its declared Scene cards intent in view
+  mode. Phone Edit layout now keeps the list mounted, and the list passed live commands while
+  editing, so the intent appeared in the edit posture (phone `/scene/:id` golden). A tile in the
+  edit posture is now inert, as on the canvas (`SceneBoardCanvas` passes no handler while editing).
+
+Validation on the rebased tree: `pnpm typecheck` 0; `pnpm test` 0 (core 5,392, cloud 569, app
+2,375, tooling 249); `pnpm lint` 0; `pnpm gates` 0; changed-file Prettier clean.
+
+Playwright, both profiles:
+
+- responsive, canvas, phone-arrange, phone-navigator, canvas-arrange, tile-resize and
+  a11y-axe-gate: 343 passed, 1 skipped.
+- After the inert-edit fix: phone-arrange, phone-navigator, canvas, responsive, screens-library,
+  map-tile and combat-tile, 307 passed, 5 skipped.
+
+Pinned visual compare: 568 passed, 14 failed.
+
+- 10 were the conflicted baselines, re-baselined: rail `/board` ×3, phone scene-editor inspector
+  ×5, and scene-editor resize-handle on desktop and rail.
+- 3 were phone `/scene/:id`, fixed by the inert-edit change and passing without re-baseline.
+- 1 was a phone `/audio` screenshot timeout under load, which passed on rerun.

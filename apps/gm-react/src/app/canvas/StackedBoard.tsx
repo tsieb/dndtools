@@ -408,8 +408,9 @@ function StackedList({
 						}
 						onTileKeyDown(e, w.id);
 					}}
+					// An edit-mode tile is inert, as on the canvas: its body runs no command.
 					onCommand={
-						onWidgetCommand
+						!editing && onWidgetCommand
 							? (commandType, payload) => onWidgetCommand(w.id, commandType, payload)
 							: undefined
 					}
