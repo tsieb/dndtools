@@ -169,6 +169,34 @@ export function getContentItemsForActor(
 	actorId: string,
 	format: CalendarDateFormat = 'medium',
 ): ContentItemView[] {
+	// RC-ENG-3.2 — the read is a pure function of the two slices, and a command that does not touch
+	// them keeps both objects, so every widget, panel and query that asks again during the same
+	// render (or after an unrelated command) shares one projection. The cached array is frozen: a
+	// caller that sorts or splices it in place fails loudly instead of corrupting the next reader.
+	let entry = contentItemsCache.get(content);
+	if (!entry || entry.permissions !== permissions) {
+		entry = { permissions, views: new Map() };
+		contentItemsCache.set(content, entry);
+	}
+	const key = `${actorId}\u0000${format}`;
+	const cached = entry.views.get(key);
+	if (cached) return cached as ContentItemView[];
+	const views = Object.freeze(projectContentItems(content, permissions, actorId, format));
+	entry.views.set(key, views);
+	return views as ContentItemView[];
+}
+
+const contentItemsCache = new WeakMap<
+	VaultContentState,
+	{ permissions: PermissionState; views: Map<string, readonly ContentItemView[]> }
+>();
+
+function projectContentItems(
+	content: VaultContentState,
+	permissions: PermissionState,
+	actorId: string,
+	format: CalendarDateFormat,
+): ContentItemView[] {
 	const actor = permissions.actors[actorId];
 	if (!actor) return [];
 	const visible = Object.values(content.items)
