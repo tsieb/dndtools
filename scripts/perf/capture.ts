@@ -1045,8 +1045,8 @@ const liveSessionDelivery: Scenario = {
 	},
 };
 
-/** Matches no node title, folder or tag in the large vault, so the result list starts empty. */
-const LARGE_SEARCH_RESET = 'rc-perf-no-match';
+/** Matches no node title, folder or tag in either vault, so the result list starts empty. */
+const SEARCH_RESET = 'rc-perf-no-match';
 
 /** Fill the graph search box and time until the result list settles on the new query. */
 const search: Scenario = {
@@ -1069,12 +1069,12 @@ const search: Scenario = {
 			const box = page.getByRole('textbox', { name: 'Search the graph' });
 			await box.waitFor({ state: 'visible', timeout: READY_TIMEOUT });
 			const samples: number[] = [];
-			// Clearing the box lists every node. On the large vault that re-renders 5,000 rows between
-			// samples, so each large sample starts from a query that matches nothing instead.
-			const reset = options.vaultProfile === 'large' ? LARGE_SEARCH_RESET : '';
+			// Clearing the box lists every node: 2,000 campaign rows on the standard vault, 5,000 on the
+			// large one. Their layout and teardown landed inside whichever sample followed, so each
+			// sample starts from a query that matches nothing instead.
 			for (let i = 0; i < 20; i += 1) {
 				const query = `Perf note ${i}`;
-				await box.fill(reset);
+				await box.fill(SEARCH_RESET);
 				await page.evaluate<void>(() => {
 					performance.mark('rc-perf:search:start');
 				});
@@ -1106,8 +1106,7 @@ const search: Scenario = {
 			}
 			return {
 				samples,
-				scenario:
-					'Type 20 distinct queries into Graph & Search and time each until its result row appears.',
+				scenario: `Type 20 distinct queries into Graph & Search and time each until its result row appears; each query starts from an empty result list ("${SEARCH_RESET}").`,
 				fixture: `${seeded} seeded notes + demo content (budget dataset: 10,000 indexed records)`,
 				profile: 'desktop',
 			};
@@ -1549,13 +1548,11 @@ export const SCENARIOS: readonly Scenario[] = [
 							: `${LARGE_VAULT_DATASET}; compacted snapshot + ${LARGE_VAULT_NOTE_EDITS} note edits${
 									scenario.budgetId.startsWith('map-pan-zoom')
 										? `; pans the snapshot's "${LARGE_VAULT_PAN_ZOOM_MAP.name}" (${LARGE_VAULT_PAN_ZOOM_MAP.layers} layers / ${LARGE_VAULT_PAN_ZOOM_MAP.pois} POIs)`
-										: scenario.budgetId === 'search'
-											? `; each query starts from an empty result list ("${LARGE_SEARCH_RESET}")`
-											: scenario.budgetId === 'graph-indexing'
-												? '; add five linked notes'
-												: scenario.budgetId === 'live-session-delivery'
-													? '; local projection, network hop excluded'
-													: ''
+										: scenario.budgetId === 'graph-indexing'
+											? '; add five linked notes'
+											: scenario.budgetId === 'live-session-delivery'
+												? '; local projection, network hop excluded'
+												: ''
 								}`,
 				};
 			},
