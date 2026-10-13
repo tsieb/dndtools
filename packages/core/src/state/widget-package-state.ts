@@ -492,6 +492,8 @@ export const WIDGET_INTENT_ROUTES = [
 	'/graph',
 	'/audio',
 	'/extensions',
+	// RC-CAN-8.7 — the atmosphere scene cards' own page; DM only (see DM_INTENT_ROUTES).
+	'/scene-cards',
 ] as const;
 export type WidgetIntentRoute = (typeof WIDGET_INTENT_ROUTES)[number];
 
@@ -1983,6 +1985,16 @@ export function createSystemWidgetPackages(now = '2026-06-03T00:00:00.000Z'): Wi
 				configFields: [toggleField('loop', 'Loop playback', true)],
 				// Shared: a player's read is the player-safe track, without titles or the ambience mix.
 				dataQueries: [dataQuery('audio', 'What is playing', 'session-audio')],
+				// RC-CAN-8.7 — the atmosphere widget links to the scene cards; the host refuses it to a player.
+				intents: [
+					{
+						id: 'scene-cards',
+						displayName: i18n('sceneCards.title'),
+						kind: 'open-route',
+						route: '/scene-cards',
+						icon: 'scene',
+					},
+				],
 			}),
 		),
 		// SES-004 — a handout is delivered as a Scene widget. It references the handout BY ID through

@@ -47,6 +47,9 @@ const Onboarding = lazy(() => import('./app/Onboarding').then((m) => ({ default:
 const ScenesCreator = lazy(() =>
 	import('./screens/ScenesCreator').then((m) => ({ default: m.ScenesCreator })),
 );
+const SceneCards = lazy(() =>
+	import('./screens/SceneCardsPanel').then((m) => ({ default: m.SceneCardsPage })),
+);
 const SceneEditor = lazy(() =>
 	import('./screens/sceneEditor').then((m) => ({ default: m.SceneEditor })),
 );
@@ -459,6 +462,8 @@ function ShelledRoutes() {
 					    `ScreenRouteAliases` (outside this boundary) replaces the entry with `/screens`. */}
 					<Route path="/screens" element={<ScenesCreator />} />
 					<Route path="/scenes" element={<ScenesCreator />} />
+					{/* RC-CAN-8.7 — the atmosphere scene cards, moved off the library onto their own page. */}
+					<Route path="/scene-cards" element={<SceneCards />} />
 					<Route path="/screen/:id" element={<ScreenView />} />
 					<Route path="/scene/:id" element={<SceneEditor />} />
 					<Route path="/session" element={<Session />} />

@@ -457,10 +457,14 @@ describe('direct manipulation cues (RC-CAN-8.3)', () => {
 		delete (document.documentElement as { clientHeight?: number }).clientHeight;
 	});
 
-	function renderEditing(onStartMove: (e: React.PointerEvent) => void = noop, selected = false) {
+	function renderEditing(
+		onStartMove: (e: React.PointerEvent) => void = noop,
+		selected = false,
+		tier: BoardWidget['tier'] = 'system',
+	) {
 		runtimeRef.state = CAMPAIGN.state;
 		runtimeRef.defaultActorId = DM_ACTOR.id;
-		const widget = boardWidget(dice);
+		const widget = { ...boardWidget(dice), tier };
 		act(() =>
 			root.render(
 				<I18nProvider>
@@ -586,5 +590,18 @@ describe('direct manipulation cues (RC-CAN-8.3)', () => {
 		expect(chip.style.bottom).toBe('var(--space-2)');
 		// (320 - 16) board px at scale 0.5 is 152 screen px.
 		expect(chip.style.maxWidth).toBe('152px');
+	});
+
+	// RC-CAN-8.7 — the chip names the widget; only Custom and AI earn a word beside it.
+	it.each([
+		['system', 'Dice'],
+		['template', 'Dice'],
+		['custom', 'Dice· Custom'],
+		['ai', 'Dice· AI'],
+	] as const)('labels a selected %s tile %j', (tier, text) => {
+		const { frame } = renderEditing(noop, true, tier);
+		const chip = frame.querySelector<HTMLElement>('[data-testid="tile-selection-chip"]')!;
+		expect(chip.textContent).toBe(text);
+		expect(chip.textContent).not.toMatch(/System|Template|locked content/);
 	});
 });

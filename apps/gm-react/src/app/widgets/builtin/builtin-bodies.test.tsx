@@ -224,7 +224,11 @@ function boardWidget(definition: WidgetDefinition): BoardWidget {
 }
 
 /** Render one body against the campaign fixture and return the text the frame shows. */
-function renderBody(definition: WidgetDefinition, actorId: string = DM_ACTOR.id): string {
+function renderBody(
+	definition: WidgetDefinition,
+	actorId: string = DM_ACTOR.id,
+	onCommand?: WidgetCommandHandler,
+): string {
 	runtimeRef.state = campaign();
 	viewAs(actorId);
 	act(() =>
@@ -232,7 +236,7 @@ function renderBody(definition: WidgetDefinition, actorId: string = DM_ACTOR.id)
 			// Bodies render inside the app's router; the first-session guide's links navigate with state.
 			<MemoryRouter>
 				<I18nProvider>
-					<Draw widget={boardWidget(definition)} />
+					<Draw widget={boardWidget(definition)} onCommand={onCommand} />
 				</I18nProvider>
 			</MemoryRouter>,
 		),
@@ -553,6 +557,21 @@ describe('the widget accessibility contract', () => {
 	it('draws the empty audio tile inside the region a starting track will be announced in', () => {
 		renderBody(byType('audio'));
 		expect(container.firstElementChild?.getAttribute('aria-live')).toBe('polite');
+	});
+
+	// RC-CAN-8.7 — the scene cards left the Screens library; the atmosphere widget links to them.
+	it('offers the GM the scene cards from the audio tile, outside its live region', () => {
+		const operate: WidgetCommandHandler = () => {};
+		renderBody(byType('audio'), DM_ACTOR.id, operate);
+		// A declared `open-route` intent on the `now-playing` template; the host refuses it to a player.
+		const link = container.querySelector<HTMLElement>('[data-testid="audio-scene-cards"]');
+		expect(link?.getAttribute('aria-label')).toBe('Scene cards');
+		expect(link?.closest('[aria-live]')).toBeNull();
+		// Not to a player, and not on an edit-mode (inert) tile.
+		renderBody(byType('audio'), PLAYER_ACTOR.id, operate);
+		expect(container.querySelector('[data-testid="audio-scene-cards"]')).toBeNull();
+		renderBody(byType('audio'));
+		expect(container.querySelector('[data-testid="audio-scene-cards"]')).toBeNull();
 	});
 
 	it('names a done setup step and a pinned search, instead of leaving it to the accent tone', () => {

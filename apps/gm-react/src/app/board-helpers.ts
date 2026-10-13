@@ -11,6 +11,7 @@ import {
 	type WidgetPresentation,
 	type WidgetStyleTokenDefinition,
 } from '@dndtools/core';
+import type { MessageKey } from '../i18n';
 
 /**
  * board-helpers — the shared view-model that turns the Processing Core's widget state into the flat
@@ -117,12 +118,20 @@ export function isWidgetResizable(
 	);
 }
 
+/** RC-CAN-8.7 — "System", not "System · locked content": the chip beside a widget's name is no place
+ *  for engine jargon about how a definition is stored. */
 export const TIER_LABEL: Record<WidgetTier, string> = {
-	system: 'System · locked content',
+	system: 'System',
 	template: 'Template',
 	custom: 'Custom',
 	ai: 'AI',
 };
+
+/** RC-CAN-8.7 — the selected tile's chip says only what sets a widget apart: "Custom" or "AI". A
+ *  system or template widget is the ordinary case, so its chip is the widget's name alone. */
+export function tileChipTierLabel(tier: WidgetTier): string | null {
+	return tier === 'custom' || tier === 'ai' ? TIER_LABEL[tier] : null;
+}
 
 function statusNoteFor(payload: WidgetBindingPayload | undefined): string | null {
 	// No payload: the actor read did not deliver this instance (see `boardWidgetsOf`).
@@ -617,11 +626,11 @@ export function flowPresetSpan(divisor: number): number {
  * tier has one column, every divisor rounds to span 1, so every row reports itself checked and
  * picking any of them shrinks the tile to a twelfth of the screen everywhere else.
  */
-export const FLOW_SPAN_PRESETS: readonly { label: string; span: number }[] = [
-	{ label: 'Full width', span: flowPresetSpan(1) },
-	{ label: 'Half', span: flowPresetSpan(2) },
-	{ label: 'Third', span: flowPresetSpan(3) },
-	{ label: 'Quarter', span: flowPresetSpan(4) },
+export const FLOW_SPAN_PRESETS: readonly { labelKey: MessageKey; span: number }[] = [
+	{ labelKey: 'boardCanvas.flow.span.full', span: flowPresetSpan(1) },
+	{ labelKey: 'boardCanvas.flow.span.half', span: flowPresetSpan(2) },
+	{ labelKey: 'boardCanvas.flow.span.third', span: flowPresetSpan(3) },
+	{ labelKey: 'boardCanvas.flow.span.quarter', span: flowPresetSpan(4) },
 ];
 
 /** Breathing room between a portalled flow panel and the viewport edge it is pulled back from. */

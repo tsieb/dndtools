@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Icon, VisibilityChip } from '../../ds';
+import { useI18n } from '../../i18n';
 import {
 	boardWidgetPresentation,
 	flowColumnsFor,
@@ -54,18 +55,8 @@ import { AUTHORING_COLUMNS, FlowTileMenu, useLongPress, type MenuHandle } from '
  * at `/screen/:id`, and copied onto any other flow screen.
  */
 
-/** Tile copy, English-only for now — the same convention `WidgetFrame` and `TileActionMenu` use in
- *  this directory, so flow does not half-migrate a catalog its siblings have not moved to. */
-const TEXT = {
-	toolbar: 'Layout history',
-	hint: 'Drag a tile by its grip to reorder it, or select it and use the arrow keys.',
-	at: (index: number, of: number) => `position ${index} of ${of}`,
-	position: (title: string, index: number, of: number) => `${title}, position ${index} of ${of}`,
-	spanNotice: (title: string, span: number, of: number) =>
-		`${title}, ${span} of ${of} columns wide`,
-	emptyTitle: 'An empty screen',
-	emptyHint: 'Press Edit layout, then Add to place a widget.',
-};
+/* RC-CAN-8.7 — every word a flow screen shows or announces comes out of the message catalog
+ * (`boardCanvas.flow.*`); `canvas-copy.test.ts` fails on any string literal here that carries language. */
 
 const noop = () => {};
 
@@ -168,6 +159,7 @@ function FlowTile({
 	onRemove,
 	onCommand,
 }: FlowTileProps) {
+	const { t } = useI18n();
 	const meta = tileMetadataForWidget(w);
 	const placeholder = w.status !== 'available';
 	const accent = `var(${meta.accentToken})`;
@@ -191,8 +183,13 @@ function FlowTile({
 			// tiles, and "3 of 9" is layout telemetry nobody reading it asked for.
 			aria-label={
 				editing
-					? `${w.title}, ${w.typeLabel} widget, ${TEXT.at(placement.index + 1, count)}`
-					: `${w.title}, ${w.typeLabel} widget`
+					? t('boardCanvas.flow.tileAt', {
+							title: w.title,
+							type: w.typeLabel,
+							index: placement.index + 1,
+							count,
+						})
+					: t('boardCanvas.flow.tile', { title: w.title, type: w.typeLabel })
 			}
 			tabIndex={tabbable ? 0 : -1}
 			onKeyDown={onKeyDown}
@@ -393,6 +390,7 @@ export function FlowBoard({
 	emptyHint,
 	history,
 }: FlowBoardProps) {
+	const { t } = useI18n();
 	const columns = flowColumnsFor(tier, widgets, editing);
 	const frameRefs = useRef(new Map<string, HTMLDivElement>());
 	const [focusedId, setFocusedId] = useState<string | null>(null);
@@ -449,9 +447,15 @@ export function FlowBoard({
 				Promise.resolve(),
 			);
 			const landed = Math.min(Math.max(0, Math.round(toIndex)), Math.max(0, widgets.length - 1));
-			announce(TEXT.position(byId.get(id)?.title ?? '', landed + 1, widgets.length));
+			announce(
+				t('boardCanvas.flow.position', {
+					title: byId.get(id)?.title ?? '',
+					index: landed + 1,
+					count: widgets.length,
+				}),
+			);
 		},
-		[announce, byId, onMove, widgets],
+		[announce, byId, onMove, widgets, t],
 	);
 
 	const setSpan = useCallback(
@@ -462,9 +466,11 @@ export function FlowBoard({
 			void onResize(w.id, width, w.h);
 			// The announcement names the AUTHORING grid, because that is what the span was written
 			// against — at rail and phone the tier clamps the tile narrower than the number says.
-			announce(TEXT.spanNotice(w.title, next, AUTHORING_COLUMNS));
+			announce(
+				t('boardCanvas.flow.spanNotice', { title: w.title, span: next, count: AUTHORING_COLUMNS }),
+			);
 		},
-		[announce, onResize],
+		[announce, onResize, t],
 	);
 
 	// Roving tabindex: the selection, else the last-focused tile, else the first in reading order.
@@ -626,7 +632,7 @@ export function FlowBoard({
 			{history && editing && (
 				<div
 					role="toolbar"
-					aria-label={TEXT.toolbar}
+					aria-label={t('boardCanvas.flow.toolbar')}
 					data-testid="flow-history-controls"
 					style={{
 						position: 'sticky',
@@ -642,17 +648,25 @@ export function FlowBoard({
 					}}
 				>
 					<span style={{ flex: 1, minWidth: 0, font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
-						{TEXT.hint}
+						{t('boardCanvas.flow.hint')}
 					</span>
 					<HistoryBtn
 						icon="undo"
-						label={history.undoLabel ? `Undo ${history.undoLabel.toLowerCase()}` : 'Undo'}
+						label={
+							history.undoLabel
+								? t('boardCanvas.flow.undoNamed', { action: history.undoLabel.toLowerCase() })
+								: t('boardCanvas.flow.undo')
+						}
 						disabled={!history.canUndo}
 						onClick={() => void history.undo()}
 					/>
 					<HistoryBtn
 						icon="redo"
-						label={history.redoLabel ? `Redo ${history.redoLabel.toLowerCase()}` : 'Redo'}
+						label={
+							history.redoLabel
+								? t('boardCanvas.flow.redoNamed', { action: history.redoLabel.toLowerCase() })
+								: t('boardCanvas.flow.redo')
+						}
 						disabled={!history.canRedo}
 						onClick={() => void history.redo()}
 					/>
@@ -751,10 +765,10 @@ export function FlowBoard({
 				>
 					<Icon name="widget" size="xl" color={T.ter} />
 					<div style={{ font: `700 var(--text-lg) ${T.sans}`, color: T.sub }}>
-						{emptyTitle ?? TEXT.emptyTitle}
+						{emptyTitle ?? t('boardCanvas.flow.emptyTitle')}
 					</div>
 					<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.ter, maxWidth: 320 }}>
-						{emptyHint ?? TEXT.emptyHint}
+						{emptyHint ?? t('boardCanvas.flow.emptyHint')}
 					</div>
 				</div>
 			)}

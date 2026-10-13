@@ -359,6 +359,7 @@ const routes = [
 	'/',
 	'/screens',
 	'/scenes',
+	'/scene-cards',
 	'/board',
 	'/session',
 	'/characters',

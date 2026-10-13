@@ -11,6 +11,7 @@ import type {
 	WidgetDefinition,
 	WidgetHostPermission,
 	WidgetIntentDescriptor,
+	WidgetIntentRoute,
 	WidgetIntentSettingsTab,
 } from '../state/widget-package-state';
 import { ALL_HOST_PERMISSIONS } from '../state/widget-package-state';
@@ -344,6 +345,9 @@ const DM_SETTINGS_TABS: ReadonlySet<WidgetIntentSettingsTab> = new Set([
 	'systems',
 ]);
 
+/** Pages a widget can open only for a viewer with DM authority (authoring with no section gate). */
+const DM_INTENT_ROUTES: ReadonlySet<WidgetIntentRoute> = new Set(['/scene-cards']);
+
 const REFUSAL_REASON: Record<Exclude<WidgetIntentDecision, 'resolved'>, string> = {
 	undeclared: 'The widget does not declare this intent.',
 	'permission-denied':
@@ -444,6 +448,7 @@ function destinationFor(
 			return openEntity(state, actorId, intent.entityKind, id);
 		}
 		case 'open-route':
+			if (DM_INTENT_ROUTES.has(intent.route) && !isDm) return 'not-authorized';
 			return resolveSectionRouteAccess(state.permissions, actorId, intent.route).kind ===
 				'available'
 				? { path: intent.route, state: null }

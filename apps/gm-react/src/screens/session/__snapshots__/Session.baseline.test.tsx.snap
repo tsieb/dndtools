@@ -181,6 +181,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Live > desktop live · ari
 - text: No handouts delivered yet.
 - heading "Now playing" [level=2]
 - text: Nothing playing. Start ambience from the Audio library.
+- button "Scene cards"
 - heading "Stage" [level=2]
 - text: Everyone
 - text: Every player and observer, and anyone who joins later. Choose a scene for one player below to make an exception.
@@ -321,6 +322,9 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Live > desktop live · dom
     "Now playing"
   <svg aria-hidden="true">
   "Nothing playing. Start ambience from the Audio library."
+  <button type="button">
+    <svg aria-hidden="true">
+    "Scene cards"
 <section>
   <h2>
     "Stage"
@@ -517,6 +521,7 @@ button Roll
 textbox 
 textbox 
 button Push to players
+button Scene cards
 combobox Scene shown to everyone
 combobox Active map
 combobox Scene projected to Demo Player
@@ -597,6 +602,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Prep > desktop prep · ari
 - text: No handouts delivered yet.
 - heading "Now playing" [level=2]
 - text: Nothing playing. Start ambience from the Audio library.
+- button "Scene cards"
 - heading "Stage" [level=2]
 - text: Everyone
 - text: Every player and observer, and anyone who joins later. Choose a scene for one player below to make an exception.
@@ -735,6 +741,9 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Prep > desktop prep · dom
     "Now playing"
   <svg aria-hidden="true">
   "Nothing playing. Start ambience from the Audio library."
+  <button type="button">
+    <svg aria-hidden="true">
+    "Scene cards"
 <section>
   <h2>
     "Stage"
@@ -930,6 +939,7 @@ button Roll
 textbox 
 textbox 
 button Push to players
+button Scene cards
 combobox Scene shown to everyone
 combobox Active map
 combobox Scene projected to Demo Player
@@ -1010,6 +1020,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Recap with the rest timeli
 - text: No handouts delivered yet.
 - heading "Now playing" [level=2]
 - text: Nothing playing. Start ambience from the Audio library.
+- button "Scene cards"
 - heading "Stage" [level=2]
 - text: Everyone
 - text: Every player and observer, and anyone who joins later. Choose a scene for one player below to make an exception.
@@ -1180,6 +1191,9 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Recap with the rest timeli
     "Now playing"
   <svg aria-hidden="true">
   "Nothing playing. Start ambience from the Audio library."
+  <button type="button">
+    <svg aria-hidden="true">
+    "Scene cards"
 <section>
   <h2>
     "Stage"
@@ -1438,6 +1452,7 @@ button Roll
 textbox 
 textbox 
 button Push to players
+button Scene cards
 combobox Scene shown to everyone
 combobox Active map
 combobox Scene projected to Demo Player
@@ -1537,6 +1552,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, desktop > desktop
 - text: No handouts delivered yet.
 - heading "Now playing" [level=2]
 - text: Nothing playing. Start ambience from the Audio library.
+- button "Scene cards"
 - heading "Stage" [level=2]
 - text: Everyone
 - text: Every player and observer, and anyone who joins later. Choose a scene for one player below to make an exception.
@@ -1675,6 +1691,9 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, desktop > desktop
     "Now playing"
   <svg aria-hidden="true">
   "Nothing playing. Start ambience from the Audio library."
+  <button type="button">
+    <svg aria-hidden="true">
+    "Scene cards"
 <section>
   <h2>
     "Stage"
@@ -1871,6 +1890,7 @@ button Roll
 textbox 
 textbox 
 button Push to players
+button Scene cards
 combobox Scene shown to everyone
 combobox Active map
 combobox Scene projected to Demo Player
@@ -1951,6 +1971,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
 - text: No handouts delivered yet.
 - heading "Now playing" [level=2]
 - text: Nothing playing. Start ambience from the Audio library.
+- button "Scene cards"
 - heading "Stage" [level=2]
 - text: Everyone
 - text: Every player and observer, and anyone who joins later. Choose a scene for one player below to make an exception.
@@ -2089,6 +2110,9 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
     "Now playing"
   <svg aria-hidden="true">
   "Nothing playing. Start ambience from the Audio library."
+  <button type="button">
+    <svg aria-hidden="true">
+    "Scene cards"
 <section>
   <h2>
     "Stage"
@@ -2285,6 +2309,7 @@ button Roll
 textbox 
 textbox 
 button Push to players
+button Scene cards
 combobox Scene shown to everyone
 combobox Active map
 combobox Scene projected to Demo Player
@@ -2365,6 +2390,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
 - text: No handouts delivered yet.
 - heading "Now playing" [level=2]
 - text: Nothing playing. Start ambience from the Audio library.
+- button "Scene cards"
 - heading "Stage" [level=2]
 - text: Everyone
 - text: Every player and observer, and anyone who joins later. Choose a scene for one player below to make an exception.
@@ -2503,6 +2529,9 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
     "Now playing"
   <svg aria-hidden="true">
   "Nothing playing. Start ambience from the Audio library."
+  <button type="button">
+    <svg aria-hidden="true">
+    "Scene cards"
 <section>
   <h2>
     "Stage"
@@ -2699,6 +2728,7 @@ button Roll
 textbox 
 textbox 
 button Push to players
+button Scene cards
 combobox Scene shown to everyone
 combobox Active map
 combobox Scene projected to Demo Player
@@ -2791,6 +2821,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
 - text: No handouts delivered yet.
 - heading "Now playing" [level=2]
 - text: Nothing playing. Start ambience from the Audio library.
+- button "Scene cards"
 - heading "Stage" [level=2]
 - text: Everyone
 - text: Every player and observer, and anyone who joins later. Choose a scene for one player below to make an exception.
@@ -2991,6 +3022,9 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
     "Now playing"
   <svg aria-hidden="true">
   "Nothing playing. Start ambience from the Audio library."
+  <button type="button">
+    <svg aria-hidden="true">
+    "Scene cards"
 <section>
   <h2>
     "Stage"
@@ -3206,6 +3240,7 @@ button Roll
 textbox 
 textbox 
 button Push to players
+button Scene cards
 combobox Scene shown to everyone
 combobox Active map
 combobox Scene projected to Demo Player
@@ -3297,6 +3332,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
 - text: No handouts delivered yet.
 - heading "Now playing" [level=2]
 - text: Nothing playing. Start ambience from the Audio library.
+- button "Scene cards"
 - heading "Stage" [level=2]
 - text: Everyone
 - text: Every player and observer, and anyone who joins later. Choose a scene for one player below to make an exception.
@@ -3497,6 +3533,9 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
     "Now playing"
   <svg aria-hidden="true">
   "Nothing playing. Start ambience from the Audio library."
+  <button type="button">
+    <svg aria-hidden="true">
+    "Scene cards"
 <section>
   <h2>
     "Stage"
@@ -3712,6 +3751,7 @@ button Roll
 textbox 
 textbox 
 button Push to players
+button Scene cards
 combobox Scene shown to everyone
 combobox Active map
 combobox Scene projected to Demo Player

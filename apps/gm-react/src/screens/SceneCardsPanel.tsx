@@ -14,6 +14,7 @@ import { Button, Card, EmptyState, Toaster } from '../ds';
 import { useI18n } from '../i18n';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useViewport } from '../app/useViewport';
+import { Page } from '../app/screen-kit';
 import { openSecondScreen } from '../platform/sceneDisplayChannel';
 import { isOnline } from '../platform/preferences';
 import { isNativeDesktopRuntime } from '../platform/windowChrome';
@@ -21,8 +22,21 @@ import { usePlatformCapabilities } from '../platform/capabilities';
 import { SceneQueuePanel } from './SceneQueuePanel';
 
 /**
- * I11 S11.2.1–S11.2.3 — the DM authoring + control surface for ATMOSPHERE SCENE CARDS, embedded in
- * ScenesCreator (`/screens`). Create a card (title/mood/hero image URL/flavor/visibility), then from the
+ * `/scene-cards` — the atmosphere scene cards on a page of their own (RC-CAN-8.7). They used to sit
+ * under the Screens library as a second, unrelated section; the shell's top bar titles this page, so
+ * the panel carries no title of its own.
+ */
+export function SceneCardsPage() {
+	return (
+		<Page max={1180}>
+			<SceneCardsPanel />
+		</Page>
+	);
+}
+
+/**
+ * I11 S11.2.1–S11.2.3 — the DM authoring + control surface for ATMOSPHERE SCENE CARDS, on its own
+ * page (`/scene-cards`, RC-CAN-8.7). Create a card (title/mood/hero image URL/flavor/visibility), then from the
  * card list activate it onto the display, queue it, toggle its player visibility, edit, or delete. The
  * queue panel reorders/advances and picks the transition. All actions dispatch `scene-card.*` commands
  * through the single runtime write path; the fullscreen display (Ctrl+Shift+S) and the second-screen
@@ -133,10 +147,11 @@ export function SceneCardsPanel() {
 	// Keep the actor-scoped card read available to participants without offering DM commands.
 	if (runtime.preview || permissions.actors[actorId]?.role !== 'dm') {
 		return (
-			<section aria-label={t('sceneCards.title')} style={{ marginTop: 'var(--space-8)' }}>
+			<section aria-label={t('sceneCards.title')}>
 				{cards.map((card) => (
 					<Card key={card.id} elevation="flat" padding="md">
-						<h3 style={{ font: '600 var(--text-md) var(--font-sans)' }}>{card.title}</h3>
+						{/* The page's first level under the top bar's <h1>. */}
+						<h2 style={{ font: '600 var(--text-md) var(--font-sans)' }}>{card.title}</h2>
 						<p style={{ font: 'var(--text-sm) var(--font-sans)' }}>{card.flavorText}</p>
 					</Card>
 				))}
@@ -145,7 +160,7 @@ export function SceneCardsPanel() {
 	}
 
 	return (
-		<div style={{ maxWidth: 1180, margin: 'var(--space-8) auto 0' }}>
+		<div>
 			<div
 				role="status"
 				style={{ font: 'var(--text-sm) var(--font-sans)', color: 'var(--color-text-secondary)' }}
@@ -161,26 +176,6 @@ export function SceneCardsPanel() {
 					flexWrap: 'wrap',
 				}}
 			>
-				<div>
-					<div
-						style={{
-							font: '600 var(--text-2xs) var(--font-sans)',
-							letterSpacing: 'var(--tracking-wider)',
-							textTransform: 'uppercase',
-							color: 'var(--color-text-tertiary)',
-						}}
-					>
-						{t('sceneCards.atmosphere')}
-					</div>
-					<div
-						style={{
-							font: '700 var(--text-xl) var(--font-display)',
-							color: 'var(--color-text-primary)',
-						}}
-					>
-						{t('sceneCards.title')}
-					</div>
-				</div>
 				<span style={{ flex: '1 1 var(--space-4)' }} />
 				<Button
 					style={{ minHeight: 'var(--space-12)' }}
@@ -245,17 +240,18 @@ export function SceneCardsPanel() {
 					/>
 
 					<div>
-						<div
+						{/* A heading, so the card list (and its empty state's <h3>) sits under one. */}
+						<h2
 							style={{
+								margin: 'var(--space-0) var(--space-0) var(--space-3)',
 								font: '600 var(--text-2xs) var(--font-sans)',
 								letterSpacing: 'var(--tracking-wider)',
 								textTransform: 'uppercase',
 								color: 'var(--color-text-tertiary)',
-								marginBottom: 'var(--space-3)',
 							}}
 						>
 							{t('sceneCards.count', { count: cards.length })}
-						</div>
+						</h2>
 						{cards.length === 0 ? (
 							<EmptyState icon="scene" illustration="scenes-empty" title={t('sceneCards.empty')} />
 						) : (

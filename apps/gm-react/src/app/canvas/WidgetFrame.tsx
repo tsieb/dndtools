@@ -6,7 +6,7 @@ import { useI18n, type MessageKey } from '../../i18n';
 import { noteDepth, type NoteDepth } from '../widgets/builtin/Note';
 import { NoteFrameContext } from '../widgets/builtin/NoteBody';
 import { useRuntime } from '../../runtime/RuntimeContext';
-import { TIER_LABEL, type BoardWidget } from '../board-helpers';
+import { tileChipTierLabel, type BoardWidget } from '../board-helpers';
 import {
 	safeBoundEntityName,
 	tileBindingState,
@@ -622,7 +622,9 @@ export function WidgetFrame({
 					>
 						<Icon name={resizable ? 'move' : 'lock'} size={11} />
 						{w.title}
-						<span style={{ opacity: 0.85, fontWeight: 500 }}>· {TIER_LABEL[w.tier]}</span>
+						{tileChipTierLabel(w.tier) && (
+							<span style={{ opacity: 0.85, fontWeight: 500 }}>· {tileChipTierLabel(w.tier)}</span>
+						)}
 					</div>
 					{resizable && (
 						<button

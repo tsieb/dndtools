@@ -671,7 +671,7 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 						)}
 						{ready && widgets.length === 0 && (
 							<BoardEmptyState
-								title={t('board.emptyTitle')}
+								title={t('board.emptyTitleNamed', { name: screen.title })}
 								repeat={previouslyFilled}
 								testId="board-empty-templates"
 								onAdd={() => {

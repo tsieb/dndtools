@@ -432,6 +432,7 @@ export const ROUTE_LABEL: Record<WidgetIntentRoute, MessageKey> = {
 	'/graph': 'nav.graph',
 	'/audio': 'nav.audio',
 	'/extensions': 'nav.extensions',
+	'/scene-cards': 'sceneCards.title',
 };
 
 export const SETTINGS_TAB_LABEL: Record<WidgetIntentSettingsTab, MessageKey> = {
