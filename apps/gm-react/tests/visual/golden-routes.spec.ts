@@ -132,7 +132,11 @@ for (const theme of THEMES) {
 			const sceneId = await defaultSceneId(page);
 			expect(sceneId, 'the fresh vault has no Scene to open the editor on').not.toBeNull();
 			await openShelled(page, `/scene/${sceneId}`);
-			await expect(page).toHaveURL(new RegExp(`#/screen/${sceneId}\\?edit=1$`));
+			// A same-document hash navigation can leave the old h1 attached while React loads
+			// the lazy editor. Wait for the redirect itself, not just the shell's readiness.
+			await expect(page).toHaveURL(new RegExp(`#/screen/${sceneId}\\?edit=1$`), {
+				timeout: 20_000,
+			});
 			await expect(page.getByTestId('screen-toolbar')).toBeVisible();
 			await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 			await snap(page, theme, 'scene-editor');

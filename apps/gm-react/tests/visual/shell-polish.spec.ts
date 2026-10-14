@@ -50,6 +50,8 @@ for (const theme of ['tavern', 'parchment', 'scholar', 'dungeon', 'high-contrast
 		if (phone) await page.getByRole('button', { name: 'More', exact: true }).click();
 		await page.getByRole('button', { name: /^Local vaults/ }).click();
 		await expect(vaults.getByRole('alert')).toBeVisible();
-		await expect(vaults).toHaveScreenshot(`shell-vault-error--${theme}.png`);
+		// The full pinned suite can need several frames to settle this reopened overlay.
+		// Keep the normal 20-second readiness budget without relaxing pixel comparison.
+		await expect(vaults).toHaveScreenshot(`shell-vault-error--${theme}.png`, { timeout: 20_000 });
 	});
 }

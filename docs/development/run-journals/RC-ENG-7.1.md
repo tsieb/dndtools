@@ -174,3 +174,43 @@ lossy_8bit=False)`; optimization tools were installed only in a temporary enviro
   `/tmp/rc-eng-7.1-visual-repair-format.log` inspected. Focused ESLint and `git diff --check` pass.
 - Committed scope: the two visual specs, 15 reviewed Help baselines, and this journal only.
   No release, tag, publication, promotion or dispatcher-control mutation occurred.
+
+## Wrapper timing repair — 2026-10-14
+
+- Starting candidate: `b843c48892cbfbe796e7f3eb38b7b488892a21c9`; clean worktree.
+- Read original wrapper evidence at
+  `/home/trinkle/Programming/agent-dispatcher/.state/attempts/ed6aa645-4d1a-4559-a9d2-73587169e412/output.log`
+  and the three Playwright error contexts. Result: 585 passed, 3 failed. Help and Settings passed.
+  No pixel-difference count was reported for these failures:
+  - Rail dungeon shell: the reopened vault-error dialog was visible, but screenshot capture
+    exhausted five seconds while waiting for stable layout.
+  - Phone high-contrast play: the player frame was visible, but its screenshot likewise timed
+    out waiting for layout stability after fonts loaded.
+  - Phone tavern scene: the hash had changed to `/scene/:id` while Command Center remained in
+    the DOM; the five-second redirect assertion expired before the lazy editor committed.
+- Align only those three waits with the existing 20-second boot/frame-readiness budget. The
+  scene assertion still requires the exact screen id and edit query. Screenshots still use
+  the existing pixel thresholds and unchanged baselines; no retries or sleeps were added.
+- These visual spec files are granted companion paths in the manifest, verified read-only.
+  Headroom unavailable; original native outputs inspected. No dispatcher controls changed.
+- Verification uses the pinned container with snapshot updates disabled, repeating the affected
+  scene themes and shell/play cases three times on rail and phone. Results follow below.
+- Remaining form/Electron ownership and authorized RC-tag/release-evidence requirements are
+  unchanged. This test-readiness repair is not end-to-end release acceptance.
+
+### Timing-repair results
+
+- Pinned command: `bash apps/gm-react/tests/visual/run-in-container.sh shell-polish.spec.ts
+play-polish.spec.ts golden-routes.spec.ts --project=visual-rail --project=visual-phone
+-g 'app shell — dungeon|play stage high-contrast|/scene/:id' --repeat-each=3
+--update-snapshots=none`.
+- Exit 0, **30 passed (1.4m)**. Original log inspected:
+  `/tmp/rc-eng-7.1-readiness-repeat.log`. All three previously failing cases passed three times;
+  the selected additional themes/tiers passed too. No baseline files changed. This targeted run
+  does not claim a new full 588-test wrapper result.
+- `pnpm gates`: exit 0, six quality gates and documentation checks pass with existing file-size
+  warnings only (`/tmp/rc-eng-7.1-readiness-gates.log`).
+- Focused ESLint: exit 0 (`/tmp/rc-eng-7.1-readiness-lint.log`).
+  `pnpm format:check:changed`: exit 0, all four changed text files pass
+  (`/tmp/rc-eng-7.1-readiness-format.log`). `git diff --check` passes.
+- No publication, promotion, tag, workflow dispatch or dispatcher-control changes occurred.

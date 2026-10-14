@@ -25,6 +25,7 @@ for (const theme of ['tavern', 'parchment', 'high-contrast', 'scholar', 'dungeon
 		const frame = page.locator('.player-view-shell');
 		await expect(frame).toBeVisible({ timeout: 20_000 });
 		await page.evaluate(() => document.fonts.ready);
-		await expect(frame).toHaveScreenshot(`play-stage--${theme}.png`);
+		// Visibility can precede stable layout; allow the same budget as frame readiness.
+		await expect(frame).toHaveScreenshot(`play-stage--${theme}.png`, { timeout: 20_000 });
 	});
 }
