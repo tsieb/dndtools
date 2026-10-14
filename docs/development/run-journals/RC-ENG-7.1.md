@@ -73,3 +73,26 @@ launch prerequisite; it does not claim that a feedback route already exists.
   resolved links; existing file-size warnings only). Read the complete original output at
   `/tmp/rc-eng-7.1-retry-gates.log`. Initial formatting check flagged the new journal text;
   applied Prettier before the final formatting and whitespace checks. No executable code changed.
+
+## Second review retry — 2026-10-14
+
+- Starting candidate: `26c6433540232fd8ba56a4831f35251b1995288b`; working tree was clean.
+- Corrected the workflow's unsigned draft title-mismatch diagnostic to identify the requested
+  channel and tag instead of claiming every mismatch is a signed production draft.
+- Added the RC-UX-5.5 accepted IA decision precondition to the manual checklist, matching
+  RC_ROADMAP.md's RC-ENG-7.3 requirements, including required follow-up verification on the RC SHA.
+- Initial focused tests caught a step-name dependency in `ci-guardrails.test.ts:384`; retained
+  the existing workflow step name and reran the tests. Final result: 2 files, 23 tests passed
+  (`release-verify.test.ts` and `ci-guardrails.test.ts`). No release protection behavior changed.
+- `pnpm gates` exited 0; read the original `/tmp/rc-eng-7.1-review2-gates.log`: six quality
+  gates, 310 reachable documents, 445 resolved links; existing file-size warnings only.
+- Prettier and whitespace checks passed for the implementation edits. Headroom unavailable;
+  native command output was inspected directly.
+- Both high-severity findings remain unresolved. This retry still authorizes only the two
+  implementation paths and forbids publication. No tagged hosted run or release attachments
+  were produced. The Discussions form and Help feedback action still require an ownership
+  correction or companion task, including localization, tests and visual verification.
+- Operator action required: authorize the feedback implementation paths, then integrate and
+  run the hosted RC rehearsal with matching evidence assets. Alternatively, explicitly rescope
+  hosted acceptance to RC-ENG-7.2. This candidate does not change acceptance or dispatcher state,
+  and must not be represented as satisfying RC-ENG-7.1's end-to-end acceptance criterion.

@@ -513,7 +513,7 @@ jobs:
               EXPECTED_TITLE="Lamplight GM ${VERSION} — Alpha (Windows · macOS · Linux · Android)"
             fi
             test "$EXISTING_TITLE" = "$EXPECTED_TITLE" || {
-              echo "refusing to replace a signed production draft with unsigned preview artifacts" >&2
+              echo "refusing to replace draft for $RELEASE_TAG: title does not match requested unsigned $RELEASE_CHANNEL channel" >&2
               exit 1
             }
           fi

@@ -112,6 +112,12 @@ items pending; neither an exit code nor a green path-filtered `ci-gate` substitu
 - [ ] **§2.1 contracts and limits:** React system packages, widget trust/sandbox, editor IA and
       session/map/board models meet their contracts. Remaining UI limits are only payment,
       signing certificates, curation, and the explicitly deferred Cloud-Enhanced phase 2.
+- [ ] **RC-UX-5.5 IA decision:** the navigation review in `docs/planning/IA_REVIEW.md` is merged
+      and records the accepted decision, accepting decider, date and merged commit. ADR-013
+      reflects that decision, every 2026-09-12 finding has a disposition, and each required
+      implementation follow-up has an owner and is verified on this RC commit. Attach this
+      evidence to the RC-ENG-7.3 exit audit. A pending decision, unmerged review or unfinished
+      required follow-up blocks the RC-ENG-7.2 rehearsal.
 - [ ] **Static/unit:** `pnpm check` and `pnpm test:coverage:core` pass; coverage floors have not
       decreased from the previous release.
 - [ ] **Browser:** `pnpm e2e` ran desktop and mobile profiles, with at least one spec per §5–§17 epic.
