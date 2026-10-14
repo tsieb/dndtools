@@ -166,3 +166,24 @@ claimed, and no dispatcher control state, runtime file, push, promotion, or extr
   required per-PR command runs remain outstanding, not replaced by this follow-up.
 - No push, promotion, dispatcher mutation, additional loop, or extra agent. No new browser,
   deployed, dependency-advisory or installer-signature verification claimed.
+
+## Per-PR evidence rejection follow-up — 2026-10-14
+
+- Starting HEAD: `05c30a41d8b0b0274f268e287f01a8db83c21b40`; clean working tree.
+- Supplied independent review confirms no unresolved High/Critical in candidate changes, but
+  rejects the absent per-PR command evidence. No new runtime defect or runtime edit in this pass.
+- Located dispatch Headroom tools through the tool inventory. Repository `.claude` inventory,
+  installed skill/plugin filename search, and executable lookup expose no security-review command.
+  Asked for its instructions or existing reports; no substitute authorization is assumed.
+- Queried GitHub commit-to-PR associations for all nine existing surface anchors. Two publication
+  PRs (#76, #93) were returned; neither body, review list, nor issue comments supplies a security
+  report. Five anchors have no returned PR association. These limited queries do not prove the
+  absence of other reviews and do not supply a complete review inventory.
+- Retrieved exact original Headroom outputs `e6cb6348f74e49eb9b2aa11b3642708f` and
+  `c5cf4a006be646f889292c5ea088aa58` before recording the results in the dated report.
+- Updated README and dated report with concrete discovery anchors and the remaining owner handoff:
+  supply command instructions and intended PR/revisions or reports, or explicitly authorize a
+  substitute. Missing evidence remains open; no approval or completion claimed.
+- Documentation-only verification: Prettier and diff checks run during commit preparation.
+  Prior runtime and wrapper test results are not re-executed or claimed as current runs.
+- No push, promotion, additional agent, loop, or dispatcher control-state edit.

@@ -174,6 +174,41 @@ Source evidence for H-01 and M-01 is retained in artifact `67d441b682fd4055806d7
 Headroom artifact IDs are run-local retrieval handles; source paths, base SHA, and exact commands
 are the durable reproduction references.
 
+## Per-PR evidence recovery — 2026-10-14
+
+The supplied independent review of `05c30a41d8b0b0274f268e287f01a8db83c21b40`
+reports no unresolved High/Critical in the candidate changes, but withholds approval for missing
+per-PR `/security-review` evidence (Medium). Its reported gate results are supplied review
+history, not new executions in this follow-up. This requirement remains unsatisfied.
+
+Read-only GitHub queries mapped the existing surface anchors to these PRs:
+
+| Surface anchors                                       | Associated PR                                    | PR head returned by GitHub                 | PR base returned by GitHub                 |
+| ----------------------------------------------------- | ------------------------------------------------ | ------------------------------------------ | ------------------------------------------ |
+| Sandbox `8bc8e0981`, host API `5611f2362`             | [#93](https://github.com/tsieb/dndtools/pull/93) | `efc6d9625d86137febe33c391dcb87ebbbd6c58b` | `9a69104234f3d5fa7e878d80769af391c70cb838` |
+| Private store `98267e20b`, Cloud-Enhanced `182805496` | [#76](https://github.com/tsieb/dndtools/pull/76) | `4b688ef5d9ac889614cd1f2bfbca8b97dd583eb9` | `d39e23ff5612e74804132fc75b5e7ba1349ae8de` |
+
+GitHub returned no associated PR for package review `83e83121f`, system packages `55b6c54fe`,
+PWA cache `3c6e02666`, updater `ec1dd91d8`, or billing `95aa5f3ec`. An empty association is not
+proof that a review never occurred. Both returned PRs are closed dispatcher publication PRs;
+their bodies contain generic publication policy, and their reviews and issue comments are empty.
+Neither supplies the required reports. These are discovery anchors, **not reviewed revisions**,
+and do not establish an exhaustive PR inventory for the nine surfaces.
+
+Reproduce with `gh api repos/tsieb/dndtools/commits/<anchor>/pulls`, then
+`gh api --paginate repos/tsieb/dndtools/pulls/<number>/reviews` and
+`gh api --paginate repos/tsieb/dndtools/issues/<number>/comments`; retrieve the PR body with
+`gh api repos/tsieb/dndtools/pulls/<number>`. Exact original output was retrieved from Headroom
+artifacts `e6cb6348f74e49eb9b2aa11b3642708f` (associations) and
+`c5cf4a006be646f889292c5ea088aa58` (bodies/reviews/comments).
+
+The current tool inventory, repository `.claude` files, installed skill/plugin filename search,
+and executable lookup expose no `/security-review` implementation. The task owner must supply
+the command instructions and intended PR/revision inventory or existing reports, or explicitly
+amend the requirement to authorize a substitute. Each resulting report must identify the reviewed
+base/head, findings and dispositions, and its durable evidence location. No amendment, substitute
+run, or waiver is asserted here. Re-running regression gates cannot close this evidence gap.
+
 ## Acceptance handoff
 
 The central review rejected `e7a6b35d4` because H-01 was still open. Self-heal round 2 then widened

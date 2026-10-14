@@ -192,7 +192,9 @@ blob URL or `Worker` exists, and such widgets show the "disabled, preserved" pla
 storage-isolated runtime exists. The service worker bypasses cache reads and writes for requests with `Authorization`,
 evicts earlier copies when responses become `no-store`/`private`, and retires caches created under
 the old policy. Cookie-authenticated routes without cache directives remain a residual risk. Still open: update-signature evidence and per-PR
-`/security-review` runs, so the report is not a release sign-off.
+`/security-review` runs, so the report is not a release sign-off. The supplied independent review
+of `05c30a41d8` withheld approval for the missing per-PR evidence; the report's evidence-recovery
+section records the PR associations checked and the required task-owner handoff.
 
 ## 6. Open by design
 
