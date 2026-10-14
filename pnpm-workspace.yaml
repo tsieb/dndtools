@@ -15,13 +15,15 @@ overrides:
   '@xmldom/xmldom@<0.8.15': 0.8.15
   ajv@6.12.6: 6.14.0
   ajv@8.17.1: 8.20.0
-  'brace-expansion@<5.0.9': 5.0.9
+  'axios@<1.20.0': 1.20.0
+  'brace-expansion@<5.0.11': 5.0.11
   browserslist@<=4.28.6: 4.28.7
   cookie@0.6.0: 0.7.2
   express-rate-limit@8.2.1: 8.5.2
-  'fast-uri@<3.1.6': 3.1.6
+  'fast-uri@<3.1.7': 3.1.7
   flatted@3.3.3: 3.4.2
   hono@4.11.9: 4.12.23
+  'http-cache-semantics@<4.2.1': 4.3.0
   ip-address@10.0.1: 10.2.0
   'js-yaml@>=4.0.0 <4.3.2': 4.3.2
   lodash@4.17.23: 4.18.1
@@ -35,11 +37,13 @@ overrides:
   rollup@4.57.1: 4.61.0
   serialize-javascript@6.0.2: 7.0.5
   'tar@<7.5.21': 7.5.21
-  'shell-quote@<1.9.0': 1.9.0
+  'shell-quote@<1.11.0': 1.11.0
+  'source-map-js@<1.2.2': 1.2.2
   tmp@0.2.5: 0.2.7
-  # Vitest/jsdom and Electron currently resolve the vulnerable undici line.
-  # Keep electron-builder's unrelated undici 6.x line untouched.
-  'undici@>=7.0.0 <7.29.0': 7.29.0
+  # Vitest/jsdom and Electron resolve the 7.x line; electron-builder's node-gyp resolves 6.x. Each
+  # moves to its own patched release only.
+  'undici@>=6.7.0 <6.28.1': 6.28.1
+  'undici@>=7.0.0 <7.29.1': 7.29.1
   yaml@1.10.2: 1.10.3
 
 allowBuilds:
