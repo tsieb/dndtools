@@ -170,6 +170,17 @@ URL fallback is not evidence that the form opens on desktop.
       activation and external-open failure handling; record the test names and results.
 - [ ] Retain the required help-menu visual comparison and independent review evidence.
 
+The current claim includes only this checklist, `release.yml` and `HelpMenu.tsx`.
+Before retrying implementation, grant `.github/DISCUSSION_TEMPLATE/beta-feedback.yml`,
+`apps/gm-react/electron/main.cjs` and `apps/gm-react/electron/preload.cjs`, plus the renderer
+bridge declaration/adapter used by the action. Focused tests are companion paths under §21.2.
+The desktop bridge must accept no caller-supplied destination, validate the calling window/frame,
+ask for native confirmation and open only the fixed feedback URL. Verify cancellation, rejected
+callers, browser-open failure and successful opening through the real main/preload handlers;
+a mocked renderer adapter alone does not verify this integration. Keep arbitrary external URLs
+denied. Verify the matching Discussions category and rendered form after the template lands;
+committing a category form does not create the repository category.
+
 Recruit testers across Windows, macOS, Linux and Android, including GM and player roles.
 Ask them to back up a vault, install/upgrade, run onboarding, play a short session, export/import,
 and use the feedback route. Link each report to its tag and a triaged issue; mark duplicates,

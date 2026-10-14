@@ -279,3 +279,23 @@ play-polish.spec.ts golden-routes.spec.ts --project=visual-rail --project=visual
   (`/tmp/rc-eng-7.1-pseudo-format.log`). `git diff --check` passes.
 - Commit contains only the three generated pseudo-locale entries and this journal. The catalog
   repair fixes the observed app-gate regression; it does not claim the outstanding RC acceptance.
+
+## Independent-review retry — ownership still incomplete, 2026-10-14
+
+- Starting candidate: `152f0cde84979986b113f7b406474ba2452f9d2b`; clean worktree.
+- Reconfirmed from original native output: `git ls-tree -r --name-only HEAD
+.github/DISCUSSION_TEMPLATE` returns no files. `openExternalUrl` in
+  `apps/gm-react/src/platform/capabilities.ts:539` handles Android and otherwise calls
+  `globalThis.open`; `apps/gm-react/electron/main.cjs:670` permits only trusted display
+  windows and denies other destinations. The existing preload has no feedback bridge.
+- The supplied scope still grants only the workflow, checklist and HelpMenu. Requested explicit
+  authorization for the missing template and Electron/renderer bridge paths. The review and
+  RC_ROADMAP §21.2 prohibit bypassing this fence; no out-of-claim implementation was attempted.
+- Updated the checklist with the concrete claim correction and desktop integration checks.
+  This is an operator handoff, not a fix for either blocking implementation finding.
+- No RC tag, hosted workflow, release attachment, push, promotion, new loop or dispatcher
+  control-state change was attempted. End-to-end RC acceptance remains outstanding.
+- Headroom tools are unavailable in this session; native output was inspected directly.
+- `pnpm gates`: exit 0; six quality gates pass, 310 reachable documents and 445 resolved
+  links; existing file-size warnings only. Read the complete original output at
+  `/tmp/rc-eng-7.1-scope-retry-gates.log`. No executable code changed in this retry.
