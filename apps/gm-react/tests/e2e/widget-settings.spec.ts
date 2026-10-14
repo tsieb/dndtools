@@ -159,7 +159,7 @@ test('a widget with no settings says so with the reason and offers Edit widget i
 	const none = menu.getByRole('menuitem', { name: 'No settings', exact: true });
 	await expect(none).toHaveAttribute('aria-disabled', 'true');
 	await expect(none).toHaveAccessibleDescription(
-		'This widget declares nothing to set. Add settings in Edit widget.',
+		'This widget has nothing to set. Add settings in Edit widget.',
 	);
 	await expect(menu.getByRole('menuitem', { name: 'Edit widget', exact: true })).toBeVisible();
 	// Pressing the disabled row does nothing: no dialog, the menu stays.

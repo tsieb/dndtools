@@ -9,6 +9,11 @@ import {
 	type ZoomPreset,
 } from '../SceneBoardModel';
 
+/** The history cluster's width plus its 12px inset and a gutter, and the band it needs above the
+ *  tiles (36px cluster, 12px inset, 8px gap). */
+const CLUSTER_ROOM = 104;
+const CLUSTER_GUTTER = 56;
+
 /** A zoom step to announce; `seq` re-keys the live node so a repeated step still speaks. */
 export interface ZoomNotice {
 	seq: number;
@@ -28,6 +33,7 @@ export function useCanvasZoom({
 	contentWidth,
 	zoomPreset,
 	onZoomPresetChange,
+	historyGutter = false,
 }: {
 	policy: 'bounded' | 'canvas';
 	wrapRef: RefObject<HTMLDivElement | null>;
@@ -35,6 +41,8 @@ export function useCanvasZoom({
 	contentWidth: number;
 	zoomPreset?: ZoomPreset;
 	onZoomPresetChange?: (preset: ZoomPreset) => void;
+	/** The bounded board shows its Undo/Redo cluster (editing): keep its corner clear of tiles. */
+	historyGutter?: boolean;
 }) {
 	const [view, setView] = useState<View>({ tx: 32, ty: 32, scale: 1 });
 	const paneCentre = useCallback((): [number, number] => {
@@ -56,8 +64,15 @@ export function useCanvasZoom({
 
 	const boundedScale = policy === 'bounded' ? scaleForPreset(preset) : 1;
 	const scale = policy === 'canvas' ? view.scale : boundedScale;
-	const tx = policy === 'canvas' ? view.tx : boundedScale < 1 ? 8 : 0;
-	const ty = policy === 'canvas' ? view.ty : boundedScale < 1 ? 8 : 0;
+	const inset = boundedScale < 1 ? 8 : 0;
+	const tx = policy === 'canvas' ? view.tx : inset;
+	// RC-POL-1.2 — the history cluster sits in the bounded board's top-right corner; when the layout
+	// reaches under it, the tiles start below it instead of losing their top-right menu trigger.
+	const crowded =
+		historyGutter &&
+		policy === 'bounded' &&
+		inset + scale * contentWidth > wrapWidth - CLUSTER_ROOM;
+	const ty = policy === 'canvas' ? view.ty : inset + (crowded ? CLUSTER_GUTTER : 0);
 	const overflowsHorizontally = policy === 'bounded' && scale * contentWidth > wrapWidth;
 
 	/** Move to a named step. The bounded board reads its scale straight off the preset; the free

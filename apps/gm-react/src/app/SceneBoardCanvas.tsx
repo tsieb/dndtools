@@ -165,6 +165,7 @@ export function SceneBoardCanvas({
 		contentWidth: contentExtent.width,
 		zoomPreset,
 		onZoomPresetChange,
+		historyGutter: editing && !!history,
 	});
 
 	const capture = (e: React.PointerEvent) => {

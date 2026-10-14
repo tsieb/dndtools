@@ -47,7 +47,7 @@ export function BoardHeading({
 				<div
 					style={{
 						font: 'var(--text-2xs) var(--font-sans)',
-						color: 'var(--color-text-tertiary)',
+						color: 'var(--color-text-secondary)',
 					}}
 				>
 					{summary}

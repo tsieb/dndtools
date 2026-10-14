@@ -61,7 +61,6 @@ export interface LayoutHistory {
 	announcement: LayoutAnnouncement | null;
 }
 
-
 export function useLayoutHistory(options: {
 	/** The scene the stack belongs to. A change clears it. `null` disables recording. */
 	sceneId: string | null;

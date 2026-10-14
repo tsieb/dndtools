@@ -1,10 +1,84 @@
 import type React from 'react';
-import { useId } from 'react';
+import { useId, type CSSProperties, type ReactNode } from 'react';
+import { Icon } from '../../ds';
 import { useI18n } from '../../i18n';
-import { CreateEntry, GenerateGateNote, useGenerateGate } from '../widgetBuilder/GenerateDialog';
+import { GenerateGateNote, useGenerateGate } from '../widgetBuilder/GenerateDialog';
 
 // RC-POL-1.2 — the Add panel's empty-board header and its "More ways to add" group, out of
 // `AddWidgetGallery.tsx`.
+
+const ENTRY: CSSProperties = {
+	display: 'flex',
+	flexDirection: 'column',
+	alignItems: 'flex-start',
+	gap: 'var(--space-1)',
+	padding: 'var(--space-2)',
+	textAlign: 'left',
+	border: '1px dashed var(--color-border-strong)',
+	borderRadius: 'var(--radius-md)',
+	background: 'var(--color-surface-alt)',
+	color: 'var(--color-text-primary)',
+};
+
+/**
+ * One "More ways to add" entry (RC-CAN-8.5): a dashed button with a label and a one-line hint, or,
+ * when the way is unavailable, a group saying why. RC-POL-1.2 gave the canvas its own copy of the
+ * builder's `CreateEntry` with the hint in secondary text: tertiary text on the alternate surface is
+ * 3.84:1 in parchment, and that component is outside this surface.
+ */
+export function AddEntry({
+	icon,
+	label,
+	hint,
+	onClick,
+	blocked,
+}: {
+	icon: string;
+	label: string;
+	hint: string;
+	onClick: () => void;
+	blocked?: ReactNode;
+}) {
+	const hintId = useId();
+	const title = (
+		<span
+			style={{
+				display: 'flex',
+				alignItems: 'center',
+				gap: 'var(--space-1)',
+				font: '600 var(--text-xs) var(--font-sans)',
+			}}
+		>
+			<Icon name={icon} size="sm" />
+			{label}
+		</span>
+	);
+	const note: CSSProperties = {
+		font: 'var(--text-2xs)/1.4 var(--font-sans)',
+		color: 'var(--color-text-secondary)',
+	};
+	if (blocked)
+		return (
+			<div role="group" aria-label={label} style={ENTRY}>
+				{title}
+				<div style={note}>{blocked}</div>
+			</div>
+		);
+	return (
+		<button
+			type="button"
+			aria-label={label}
+			aria-describedby={hintId}
+			onClick={onClick}
+			style={{ ...ENTRY, cursor: 'pointer' }}
+		>
+			{title}
+			<span id={hintId} style={note}>
+				{hint}
+			</span>
+		</button>
+	);
+}
 
 /** Shown while the board is empty: what a tile is, and the template entry beside it. */
 export function GalleryStartHeader({ action }: { action?: React.ReactNode }) {
@@ -74,7 +148,7 @@ export function GalleryMoreWays({
 				}}
 			>
 				{onGenerate && (
-					<CreateEntry
+					<AddEntry
 						icon="sparkle"
 						label={t(
 							generate.ready && generate.local
@@ -92,7 +166,7 @@ export function GalleryMoreWays({
 					/>
 				)}
 				{onBuild && (
-					<CreateEntry
+					<AddEntry
 						icon="wand"
 						label={t('boardCanvas.add.build')}
 						hint={t('boardCanvas.add.buildHint')}

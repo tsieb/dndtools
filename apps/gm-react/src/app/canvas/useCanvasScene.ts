@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 import { useParams } from 'react-router-dom';
 import { getSceneForActor, type SectionLayoutRegion } from '@dndtools/core';
 import { useRuntime } from '../../runtime/RuntimeContext';
@@ -6,6 +6,14 @@ import { dockedPosition, type BoardWidget } from '../board-helpers';
 import { extentOf } from './geometry';
 
 const NO_SECTIONS: SectionLayoutRegion[] = [];
+
+/** The theme painted on `<html>` (platform/theme.ts), followed as the GM switches it. */
+function subscribeTheme(onChange: () => void) {
+	const observer = new MutationObserver(onChange);
+	observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+	return () => observer.disconnect();
+}
+const paintedTheme = () => document.documentElement.getAttribute('data-theme');
 
 /**
  * RC-POL-1.2 — the scene a canvas draws, out of `SceneBoardCanvas.tsx`: the route's scene (or the
@@ -37,8 +45,12 @@ export function useCanvasScene(authoredWidgets: BoardWidget[], policy: 'bounded'
 		: null;
 	const sections = summary && !('kind' in summary) ? summary.sections : NO_SECTIONS;
 	const background = summary && !('kind' in summary) ? summary.visualSettings.background : 'paper';
-	const surfaceTheme =
-		background === 'paper' || background === 'parchment'
+	// RC-POL-1.2 — a paper or dark scene surface pins its own palette, except under the high-contrast
+	// theme: a parchment sheet under high-contrast tiles undid the contrast the GM asked for.
+	const highContrast = useSyncExternalStore(subscribeTheme, paintedTheme) === 'high-contrast';
+	const surfaceTheme = highContrast
+		? undefined
+		: background === 'paper' || background === 'parchment'
 			? 'parchment'
 			: background === 'dark'
 				? 'tavern'

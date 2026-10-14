@@ -5856,7 +5856,7 @@ export default {
 	'board.noWidgets': '[Ñó ŵíďğéţš áŕé áṽáíľáƀľé ţó áďď ŕíğĥţ ñóŵ.~~~~ ~~~~ ~~~~ ~~]',
 	'board.saveCurrentLayout': '[Šáṽé çúŕŕéñţ ľáýóúţ~~~~ ~~~]',
 	'board.layoutName': '[Ľáýóúţ ñáḿé~~~~ ]',
-	'board.layoutNamePlaceholder': '[é.ğ. Çóḿƀáţ ñíğĥţ~~~~ ~~]',
+	'board.layoutNamePlaceholder': '[Çóḿƀáţ ñíğĥţ~~~~ ]',
 	'board.applySavedLayout': '[Áƥƥľý á šáṽéď ľáýóúţ~~~~ ~~~]',
 	'board.restorePrevious': '[Ŕéšţóŕé ƥŕéṽíóúš ľáýóúţ~~~~ ~~~~ ]',
 	'board.layoutSaved': '[Ľáýóúţ “~~~~{name}” šáṽéď.~~~~]',

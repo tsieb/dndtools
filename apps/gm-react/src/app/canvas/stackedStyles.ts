@@ -154,6 +154,6 @@ export const EMPTY_TITLE: CSSProperties = {
 
 export const EMPTY_HINT: CSSProperties = {
 	font: 'var(--text-sm) var(--font-sans)',
-	color: 'var(--color-text-tertiary)',
+	color: 'var(--color-text-secondary)',
 	maxWidth: '20rem',
 };

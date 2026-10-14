@@ -281,7 +281,8 @@ export function WidgetFrame({
 									font: 'var(--text-2xs) var(--font-sans)',
 									letterSpacing: 'var(--tracking-wide)',
 									textTransform: 'uppercase',
-									color: 'var(--color-text-tertiary)',
+									// Tertiary only on the raised tile; a placeholder's sunken fill needs secondary.
+									color: placeholder ? 'var(--color-text-secondary)' : 'var(--color-text-tertiary)',
 									whiteSpace: 'nowrap',
 									flex: '0 0 auto',
 								}}

@@ -361,7 +361,7 @@ for (const viewport of [
 			// The shell's h1 survives hash navigation. Wait for the requested canvas, otherwise
 			// the old board (or a Suspense-hidden div) can satisfy an overflow-only poll.
 			const canvas = page.getByRole('region', {
-				name: /^GM Screen,/,
+				name: /^DM screen,/,
 			});
 			await expect(canvas).toBeVisible({ timeout: 10_000 });
 			const pane = page.locator('#main-content > div').filter({ has: canvas });

@@ -514,18 +514,18 @@ test('a11y tree: /board names its surface, counts its widgets, and voices keyboa
 
 	// VIEW: a labelled region, so browse mode still reads widget content.
 	await expect(board).toHaveAttribute('role', 'region');
-	await expect(board).toHaveAccessibleName(`GM Screen, ${widgetsWord(count)}`);
+	await expect(board).toHaveAccessibleName(`DM screen, ${widgetsWord(count)}`);
 	await expect(board).toMatchAriaSnapshot(`
-		- region "GM Screen, ${widgetsWord(count)}":
+		- region "DM screen, ${widgetsWord(count)}":
 		  - group /^.+, .+ widget$/
 	`);
 
 	// EDIT: the canvas owns the arrow keys, so it becomes an application — same count.
 	await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
 	await expect(board).toHaveAttribute('role', 'application');
-	await expect(board).toHaveAccessibleName(`GM Screen layout editor, ${widgetsWord(count)}`);
+	await expect(board).toHaveAccessibleName(`DM screen layout editor, ${widgetsWord(count)}`);
 	await expect(board).toMatchAriaSnapshot(`
-		- application "GM Screen layout editor, ${widgetsWord(count)}":
+		- application "DM screen layout editor, ${widgetsWord(count)}":
 		  - group /^.+, .+ widget, position \\d+, \\d+, size \\d+ by \\d+$/
 	`);
 	await expect(frames).toHaveCount(count);
@@ -557,19 +557,19 @@ test('a11y tree: scene editor names its surface and counts its widgets', async (
 	await expect(surface).toHaveCount(1);
 	await expect(surface).toHaveAttribute('role', 'region');
 	await expect(surface).toHaveAccessibleName(
-		new RegExp(`^(GM Screen|Scene layout), ${widgetsWord(count)}$`),
+		new RegExp(`^(DM screen|Scene layout), ${widgetsWord(count)}$`),
 	);
 	await expect(surface).toMatchAriaSnapshot(`
-		- region /^(GM Screen|Scene layout), ${widgetsWord(count)}$/:
+		- region /^(DM screen|Scene layout), ${widgetsWord(count)}$/:
 		  - group /^.+, .+ widget$/
 	`);
 	await expect(surface.locator('[role="group"][data-testid^="widget-"]')).toHaveCount(count);
 
 	await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
 	await expect(surface).toHaveAttribute('role', 'application');
-	await expect(surface).toHaveAccessibleName(`GM Screen layout editor, ${widgetsWord(count)}`);
+	await expect(surface).toHaveAccessibleName(`DM screen layout editor, ${widgetsWord(count)}`);
 	await expect(surface).toMatchAriaSnapshot(`
-		- application "GM Screen layout editor, ${widgetsWord(count)}":
+		- application "DM screen layout editor, ${widgetsWord(count)}":
 		  - group /^.+, .+ widget, position .+$/
 	`);
 });

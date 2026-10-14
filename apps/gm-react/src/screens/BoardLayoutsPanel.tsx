@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import type { CommandCenterPreset } from '@dndtools/core';
 import { Button, Card, IconButton, Input } from '../ds';
 import type { Viewport } from '../app/useViewport';
@@ -48,6 +49,7 @@ export function BoardLayoutsPanel({
 	onRestoreSafePoint: () => void;
 }) {
 	const { formatTime } = useI18n();
+	const titleId = useId();
 	const { commandCenter } = useRuntime().state;
 	const safePoint = autoSaveEnabled ? safePointOf(commandCenter) : null;
 	return (
@@ -55,6 +57,8 @@ export function BoardLayoutsPanel({
 			elevation="overlay"
 			padding="md"
 			data-testid="board-layouts-panel"
+			role="region"
+			aria-labelledby={titleId}
 			onKeyDown={(e: React.KeyboardEvent) => {
 				if (e.key === 'Escape') {
 					e.stopPropagation();
@@ -75,15 +79,18 @@ export function BoardLayoutsPanel({
 			}}
 		>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-				<span
+				{/* RC-POL-1.2: a sans heading like the Add panel's — the display face starts at 24px. */}
+				<h3
+					id={titleId}
 					style={{
 						flex: 1,
-						font: '700 var(--text-md) var(--font-display)',
+						margin: 'var(--space-0)',
+						font: '700 var(--text-md) var(--font-sans)',
 						color: 'var(--color-text-primary)',
 					}}
 				>
 					{t('board.layouts')}
-				</span>
+				</h3>
 				<IconButton
 					icon="close"
 					label={t('board.closeLayouts')}

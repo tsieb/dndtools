@@ -431,7 +431,7 @@ export function FlowBoard({
 					<div style={{ font: `700 var(--text-lg) ${T.sans}`, color: T.sub }}>
 						{emptyTitle ?? t('boardCanvas.flow.emptyTitle')}
 					</div>
-					<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.ter, maxWidth: 320 }}>
+					<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub, maxWidth: 320 }}>
 						{emptyHint ?? t('boardCanvas.flow.emptyHint')}
 					</div>
 				</div>

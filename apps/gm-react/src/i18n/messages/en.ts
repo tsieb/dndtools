@@ -5642,7 +5642,7 @@ export const en = {
 	'board.noWidgets': 'No widgets are available to add right now.',
 	'board.saveCurrentLayout': 'Save current layout',
 	'board.layoutName': 'Layout name',
-	'board.layoutNamePlaceholder': 'e.g. Combat night',
+	'board.layoutNamePlaceholder': 'Combat night',
 	'board.applySavedLayout': 'Apply a saved layout',
 	'board.restorePrevious': 'Restore previous layout',
 	'board.layoutSaved': 'Layout “{name}” saved.',

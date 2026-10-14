@@ -230,7 +230,7 @@ export function FlowTile({
 					font: `var(--text-2xs) ${T.sans}`,
 					letterSpacing: 'var(--tracking-wide)',
 					textTransform: 'uppercase',
-					color: T.ter,
+					color: placeholder ? T.sub : T.ter,
 					flex: '0 0 auto',
 				}}
 			>

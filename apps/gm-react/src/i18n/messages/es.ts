@@ -5676,7 +5676,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'board.noWidgets': 'Ahora mismo no hay widgets disponibles para añadir.',
 	'board.saveCurrentLayout': 'Guardar el diseño actual',
 	'board.layoutName': 'Nombre del diseño',
-	'board.layoutNamePlaceholder': 'p. ej. Noche de combate',
+	'board.layoutNamePlaceholder': 'Noche de combate',
 	'board.applySavedLayout': 'Aplicar un diseño guardado',
 	'board.restorePrevious': 'Restaurar el diseño anterior',
 	'board.layoutSaved': 'Se guardó el diseño «{name}».',

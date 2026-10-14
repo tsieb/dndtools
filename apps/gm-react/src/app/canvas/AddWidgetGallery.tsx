@@ -20,13 +20,10 @@ import type { Viewport } from '../useViewport';
 import { WidgetLibraryCard } from './WidgetLibraryCard';
 import { Miniature } from './GalleryMiniature';
 import { InPlaceEnable } from '../../screens/extensions/WidgetBuilder';
-import { CreateEntry } from '../widgetBuilder/GenerateDialog';
 import { GalleryMoreWays, GalleryStartHeader } from './GalleryParts';
 
-// The free-slot search moved beside the palette rows that share it (RC-CAN-8.5), and the "More ways
-// to add" card beside the Generate gate that can turn it into a note (RC-WID-6.7).
+// The free-slot search moved beside the palette rows that share it (RC-CAN-8.5).
 export { nextFreeSlot } from '../../screens/screen/paletteRows';
-export { CreateEntry };
 
 /**
  * AddWidgetGallery — the one "add a tile" surface for `/board` and `/scene/:id` (RC-CAN-4.1).
@@ -262,7 +259,7 @@ export function AddWidgetGallery({
 
 	const note: React.CSSProperties = {
 		font: 'var(--text-xs) var(--font-sans)',
-		color: 'var(--color-text-tertiary)',
+		color: 'var(--color-text-secondary)',
 	};
 
 	const body = (

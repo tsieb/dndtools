@@ -12,7 +12,7 @@ import { useI18n, type MessageKey } from '../../i18n';
 import { tileMetadataForDefinition } from '../widgets/tileMeta';
 import type { Viewport } from '../useViewport';
 import { WidgetGlyph } from './frameParts';
-import { CreateEntry } from './AddWidgetGallery';
+import { AddEntry } from './GalleryParts';
 
 /** A built-in template's catalog keys; the core names them in English (RC-POL-1.2). */
 const TEMPLATE_COPY: Record<BuiltinSceneTemplateId, readonly [name: MessageKey, body: MessageKey]> =
@@ -200,7 +200,7 @@ function TemplateCard({
 					{option.name}
 				</span>
 				<span
-					style={{ font: 'var(--text-2xs) var(--font-sans)', color: 'var(--color-text-tertiary)' }}
+					style={{ font: 'var(--text-2xs) var(--font-sans)', color: 'var(--color-text-secondary)' }}
 				>
 					{t('boardCanvas.templates.tileCount', { count: option.tiles.length })}
 				</span>
@@ -240,7 +240,7 @@ function TemplateCard({
 export function TemplateStartEntry({ onPick }: { onPick: () => void }) {
 	const { t } = useI18n();
 	return (
-		<CreateEntry
+		<AddEntry
 			icon="layers"
 			label={t('boardCanvas.templates.startEntry')}
 			hint={t('boardCanvas.templates.startEntryHint')}
@@ -398,7 +398,7 @@ export function TemplatePicker({
 		font: '700 var(--text-xs) var(--font-sans)',
 		letterSpacing: '0.04em',
 		textTransform: 'uppercase',
-		color: 'var(--color-text-tertiary)',
+		color: 'var(--color-text-secondary)',
 	};
 	const grid: React.CSSProperties = {
 		listStyle: 'none',
@@ -438,7 +438,7 @@ export function TemplatePicker({
 				list(saved, t('boardCanvas.templates.saved'))
 			) : (
 				<div
-					style={{ font: 'var(--text-xs) var(--font-sans)', color: 'var(--color-text-tertiary)' }}
+					style={{ font: 'var(--text-xs) var(--font-sans)', color: 'var(--color-text-secondary)' }}
 				>
 					{t('boardCanvas.templates.savedEmpty')}
 				</div>

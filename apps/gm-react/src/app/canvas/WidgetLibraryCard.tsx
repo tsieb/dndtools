@@ -82,7 +82,13 @@ export function WidgetLibraryCard({ entry, label, onPick, onPreview }: RowProps)
 				>
 					{entry.displayName}
 				</span>
-				<span style={rowText('var(--text-2xs)', 'var(--color-text-tertiary)')}>
+				{/* Tertiary only on the raised row: a dimmed row's sunken fill takes it under 4.5:1. */}
+				<span
+					style={rowText(
+						'var(--text-2xs)',
+						reason ? 'var(--color-text-secondary)' : 'var(--color-text-tertiary)',
+					)}
+				>
 					{entry.category ?? ''}
 				</span>
 				<span
