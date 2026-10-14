@@ -130,3 +130,25 @@ promotion, loop launch, dispatcher control-state edit, or unrelated tracked-file
 - Final `pnpm feature-audit`: exit 0, 48 declared limits, 0 stale anchors, 0 inventory issues,
   no mock imports and 0/23 screens requiring wiring review. Original output inspected.
 - Scoped Prettier and `git diff --check` passed before commit.
+
+## Settings and Story evidence corrections — 2026-10-14
+
+- Starting candidate: `ec4b17a96b598bd76fdb3f804c34a7e0e84f0436`; clean worktree.
+  Applied the supplied docs-research skill; no Headroom tools were available.
+- Corrected Settings' unconditional billing limitation to the actual no-live-billing,
+  server-backed, preview-disabled branch. The literal anchor now asserts
+  `screens/settings/Subscription.tsx:361`; surrounding lines 349-371 select live billing,
+  unavailable or preview copy. `cloud/entitlements.ts:365-410` confirms the separate preview
+  paths. Paths in this item resolve under `apps/gm-react/src/`.
+- Split Story's NPC claim from quest/faction authoring: `campaign.spec.ts:263` browses seeded
+  NPCs and `:289` exercises sheet navigation to Characters. `Campaign.tsx:424,439` implements
+  that navigation. The inventory no longer claims this spec demonstrates NPC creation/editing.
+- Original local command outputs inspected: `pnpm feature-audit` exit 0, 48 declared limits,
+  0 stale anchors, 0 inventory issues, no mock imports and 0/23 screens needing wiring review;
+  `pnpm gates` exit 0, six gates, 308 reachable docs and 443 resolved relative links;
+  `pnpm exec vitest run --config vitest.app.config.ts apps/gm-react/src/screens/Upgrade.test.tsx
+-t 'no billing configured'` exit 0, 2 passed and 14 skipped. Existing file-size and Vite
+  configuration warnings remain. These unit tests exercise Upgrade, not the Settings panel.
+- No application or validator changes were needed. Browser, hardware, deployed-service checks,
+  central wrapper gates and independent review remain unrun in this correction. No push,
+  promotion, loop launch or dispatcher control-state change was performed.
