@@ -54,3 +54,25 @@ Commands ran from this task worktree; original outputs were read, not compressed
 Full browser, visual, hardware, live service, and independent operator gates remain with the
 central operator. This task changes documentation and its validator, not app pixels. No push,
 promotion, loop launch, dispatcher control-state edit, or unrelated tracked-file change occurred.
+
+## Independent-review corrections — 2026-10-14
+
+- Starting candidate: `842ded3884123c22de7a411227617813508edd92`; clean worktree.
+  Rechecked both findings using the supplied docs-research skill and original source output.
+- Restored the unresolved Session parchment phase-control contrast limit (DEBT-2026-008).
+  `SessionBody.tsx:198` renders `SessionHeader`, `screens/session/Lifecycle.tsx:95` renders
+  `Seg`, and `app/screen-kit.tsx:688-690` still uses accent on accent-subtle for 12.5px text.
+  `styles/tokens/colors.css:165,168` retains the recorded pair. `DEBT.md:72-89` remains open;
+  `tests/e2e/session-polish.spec.ts:27,33,64` documents and filters the exception. These app paths
+  resolve under `apps/gm-react/src/`, and the spec under `apps/gm-react/`.
+  The restored limit asserts the exact spec line naming the ratio and debt. No UI fix is claimed.
+- Split Notes templates and saved-search filters into separately cited claims. Read the template
+  creation assertions and `knowledge-filters.spec.ts:88-126` saved-search persistence/actions.
+- Existing validator already asserts the restored anchor; no validator change is necessary.
+- Correction validation (original command output inspected): `pnpm feature-audit` exited 0 with
+  **42 declared limits, 0 stale anchors, 0 inventory issues**, no mock imports and 0/23 screens
+  requiring wiring review. `pnpm gates` exited 0 (6 gates; 308 reachable docs / 443 resolved links),
+  with existing app file-size warnings. Scoped Prettier and `git diff --check` passed.
+- Browser and live-service checks remain unrun; no application or validator code changed.
+  Central operator wrapper gates and independent review remain pending. No push, promotion,
+  loop launch or dispatcher control-state change was performed.
