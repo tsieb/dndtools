@@ -92,3 +92,21 @@ also remain outstanding. No finding was waived or relabeled to satisfy acceptanc
 This pass changes only the report handoff and journal. Earlier test results are not new runs;
 formatting and diff checks are run for these documentation edits. No central gate success is
 claimed, and no dispatcher control state, runtime file, push, promotion, or extra agent is used.
+
+## Independent-review rejection follow-up
+
+- Starting HEAD: `e7c7bdccffc9f77b1e611fe9a8e7298539e2922f`; working tree clean.
+- Read the supplied independent rejection and rechecked renderer worker selection, the blob
+  factory, hosted CSP, and service-worker cache admission directly. H-01 and M-01 remain present.
+- Read roadmap §21.2: resolved ownership is a write fence and scope must not be widened.
+  The explicit current claim still contains only security documents. No runtime repair is
+  authorized by the document claim correction. Record the concrete factory and cache paths in
+  the report for central rescheduling; do not change dispatcher state.
+- No Headroom tool is exposed in this session. Native command output was inspected directly.
+  Repository/local skill searches did not find `/security-review`; no substitute run is claimed.
+- Updated report and README with the independent rejection and remaining prerequisites.
+  The earlier unit-test results and supplied exact-head gate results are historical evidence,
+  not executions in this follow-up. Acceptance remains blocked; no High was waived.
+- Validation for these documentation edits: Prettier check of all three changed documents and
+  `git diff --check` (results recorded during commit preparation). No runtime tests warranted
+  for this documentation-only follow-up; browser and signature evidence remain outstanding.

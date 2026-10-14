@@ -130,6 +130,22 @@ are the durable reproduction references.
 
 ## Acceptance handoff
 
+The central independent review rejected candidate
+`e7c7bdccffc9f77b1e611fe9a8e7298539e2922f` against the source base above. Its supplied
+feedback confirms H-01, retains conditional M-01, and requires attributable per-PR review
+reports and platform signature evidence. It reports successful exact-head quality and formatting
+gates, but explicitly does not accept those gates or the earlier 338 unit tests as origin-isolation
+evidence. These are review-feedback assertions, not newly executed gates in this follow-up.
+
+Follow-up source inspection at that candidate confirms the worker selection, app-context blob
+factory, hosted `worker-src 'self' blob:` policy, and broad cache admission remain unchanged.
+The current session exposes neither Headroom nor `/security-review`; no additional review run,
+browser reproduction, or signature verification is claimed. Repeating document-only retries
+cannot close H-01. The minimum runtime claim needed for the proposed factory-level fail-closed
+repair is `apps/gm-react/src/app/widgets/WorkerHost.ts`, plus its regression tests. M-01 separately
+needs `apps/gm-react/src/sw/service-worker.js` and cache regression tests. The current explicit
+document claim and the repository write fence (§21.2) do not authorize either runtime edit.
+
 - [x] Document claim corrected by central self-heal round 1: the README and this concrete dated
       report are now explicitly owned. Keep both changes. This removes the reported document-path
       mismatch; no subsequent central claim-gate pass is asserted here.
