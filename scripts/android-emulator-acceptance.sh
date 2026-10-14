@@ -651,7 +651,9 @@ wait_for_root_destination || fail 'dismissing the import review lost the root de
 # operations do not clear the application sandbox.
 step 'app-private vault and temporary-file state'
 VAULT_PATH=''
-if adb shell "run-as $PACKAGE_ID true" >/dev/null 2>&1; then
+# ANDROID_FORCE_ROOT_ACCESS=1 skips run-as, so a debuggable build can exercise the root path the
+# signed release APK takes.
+if [[ "${ANDROID_FORCE_ROOT_ACCESS:-0}" != 1 ]] && adb shell "run-as $PACKAGE_ID true" >/dev/null 2>&1; then
 	PRIVATE_ACCESS='run-as'
 	find_private_vault() {
 		adb shell "run-as $PACKAGE_ID sh -c 'find app_webview -type d -name \"*indexeddb*\" -print -quit 2>/dev/null'" \
@@ -662,9 +664,16 @@ if adb shell "run-as $PACKAGE_ID true" >/dev/null 2>&1; then
 	}
 else
 	ROOT_OUTPUT=$(adb root 2>&1 || true)
-	adb wait-for-device
-	if grep -Eq 'restarting adbd as root|adbd is already running as root' <<<"$ROOT_OUTPUT" \
-		&& [[ "$(adb shell id -u | tr -d '\r')" == 0 ]]; then
+	# adbd restarts to become root; the device can drop off and reappear more than once before a
+	# shell answers as uid 0, so ask until it does rather than once.
+	ROOT_UID=''
+	for _ in {1..20}; do
+		adb wait-for-device
+		ROOT_UID=$(adb shell id -u 2>/dev/null | tr -d '\r' || true)
+		[[ "$ROOT_UID" == 0 ]] && break
+		sleep 1
+	done
+	if [[ "$ROOT_UID" == 0 ]]; then
 		PRIVATE_ACCESS='root'
 		find_private_vault() {
 			adb shell "find '$PRIVATE_ROOT/app_webview' -type d -name '*indexeddb*' -print -quit 2>/dev/null" \
@@ -693,7 +702,7 @@ if [[ -n "$PRIVATE_ACCESS" ]]; then
 	fi
 	[[ -z "$EXPORT_FILES" ]] || fail 'cancelled native share left an app-private temporary export'
 elif [[ "${ANDROID_EXPECT_PRIVATE_DATA:-0}" == 1 ]]; then
-	fail 'private app data is inaccessible; persistence checks cannot run'
+	fail "private app data is inaccessible; persistence checks cannot run (adb root: ${ROOT_OUTPUT:-not tried}; uid ${ROOT_UID:-unknown})"
 fi
 
 # Offline cold relaunch must continue to boot entirely from packaged assets and local vault data.
