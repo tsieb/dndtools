@@ -17,6 +17,7 @@ import {
 	writePreference,
 } from '../../platform/preferences';
 import { ONBOARDED_KEY, REPLAY_EVENT } from '../onboarding/shared';
+import { openExternalUrl } from '../../platform/capabilities';
 import { appVersion } from '../../platform/appVersion';
 
 const ImportHub = lazy(() =>
@@ -137,3 +138,34 @@ export function HelpTrigger({
 		</Button>
 	);
 }
+
+// Fixed destination: never put campaign data or credentials in a feedback URL.
+export const BETA_FEEDBACK_URL =
+	'https://github.com/tsieb/dndtools/discussions/new?category=beta-feedback';
+
+export function BetaFeedbackAction() {
+	const { t } = useI18n();
+	const [fallback, setFallback] = useState(false);
+	async function sendFeedback() {
+		try {
+			setFallback(!(await openExternalUrl(BETA_FEEDBACK_URL)));
+		} catch {
+			setFallback(true);
+		}
+	}
+	return (
+		<section aria-label={t('help.sendFeedback')}>
+			<Button variant="secondary" size="sm" onClick={() => void sendFeedback()}>
+				{t('help.sendFeedback')}
+			</Button>
+			<p>{t('help.feedbackPrivacy')}</p>
+			{fallback && (
+				<div role="status">
+					<p>{t('help.feedbackFallback')}</p>
+					<code style={{ overflowWrap: 'anywhere' }}>{BETA_FEEDBACK_URL}</code>
+				</div>
+			)}
+		</section>
+	);
+}
+

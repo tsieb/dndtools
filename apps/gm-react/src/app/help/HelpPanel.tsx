@@ -1,6 +1,6 @@
 import { openImportHub } from '../importHub/registry';
 import { useEffect, useState, type CSSProperties } from 'react';
-import { hasUnseenWhatsNew, markWhatsNewSeen } from './HelpMenu';
+import { BetaFeedbackAction, hasUnseenWhatsNew, markWhatsNewSeen } from './HelpMenu';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { resolveOnboarding } from '@dndtools/core';
 import { Badge, Button, Dialog, Icon } from '../../ds';
@@ -189,6 +189,8 @@ export function HelpMenu({ open, onClose }: { open: boolean; onClose: () => void
 						</div>
 						{listOpen && <ReleaseNotes />}
 					</section>
+
+					<BetaFeedbackAction />
 
 					<section aria-label={t('help.keyboardShortcuts')}>
 						<Button

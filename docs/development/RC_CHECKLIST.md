@@ -149,18 +149,23 @@ items pending; neither an exit code nor a green path-filtered `ci-gate` substitu
 
 ## Beta program and feedback handoff
 
-This deliverable is **blocked**, not complete, until the feedback route below is implemented
-under an authorized ownership correction or companion task. Documentation alone does not satisfy it.
+The Help topics list now includes localized **Send feedback**, targeting
+`https://github.com/tsieb/dndtools/discussions/new?category=beta-feedback` through the platform
+external-browser adapter. It warns that feedback is public and must exclude private campaign
+content, credentials and vault exports. A rejected or blocked browser open shows a copyable URL.
 
-Before inviting testers, verify a GitHub Discussions beta-feedback category and form are enabled,
-and that Help → **Send feedback** opens that form. These changes require ownership of
-`.github/DISCUSSION_TEMPLATE/` and the app help menu; this checklist does not claim they exist.
-The form should ask for RC tag/version, platform, expected/actual behavior, reproduction steps,
-severity, and optional redacted screenshots/logs. Never request vault exports, credentials or
-private campaign content by default.
+The beta route remains **blocked**, not complete: the Discussions form is not committed and
+its category has not been verified. The Electron shell currently blocks external browser opens;
+its narrow, user-confirmed external-link bridge also needs an ownership correction. The copyable
+URL fallback is not evidence that the form opens on desktop.
 
-- [ ] Commit the Discussions form and record its path and the enabled category URL.
-- [ ] Wire the localized Help → **Send feedback** action to that category's form.
+- [ ] Authorize and commit `.github/DISCUSSION_TEMPLATE/beta-feedback.yml`; enable the matching
+      `beta-feedback` category and verify the URL above opens its form. Ask for RC tag/version,
+      platform, expected/actual behavior, reproduction steps, severity and optional redacted
+      screenshots/logs. Never request vault exports, credentials or private campaign content.
+- [x] Add the Help topics action with English/Spanish catalog strings and external-open fallback.
+- [ ] Authorize the Electron main/preload bridge and renderer typings needed for a fixed,
+      user-confirmed feedback destination; preserve the existing arbitrary-URL restriction.
 - [ ] Verify the action opens the intended form on supported platforms, including keyboard
       activation and external-open failure handling; record the test names and results.
 - [ ] Retain the required help-menu visual comparison and independent review evidence.

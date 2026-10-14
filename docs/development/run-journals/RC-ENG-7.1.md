@@ -96,3 +96,37 @@ launch prerequisite; it does not claim that a feedback route already exists.
   run the hosted RC rehearsal with matching evidence assets. Alternatively, explicitly rescope
   hosted acceptance to RC-ENG-7.2. This candidate does not change acceptance or dispatcher state,
   and must not be represented as satisfying RC-ENG-7.1's end-to-end acceptance criterion.
+
+## Self-heal round 1 — partial ownership correction, 2026-10-14
+
+- Starting candidate: `fd67207776fadc0566b1caf3fe35bccc3104f18b`; clean worktree.
+  The supplied claim now includes `apps/gm-react/src/app/help/HelpMenu.tsx`.
+  RC_ROADMAP §21.2 grants catalogs and test files as companion paths.
+- Implemented Help topics → Send feedback using the platform external-browser adapter and
+  a fixed GitHub beta-feedback URL. English/Spanish catalog strings explain public feedback
+  and exclusion of campaign content, credentials and vault exports. Blocked/throwing opens
+  show the copyable destination; no campaign data is put into the URL.
+- Still blocked: `.github/DISCUSSION_TEMPLATE/beta-feedback.yml` is outside the supplied claim.
+  Requested explicit correction; no response received during implementation. The category/form
+  has not been verified. This action alone does not resolve the review's high-severity finding.
+- Discovered an additional desktop requirement: `electron/main.cjs` deliberately denies external
+  windows and requires narrow user-confirmed IPC for external-link features. Requested ownership
+  of Electron main/preload and renderer typings; did not weaken the restriction. Desktop currently
+  uses the copyable URL fallback, not an automatically opened browser.
+- Headroom tools unavailable; native original logs inspected directly:
+  - `/tmp/rc-eng-7.1-feedback-tests.log`: 3 component tests pass (success, false, rejection).
+  - `/tmp/rc-eng-7.1-feedback-keyboard.log`: 2 Playwright tests pass, desktop/mobile Chromium;
+    Enter activates the button and a blocked open displays the fixed URL.
+  - `/tmp/rc-eng-7.1-feedback-types.log`: app TypeScript check exits 0.
+  - `/tmp/rc-eng-7.1-feedback-lint.log`: focused ESLint exits 0.
+  - `/tmp/rc-eng-7.1-feedback-gates.log`: quality gates exit 0, existing size warnings only.
+- Pinned visual comparison is **not green**: `palette-help.spec.ts` exits 1, all 15 theme/tier
+  cases differ at the Help screenshot. Read original diagnostics and inspected desktop tavern
+  actual/expected images. Log: `/tmp/rc-eng-7.1-feedback-help-visual.log`. Baselines under
+  `tests/visual/__screenshots__` remain unchanged; they are not listed in this task's claim or
+  the roadmap's named `__snapshots__` companion paths. Their ownership and review are needed.
+  An initial full visual run was interrupted to narrow to Help: 34 passed, 2 interrupted,
+  552 not run (`/tmp/rc-eng-7.1-feedback-visual.log`); this is not a full-suite pass.
+- Hosted acceptance remains outstanding. No local tag points at the starting candidate; no tag
+  pushed, workflow dispatched, release altered, promotion attempted or dispatcher state changed.
+  RC-ENG-7.2 must provide the authorized exact-tag run and verified release attachments.

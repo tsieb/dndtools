@@ -170,3 +170,27 @@ test.describe('help menu', () => {
 		await expect(page.getByRole('dialog', { name: 'Running a session' })).toBeVisible();
 	});
 });
+
+test('Send feedback supports keyboard activation and a blocked browser fallback', async ({
+	page,
+}) => {
+	await markOnboarded(page);
+	await page.addInitScript(() => {
+		window.open = (url) => {
+			document.documentElement.dataset.feedbackUrl = String(url);
+			return null;
+		};
+	});
+	await gotoRoute(page, '/');
+	await page.getByRole('button', { name: 'Help', exact: true }).click();
+	const feedback = page.getByRole('button', { name: 'Send feedback', exact: true });
+	await feedback.focus();
+	await page.keyboard.press('Enter');
+	await expect(page.locator('html')).toHaveAttribute(
+		'data-feedback-url',
+		'https://github.com/tsieb/dndtools/discussions/new?category=beta-feedback',
+	);
+	await expect(
+		page.getByRole('status').filter({ hasText: 'If the form did not open' }),
+	).toContainText('https://github.com/tsieb/dndtools/discussions/new?category=beta-feedback');
+});

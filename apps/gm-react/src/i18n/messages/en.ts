@@ -7181,6 +7181,10 @@ export const en = {
 	'firstSession.link.startSession': 'Start a session',
 	'firstSession.link.invitePlayers': 'Invite players',
 	// RC-UX-3.4 — the Help menu: getting started, what's new, and a link into the shortcut overlay.
+	'help.sendFeedback': 'Send feedback',
+	'help.feedbackPrivacy':
+		'Feedback is public on GitHub. Include your app version and platform; leave out private campaign content, credentials and vault exports.',
+	'help.feedbackFallback': 'If the form did not open, copy this address into your browser:',
 	'help.title': 'Help',
 	'help.gettingStarted': 'Getting started',
 	'help.gettingStartedParticipant': 'Setup is {gm} only — your view is ready to use.',

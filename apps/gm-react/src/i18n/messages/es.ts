@@ -7253,6 +7253,10 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'firstSession.link.startSession': 'Iniciar una sesión',
 	'firstSession.link.invitePlayers': 'Invitar a jugadores',
 	// RC-UX-3.4 — el menú de ayuda: primeros pasos, novedades y un enlace a los atajos de teclado.
+	'help.sendFeedback': 'Enviar comentarios',
+	'help.feedbackPrivacy':
+		'Los comentarios son públicos en GitHub. Incluye la versión de la aplicación y la plataforma; no incluyas contenido privado de campañas, credenciales ni exportaciones de la bóveda.',
+	'help.feedbackFallback': 'Si el formulario no se abrió, copia esta dirección en tu navegador:',
 	'help.title': 'Ayuda',
 	'help.gettingStarted': 'Primeros pasos',
 	'help.gettingStartedParticipant': 'La configuración es solo del {gm}: tu vista ya está lista.',
