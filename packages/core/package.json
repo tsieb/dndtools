@@ -1,6 +1,6 @@
 {
 	"name": "@dndtools/core",
-	"version": "0.4.3",
+	"version": "0.4.4",
 	"private": true,
 	"type": "module",
 	"description": "Processing Core: commands, reducers, permissions, queries, sync log shape.",
