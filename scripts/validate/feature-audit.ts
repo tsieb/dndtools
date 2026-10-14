@@ -3,12 +3,12 @@
 // `docs/requirements/FEATURE-GAPS.md` is a per-surface INVENTORY (RC-STB-3.3): one row per
 // reachable surface, and every "honest limit" in a row carries an evidence anchor
 // `` `path` › `string` `` — a literal string that must still exist in that file for the limit to
-// still be true. This tool:
+// remain locatable. Literal presence is a drift signal, not semantic proof. This tool:
 //
 //   1. Parses the inventory tables (the rows between the `inventory:start`/`inventory:end`
-//      markers) and ASSERTS every anchor string is still present in its named file. A closed
-//      limit, a moved file, or a reworded in-app message fails the check instead of rotting in
-//      the ledger.
+//      markers) and ASSERTS every anchor string is still present in its named file. A removed
+//      source anchor, a moved file, or a reworded in-app message fails the check. It also
+//      rejects malformed tables, unanchored limit entries and missing behavior references.
 //   2. Probes live code for stub markers (TODO/placeholder/"not yet"/…) to catch stubs the
 //      inventory doesn't mention (drift the other way).
 //   3. Probes each React screen for a real core-dispatch wiring reference, flagging any screen
@@ -85,16 +85,17 @@ export interface LimitAnchor {
 	/** Set once checked: the anchor string was found in the file. */
 	present?: boolean;
 	/** Why it failed: the file is unreadable, or the string is gone. */
-	reason?: 'file-missing' | 'anchor-missing';
+	reason?: 'file-missing' | 'anchor-missing' | 'line-mismatch';
+	/** Optional exact location recorded by the source audit. */
+	line?: number;
 }
 
 const INVENTORY_START = '<!-- inventory:start -->';
 const INVENTORY_END = '<!-- inventory:end -->';
 
 // `` `docs/planning/RC_ROADMAP.md` › `Map combat is not on the map.` `` — the anchor grammar the
-// ledger documents under "How to read a row". The path half must look like a path (a slash and an
-// extension) so ordinary inline code in the prose is not mistaken for one.
-const ANCHOR_RE = /`([^`\n]*\/[^`\n]*\.[a-z]+)`\s*›\s*`([^`\n]+)`/g;
+// ledger documents under "How to read a row". Root files such as DEBT.md are valid too.
+const ANCHOR_RE = /`([^`\n]+\.[a-z]+)(?::([1-9]\d*))?`\s*›\s*`([^`\n]+)`/g;
 
 /**
  * Lift every limit anchor out of the inventory tables. Rows outside the markers (the prose, the
@@ -119,10 +120,114 @@ export function extractLimitAnchors(gapsText: string): LimitAnchor[] {
 			if (!surface || /^surface$/i.test(surface) || /^layer$/i.test(surface)) continue;
 			ANCHOR_RE.lastIndex = 0;
 			let m: RegExpExecArray | null;
-			while ((m = ANCHOR_RE.exec(row))) out.push({ surface, file: m[1], anchor: m[2] });
+			while ((m = ANCHOR_RE.exec(row)))
+				out.push({ surface, file: m[1], anchor: m[3], ...(m[2] ? { line: Number(m[2]) } : {}) });
 		}
 	}
 	return out;
+}
+
+/** Structural failures are separate from stale anchors: omitted evidence must also fail closed. */
+export function checkInventory(repoRoot: string, text: string): string[] {
+	const issues: string[] = [];
+	const starts = text.split(INVENTORY_START).length - 1;
+	const ends = text.split(INVENTORY_END).length - 1;
+	if (!starts || starts !== ends) issues.push('Inventory markers are missing or unbalanced');
+	let inside = false;
+	let columns = 0;
+	let rows = 0;
+	const surfaces = new Set<string>();
+	const reference = /`([^`\n]+)`/g;
+	const checkReference = (value: string): boolean => {
+		const match = /^(.*?)(?::([1-9]\d*))?$/.exec(value);
+		if (!match) return false;
+		const file =
+			match[1].endsWith('.spec.ts') && !match[1].includes('/')
+				? `${GM_REACT}/tests/e2e/${match[1]}`
+				: match[1];
+		if (path.isAbsolute(file) || file.split('/').includes('..')) return false;
+		try {
+			const contents = readFileSync(path.join(repoRoot, file), 'utf8');
+			return !match[2] || Number(match[2]) <= contents.trimEnd().split('\n').length;
+		} catch {
+			return false;
+		}
+	};
+	for (const line of text.split('\n')) {
+		if (line.trim() === INVENTORY_START) {
+			if (inside) issues.push('Nested inventory marker');
+			inside = true;
+			columns = 0;
+			rows = 0;
+			continue;
+		}
+		if (line.trim() === INVENTORY_END) {
+			if (!inside || !rows) issues.push('Empty or unmatched inventory block');
+			inside = false;
+			continue;
+		}
+		if (!inside || !line.trim()) continue;
+		const row = line.trim();
+		if (!row.startsWith('|') || !row.endsWith('|')) {
+			issues.push('Inventory contains a non-table line');
+			continue;
+		}
+		if (/^\|[\s|:-]+\|$/.test(row)) continue;
+		// Pipes in inline code are data, not cell separators.
+		const cells = row
+			.split(/\|(?=(?:[^`]*`[^`]*`)*[^`]*$)/)
+			.slice(1, -1)
+			.map((c) => c.trim());
+		if (cells[0] === 'Surface' || cells[0] === 'Layer') {
+			const expected =
+				cells[0] === 'Surface'
+					? ['Surface', 'Route', 'What it does', 'Honest limits', 'Evidence', 'E2E']
+					: ['Layer', 'What it does', 'Honest limits', 'Evidence'];
+			columns = expected.length;
+			if (cells.join('|') !== expected.join('|')) issues.push('Unexpected inventory header');
+			continue;
+		}
+		rows++;
+		const surface = cells[0];
+		if (!surface || surfaces.has(surface)) issues.push(`Empty or duplicate surface: ${surface}`);
+		surfaces.add(surface);
+		if (!columns || cells.length !== columns) {
+			issues.push(`${surface}: expected ${columns || 'a header and'} cells, got ${cells.length}`);
+			continue;
+		}
+		if (columns === 6 && !cells[1]) issues.push(`${surface}: missing route`);
+		const offset = columns === 6 ? 1 : 0;
+		const behavior = cells[1 + offset];
+		const limits = cells[2 + offset];
+		if (!behavior) issues.push(`${surface}: missing behavior`);
+		for (const claim of behavior.split(/<br\s*\/?>/i)) {
+			const refs = [...claim.matchAll(reference)]
+				.map((m) => m[1])
+				.filter((r) => /:\d+$|\.spec\.ts$/.test(r));
+			if (!refs.length) issues.push(`${surface}: behavior lacks a file:line or spec: ${claim}`);
+			for (const ref of refs)
+				if (!checkReference(ref)) issues.push(`${surface}: invalid reference ${ref}`);
+		}
+		// Each separately stated limitation must carry its own literal source anchor.
+		if (limits)
+			for (const claim of limits.split(/<br\s*\/?>/i)) {
+				if (![...claim.matchAll(ANCHOR_RE)].length)
+					issues.push(`${surface}: unanchored limit: ${claim}`);
+				for (const ref of [...claim.matchAll(reference)]
+					.map((m) => m[1])
+					.filter((r) => /:\d+$/.test(r)))
+					if (!checkReference(ref)) issues.push(`${surface}: invalid reference ${ref}`);
+			}
+		for (const cell of [cells[3 + offset], ...(columns === 6 ? [cells[5]] : [])]) {
+			const refs = [...cell.matchAll(reference)].map((m) => m[1]);
+			if (!refs.length) issues.push(`${surface}: missing evidence/spec references`);
+			for (const ref of refs)
+				if (!checkReference(ref)) issues.push(`${surface}: invalid reference ${ref}`);
+		}
+	}
+	if (inside) issues.push('Unclosed inventory block');
+	if (!surfaces.size) issues.push('No inventory rows');
+	return issues;
 }
 
 /** Check each anchor against the tree; returns the same list with `present`/`reason` filled in. */
@@ -140,6 +245,8 @@ export function checkAnchors(repoRoot: string, anchors: LimitAnchor[]): LimitAnc
 		if (text === null) return { ...a, present: false, reason: 'file-missing' as const };
 		if (!text.includes(a.anchor))
 			return { ...a, present: false, reason: 'anchor-missing' as const };
+		if (a.line && !text.split('\n')[a.line - 1]?.includes(a.anchor))
+			return { ...a, present: false, reason: 'line-mismatch' as const };
 		return { ...a, present: true };
 	});
 }
@@ -147,6 +254,7 @@ export function checkAnchors(repoRoot: string, anchors: LimitAnchor[]): LimitAnc
 export interface FeatureAuditResult {
 	/** Every honest-limit anchor in the inventory, checked against the tree. */
 	limitAnchors: LimitAnchor[];
+	inventoryIssues: string[];
 	/** Anchors whose string is gone (or whose file is) — a HARD failure. */
 	staleAnchors: LimitAnchor[];
 	stubMarkers: { file: string; line: number; key: string; text: string }[];
@@ -168,10 +276,11 @@ export function auditFeatures(repoRoot: string): FeatureAuditResult {
 		gapsText = readFileSync(gapsPath, 'utf8');
 	} catch {
 		// A moved/renamed ledger must not read as "no declared stubs" — that is a silent
-		// false negative. Surface it; the caller escalates it to a warn.
+		// false negative. Surface it; both entrypoints fail closed.
 		gapsText = '';
 		gapsMissing = true;
 	}
+	const inventoryIssues = checkInventory(repoRoot, gapsText);
 	const limitAnchors = checkAnchors(repoRoot, extractLimitAnchors(gapsText));
 	const staleAnchors = limitAnchors.filter((a) => !a.present);
 
@@ -245,6 +354,7 @@ export function auditFeatures(repoRoot: string): FeatureAuditResult {
 
 	return {
 		limitAnchors,
+		inventoryIssues,
 		staleAnchors,
 		stubMarkers: stubMarkers.slice(0, 200),
 		stubMarkerTotal: stubMarkers.length,
@@ -263,6 +373,9 @@ function toMarkdown(r: FeatureAuditResult): string {
 		'',
 	);
 
+	if (r.inventoryIssues.length)
+		lines.push('## Invalid inventory', '', ...r.inventoryIssues.map((issue) => `- ${issue}`), '');
+
 	lines.push(`## Honest-limit anchors (${r.limitAnchors.length} declared)`, '');
 	if (r.gapsMissing) {
 		lines.push(
@@ -274,10 +387,14 @@ function toMarkdown(r: FeatureAuditResult): string {
 		for (const a of r.staleAnchors)
 			lines.push(
 				`- **${a.surface}** — \`${a.file}\` ` +
-					(a.reason === 'file-missing' ? 'is unreadable' : `no longer contains "${a.anchor}"`),
+					(a.reason === 'file-missing'
+						? 'is unreadable'
+						: `does not match "${a.anchor}"${a.line ? ` at line ${a.line}` : ''}`),
 			);
 	} else if (r.limitAnchors.length) {
-		lines.push('✓ Every declared honest limit is still evidenced by its named file.');
+		lines.push(
+			'✓ Every declared honest-limit anchor matches its named file (semantic review remains manual).',
+		);
 	} else {
 		lines.push('_No honest limits declared — verify the inventory tables are still parseable._');
 	}
@@ -336,9 +453,14 @@ export async function runFeatureAudit(opts: {
 		r.gapsMissing
 			? `ledger MISSING at ${r.generatedFrom}`
 			: `${r.limitAnchors.length} declared limits (${r.staleAnchors.length} stale)`,
+		`${r.inventoryIssues.length} inventory issues`,
 		`${r.stubMarkerTotal} code markers`,
 		`${r.unwiredScreens.length}/${r.screens.length} screens need wiring review`,
 	];
+	if (r.gapsMissing || r.inventoryIssues.length) {
+		parts.push(...r.inventoryIssues);
+		return { status: 'fail', summary: parts.join('; '), detail: r };
+	}
 	if (r.staleAnchors.length) {
 		// A limit that no longer matches the tree means the ledger is lying in one direction or the
 		// other: either the limit was closed and nobody updated the row, or the evidence moved.
@@ -357,7 +479,7 @@ export async function runFeatureAudit(opts: {
 		return { status: 'fail', summary: parts.join('; '), detail: r };
 	}
 	// Informational: warn if there is anything worth a human glance, else pass.
-	const status = r.gapsMissing || r.unwiredScreens.length ? 'warn' : 'pass';
+	const status = r.unwiredScreens.length ? 'warn' : 'pass';
 	return { status, summary: parts.join('; '), detail: r };
 }
 
@@ -373,7 +495,7 @@ if (invokedDirectly) {
 		? 'ledger MISSING'
 		: `${r.limitAnchors.length} declared limits (${r.staleAnchors.length} stale)`;
 	console.log(
-		`\nSummary: ${declared} · ${r.stubMarkerTotal} code markers · ` +
+		`\nSummary: ${declared} · ${r.inventoryIssues.length} inventory issues · ${r.stubMarkerTotal} code markers · ` +
 			`${r.unwiredScreens.length}/${r.screens.length} screens need wiring review`,
 	);
 	if (r.mockCampaignImporters.length) {
@@ -390,6 +512,11 @@ if (invokedDirectly) {
 					.join('\n'),
 		);
 	}
-	if (r.gapsMissing || r.mockCampaignImporters.length || r.staleAnchors.length)
+	if (
+		r.gapsMissing ||
+		r.inventoryIssues.length ||
+		r.mockCampaignImporters.length ||
+		r.staleAnchors.length
+	)
 		process.exitCode = 1;
 }
