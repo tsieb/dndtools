@@ -28,6 +28,7 @@ export function useBoardActions({
 	editing,
 	setEditing,
 	setSelectedId,
+	newIdempotencyKey,
 }: {
 	runtime: ReturnType<typeof useRuntime>;
 	sceneId: string;
@@ -38,6 +39,8 @@ export function useBoardActions({
 	editing: boolean;
 	setEditing: (next: boolean) => void;
 	setSelectedId: (update: (current: string | null) => string | null) => void;
+	/** A fresh key per widget command (minted by the screen, under its platform-access exception). */
+	newIdempotencyKey: () => string;
 }) {
 	const { t } = useI18n();
 	const actorId = runtime.defaultActorId;
@@ -170,7 +173,7 @@ export function useBoardActions({
 			{
 				type: 'widget.dispatch-command',
 				actorId,
-				idempotencyKey: crypto.randomUUID(),
+				idempotencyKey: newIdempotencyKey(),
 				payload: {
 					sceneId,
 					widgetInstanceId,

@@ -216,6 +216,8 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 		editing,
 		setEditing,
 		setSelectedId,
+		// The board's platform-access exception (`board-idempotency-key-crypto`) covers this key.
+		newIdempotencyKey: () => crypto.randomUUID(),
 	});
 
 	const {
