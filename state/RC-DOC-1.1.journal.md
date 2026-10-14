@@ -76,3 +76,35 @@ promotion, loop launch, dispatcher control-state edit, or unrelated tracked-file
 - Browser and live-service checks remain unrun; no application or validator code changed.
   Central operator wrapper gates and independent review remain pending. No push, promotion,
   loop launch or dispatcher control-state change was performed.
+
+## Second independent-review corrections — 2026-10-14
+
+- Starting candidate: `92cf2ddf9fe213295d9e400516a91bffb7fb4332`; clean worktree.
+  Applied the supplied docs-research guidance to the review findings; no Headroom tools available.
+- Restored the desktop-specific worker limit. `WorkerHost.ts:660-666` documents and constructs
+  blob workers; `apps/gm-react/electron/main.cjs:283-306` has no worker-src and restricts script-src
+  to self. The inventory now asserts the exact CSP directive at line 289. No packaged runtime
+  execution is claimed.
+- Restored recorded operator limits: SES/public sign-up on Invite redeem and Cloud and sync
+  (`docs/runbooks/ses-production-access.md:14-18`), Stripe account/legal identity on Plans & cloud
+  (`docs/runbooks/stripe-billing.md:3-6`), TURN TLS rollout on Cloud and sync (ADR-039:41), and
+  the explicitly open RC-PLT-1.1 operator task on Shells and platform (roadmap:4109).
+  These correct the earlier journal's decision to replace operator status with conditionals.
+  The header distinguishes recorded status from fresh live-service observations; no AWS, Stripe,
+  signing or TURN deployment was inspected or modified.
+- Replaced the Screens citation to useI18n with the filtering expression and a separate claim
+  citing useScreenActions (read its dispatches for pin, metadata, duplicate, delete/restore and
+  template creation). Cloud backup cites getCloudSyncStatus instead of a closing comment line.
+  Fixed the two missing E2E-list commas.
+- The existing validator asserts all restored anchors without code changes. The suggested new
+  parser unit tests remain follow-up work outside this task's owned paths; no temporary fixture
+  run is presented as committed test coverage.
+- Original validation output inspected: `pnpm feature-audit` exit 0, **47 declared limits,
+  0 stale anchors, 0 inventory issues**, 0 mock imports, 0/23 screens needing wiring review;
+  `pnpm exec vitest run tests/unit/feature-audit.test.ts` exit 0, **7/7 tests passed**;
+  `pnpm gates` exit 0, six registered gates, 308 reachable docs / 443 resolved links.
+  Existing app file-size and Vite config warnings remain. Scoped Prettier initially detected
+  table alignment drift; formatted the owned inventory and journal and rechecked before commit.
+- Full wrapper gates and independent review remain with the central operator. Browser, hardware
+  and live-service checks were not run. No push, promotion, loop launch, dispatcher control-state
+  edit or unrelated tracked-file change was performed.
