@@ -182,8 +182,14 @@ critical or high findings (an escalatable CI deploy role, a coturn secret writte
 TURN relay, an unauthorized `offer` relay, and a session key relayed in cleartext) plus a set of
 medium findings; a follow-up on 2026-07-07 added the join PIN and scoped `browse`. The dated report
 was retired from the tree on 2026-09-11 and remains in git history at
-`docs/security/cloud-security-audit-2026-07.md`. RC-ENG-5.1 (whole-app security review) is the next
-scheduled pass.
+`docs/security/cloud-security-audit-2026-07.md`.
+
+The [2026-10-14 whole-app v2 assessment](app-security-review-2026-10-14.md) records RC-ENG-5.1
+at source base `81b6b34c8`. **It is not a sign-off:** H-01 remains open because custom blob workers
+run in the app's storage origin when permitted by the hosted CSP. The private-store and widget
+guarantees above therefore do not cover this execution path until it is isolated or disabled.
+The report also records broad same-origin PWA caching, an update-signature evidence gap, and
+outstanding per-PR `/security-review` runs. Passing protocol/unit tests do not close these gaps.
 
 ## 6. Open by design
 

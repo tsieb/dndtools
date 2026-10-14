@@ -1,0 +1,140 @@
+# Whole-app security review v2 — 2026-10-14
+
+Task: RC-ENG-5.1. Reviewed source base: `81b6b34c85f88c9855c7e0ca5aab7f69b1bafdc2`.
+
+**Status: blocked; not a security sign-off. One open High source finding (H-01).**
+The “no open high” acceptance criterion is not met. This report preserves the assessment and
+remediation handoff; passing unit tests below do not close the finding.
+
+## Method and limitations
+
+This is an implementation-side source assessment with selected existing regression suites, not
+the central operator's independent review. It covers the nine requested surfaces at the source
+base above. It does not certify deployed infrastructure, published installers, or every app route.
+No production account, private vault, credential, or payment was accessed.
+
+The required `/security-review` command is not exposed in this session. No matching instruction
+file was found in repository skills or local skill locations. **Per-PR `/security-review` runs
+remain outstanding for every row below.** The historical WID-6.2 and WID-6.6 reports in `state/`
+are prior evidence, not new command runs or a whole-app sign-off. Commit references below identify
+source history only; they are not assertions that corresponding PRs were reviewed.
+
+The preceding attempt ended in an automatic cybersecurity-risk rejection before its proposed
+browser reproduction ran. This pass continued with source review and existing tests. H-01 is
+supported by source and documented browser semantics; it is not a demonstrated live exploit.
+
+## Surface assessment
+
+| Surface                         | Source reviewed / history anchor                                                                               | Assessment and remaining evidence                                                                                                                                                                                                                                       |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sandbox host, including WID-1.3 | `apps/gm-react/src/app/widgets/SandboxHost.tsx`, `public/widget-host.html`; latest host change `8bc8e0981`     | The iframe uses `allow-scripts` without `allow-same-origin`, a restrictive document CSP, and checks message source against its frame. The separate worker branch has H-01. Browser boundary regression still required.                                                  |
+| Host API                        | `apps/gm-react/src/app/widgets/hostBridge.ts`, `packages/core/src/security/widget-host-api.ts`; `5611f2362`    | Approved permissions are empty unless the package is trusted; forbidden capabilities are denied by core policy. These checks govern protocol calls, not ambient browser APIs. H-01 bypasses this design boundary.                                                       |
+| Widget package review           | `packages/core/src/commands/widget-package.ts`, `queries/widget-package-review.ts`; `83e83121f`                | Imported builtin runtime is rejected; runtime policy is validated; the existing trust-review and platform-review-fixes suites pass. A package review cannot substitute for storage isolation of executable code.                                                        |
+| System packages as data         | `packages/core/src/schemas/system-package.ts`, `state/system-package.ts`; `55b6c54fe`                          | Strict object schemas and a restricted formula parser, with own-property scope checks, keep this path declarative. Schema, command, and portability suites pass. No new High identified in this inspected path.                                                         |
+| Player-private store            | `apps/gm-react/src/platform/storage/privateStore.ts`; `98267e20b`                                              | Separate per-vault/per-character Dexie databases and import-boundary tests prevent ordinary replication/cloud/MCP integration. Database names are not a security boundary against app-origin code: H-01 affects this guarantee.                                         |
+| PWA cache                       | `apps/gm-react/src/sw/service-worker.js`; `3c6e02666`                                                          | Cross-origin and non-GET traffic are excluded. Successful same-origin GETs are cached broadly, with `ignoreVary` on lookup. M-01 remains open; the service-worker registration tests are not a cache-confidentiality proof.                                             |
+| Auto-update signature           | `apps/gm-react/electron/updater.cjs`, `electron-builder.yml`, `.github/workflows/release.yml`; `ec1dd91d8`     | Packaged builds ignore the development feed override; download/install require explicit state transitions. Release CI contains macOS and Windows signature checks. Signature evidence remains incomplete: V-01.                                                         |
+| Stripe webhook                  | `packages/cloud-fns/src/billing/webhook.ts`; `95aa5f3ec`                                                       | Raw-body signature verification precedes event handling; mode mismatch is rejected; current subscriptions are re-read; duplicate events are tracked. All 43 billing tests pass. No new High identified in the inspected handler; no live Stripe verification performed. |
+| Cloud-Enhanced                  | `packages/core/src/security/cloud-security-decision.ts`, `packages/cloud-fns/src/sync/handler.ts`; `182805496` | Enhanced decision remains `approved: false`; sync accepts bounded encrypted-envelope shapes. Core privacy-mode and sync-handler suites pass. This is gate-closure coverage only, not approval of the deferred server-readable CLD-6 platform.                           |
+
+Paths abbreviated in the table are relative to the corresponding package's `src/`, except the
+sandbox document and desktop config, which are under `apps/gm-react/`.
+
+## H-01 — High: custom worker executes in the application's storage origin
+
+**Open. Source-based finding; confidence high.** Preconditions: an installed, enabled custom
+widget selects the worker runtime and runs in a browser whose policy permits blob workers.
+The checked-in web-hosting policy explicitly permits them. This does not require the widget to
+be granted storage access through the host API.
+
+Evidence at the reviewed base:
+
+- `apps/gm-react/src/app/widgets/WidgetRenderSlot.tsx:551` selects `WORKER_WIDGET_HOST` for
+  `sandbox: 'worker'`.
+- `apps/gm-react/src/app/widgets/WorkerHost.ts:663` creates a blob URL in the app context and
+  constructs a `Worker` from it. There is no intervening opaque-origin execution context.
+- `infra/web-hosting/template.yaml:206` permits `worker-src 'self' blob:`. The comment in the
+  worker factory about the packaged shell failing closed does not cover the hosted web policy.
+- `apps/gm-react/src/platform/storage/privateStore.ts:34` and `:78` place private records in
+  named Dexie databases on that same application origin.
+
+A blob worker retains its creator's origin, and workers expose IndexedDB. Those browser
+semantics imply that this execution context can access origin storage outside `hostBridge`;
+separate database names and actor-filtered render props do not prevent it. This is a
+confidentiality and integrity violation of the widget contract, including private player data.
+See [MDN Worker construction](https://developer.mozilla.org/en-US/docs/Web/API/Worker/Worker)
+and [worker IndexedDB access](https://developer.mozilla.org/en-US/docs/Web/API/WorkerGlobalScope/indexedDB).
+
+The passing `WorkerHost.test.ts` tests cover protocol/session behavior through an injected worker,
+and `privateStore.test.ts` covers the intended storage API and module import boundary. Neither
+establishes the missing browser origin boundary. No deployed exploitability or data access is claimed.
+
+Required remediation: fail closed for custom worker execution until it runs in a storage-isolated
+context with an explicit capability bridge. Preserve widget data and present the existing unavailable
+placeholder when isolation cannot be supplied. Do not attempt to repair this only by denying a
+host-API permission or renaming the private database.
+
+Closure evidence must include a real-browser regression using synthetic records under the hosted
+CSP: untrusted custom code cannot read or mutate application IndexedDB/CacheStorage, and approved
+protocol interactions still work. Also check worker lifecycle failure handling and installed
+package rendering. The runtime fix requires an explicit claim covering at least
+`apps/gm-react/src/app/widgets/WorkerHost.ts` and its affected tests; an alternative renderer-level
+fix must also claim `WidgetRenderSlot.tsx`. This document-only resolved claim does not grant those
+runtime paths. No fix or waiver is recorded here.
+
+## M-01 — Medium: broad same-origin runtime caching
+
+**Open, conditional exposure.** `apps/gm-react/src/sw/service-worker.js:63` admits every basic
+successful GET response; `:87` writes it to CacheStorage. Request authorization and response
+`Cache-Control` are not consulted, and cache lookup uses `ignoreVary: true`. If sensitive or
+account-dependent endpoints are served on the app origin, their responses can persist and be
+replayed offline across account changes. The current cross-origin exclusion limits this risk;
+this review did not establish an affected authenticated same-origin endpoint or actual disclosure.
+
+Remediation: cache an explicit public shell/asset allowlist; exclude authenticated requests and
+private/no-store responses; test account transitions, offline fallback, and cache version cleanup.
+Review the cache policy before adding any same-origin API route. No runtime change is made here.
+
+## V-01 — Update-signature evidence gap
+
+The updater's opening comment calls its feed signed, but a SHA-512 checksum alone does not
+authenticate a publisher. The checked-in smoke script's tampered scenario compares a payload
+against an advertised checksum; it is not evidence of rejecting a forged signature. The repo
+does contain production macOS/Windows signing verification steps, so absence of a literal
+`publisherName` in the common builder config is not by itself proof of unsigned Windows releases.
+
+Before sign-off, inspect produced `app-update.yml` and release metadata for the pinned updater
+version, identify the actual trust root on each OS (including Linux AppImage), and demonstrate
+rejection of a wrongly signed artifact/manifest. Record unsigned-preview behavior separately.
+No release build, update-install smoke, or signature verification ran in this task. This is an
+unresolved verification gap, not a fabricated second confirmed High.
+
+## Executed regression evidence
+
+All commands below exited 0 at the source base above: **14 files, 338 tests**. Exact original
+Headroom stdout was retrieved, not inferred from compressed previews.
+
+| Command                                                                                                                                                                                                                                                                                 | Result                                                               | Headroom artifact                  |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ---------------------------------- |
+| `pnpm exec vitest run --config vitest.app.config.ts apps/gm-react/src/app/widgets/hostBridge.test.ts apps/gm-react/src/app/widgets/WorkerHost.test.ts apps/gm-react/src/platform/storage/privateStore.test.ts apps/gm-react/src/platform/serviceWorker.test.ts`                         | 4 files / 79 tests                                                   | `d8dc0e283a8140db9f04e599360292f4` |
+| `pnpm --filter @dndtools/core exec vitest run tests/security-widget-host-api.test.ts tests/security-widget-exfiltration.test.ts tests/security-vault-privacy-modes.test.ts tests/system-package.test.ts tests/system-package-commands.test.ts tests/system-package-portability.test.ts` | 6 files / 163 tests                                                  | `dff0bbe7241b4087bfb56363ec23edd1` |
+| `pnpm --filter @dndtools/core exec vitest run tests/widget-trust-review.test.ts tests/widget-platform-review-fixes.test.ts`                                                                                                                                                             | 2 files / 17 tests                                                   | `f359710025fd4d3b957600fec67b7de3` |
+| `pnpm exec vitest run --config vitest.cloud.config.ts packages/cloud-fns/src/billing/billing.test.ts packages/cloud-fns/src/sync-api`                                                                                                                                                   | 1 file / 43 billing tests; the second selector matched no sync tests | `9931305d8cee442d98cff74fe9fbacd9` |
+| `pnpm exec vitest run --config vitest.cloud.config.ts packages/cloud-fns/src/sync/handler.test.ts`                                                                                                                                                                                      | Corrected sync selector: 1 file / 36 tests                           | `a5a1a21371e54cfaa72161c332a6fb20` |
+
+Not run: per-PR `/security-review`, dependency advisory audit, real-browser sandbox/cache security
+regressions, packaged update verification, full repository gates, and deployed-cloud checks.
+Source evidence for H-01 and M-01 is retained in artifact `67d441b682fd4055806d700d0a9a4e5e`.
+Headroom artifact IDs are run-local retrieval handles; source paths, base SHA, and exact commands
+are the durable reproduction references.
+
+## Acceptance handoff
+
+- [ ] No open High: H-01 remains open and needs a scoped runtime repair and independent validation.
+- [x] `docs/security/README.md` links this report and records the current limitation.
+- [ ] Required per-PR `/security-review` runs attached with exact reviewed revisions.
+- [ ] Update-signature gap resolved before whole-app sign-off.
+
+The central operator must repair the claim or land a prerequisite remediation task, supply the
+required review capability, and retry. This report does not widen ownership, alter dispatcher state,
+approve Cloud-Enhanced, waive the High, or certify release readiness.
