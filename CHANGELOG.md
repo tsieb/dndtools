@@ -6,6 +6,17 @@ v1 document-editor have been removed; that application's last state is preserved
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-10-14
+
+Same application as 0.4.3. 0.4.3's Android release check could not reach the app's private storage
+on the test device, so it produced no installers and is superseded; the 0.4.3 to 0.4.0 notes below
+describe this release too.
+
+### For players and GMs
+
+- The Android release check reaches the app's saved vault again, so it once more proves your data
+  survives a restart and an update before the release is published.
+
 ## [0.4.3] - 2026-10-14
 
 Same application as 0.4.2. 0.4.2's Android release check could not reach a button on a fresh
