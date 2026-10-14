@@ -47,6 +47,7 @@ export function AddEntry({
 				alignItems: 'center',
 				gap: 'var(--space-1)',
 				font: '600 var(--text-xs) var(--font-sans)',
+				color: blocked ? 'var(--color-text-secondary)' : undefined,
 			}}
 		>
 			<Icon name={icon} size="sm" />

@@ -24,7 +24,7 @@ export function boardRootStyle(phone: boolean, stacked: boolean): CSSProperties 
 		// small to read. A gutter there would shrink it further to buy whitespace it cannot
 		// afford — and it measurably tipped the phone board out of its own scroll range.
 		boxSizing: 'border-box',
-		padding: phone ? 'var(--space-0)' : 'var(--space-4) var(--space-6)',
+		padding: phone ? 'var(--space-0)' : 'var(--space-4) calc(var(--space-6) + var(--space-1))',
 		...(phone && PHONE_TEXT_FLOOR),
 	};
 }

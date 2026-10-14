@@ -105,10 +105,10 @@ async function snap(page: Page, theme: Theme, slug: string): Promise<void> {
 	await expect(page).toHaveScreenshot(`${slug}--${theme}.png`);
 }
 
-// The primary GM workspaces (the a11y gate's core set) plus the board, which POL-1.2 polishes.
+// The primary GM workspaces (the a11y gate's core set). The board's own five-theme captures live in
+// board-polish.spec.ts (RC-POL-1.2).
 const SHELLED_ROUTES: ReadonlyArray<{ path: string; slug: string }> = [
 	{ path: '/', slug: 'command-center' },
-	{ path: '/board', slug: 'board' },
 	{ path: '/scenes', slug: 'scenes' },
 	{ path: '/characters', slug: 'characters' },
 	{ path: '/knowledge', slug: 'knowledge' },
