@@ -6,6 +6,16 @@ v1 document-editor have been removed; that application's last state is preserved
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-10-14
+
+Same application as 0.4.2. 0.4.2's Android release check could not reach a button on a fresh
+install, so it produced no installers and is superseded; the 0.4.2, 0.4.1 and 0.4.0 notes below
+describe this release too.
+
+### For players and GMs
+
+- The Android release is checked again on a fresh install before it is published.
+
 ## [0.4.2] - 2026-10-14
 
 Same application as 0.4.1. 0.4.1's Windows and macOS installers could not be built, so it produced
