@@ -101,3 +101,41 @@ docs/planning/FRICTIONLESS.md: no chain of relative links from docs/README.md re
 - Re-run on this tree: `pnpm gates` exit 0 ("docs check passed: 309 file(s) reachable from
   docs/README.md, 451 relative link(s) resolved"); `pnpm feature-audit` exit 0 ("40 declared limits
   (0 stale)"); Prettier clean on the edited files.
+
+## Retry: independent review (head `8b09f32c`, rejected)
+
+- Finding (high): the verdict and the five-run, a11y and regression evidence were bound to
+  `7008d590`, not the candidate; the candidate's application tree (base `81b6b34c`) lacks
+  RC-CAN-8.6, RC-CAN-8.7, RC-SES-7.3 and RC-UX-6.5. Confirmed: local `loop/rc` = `81b6b34c`
+  (`74efcfe2` + RC-POL-1.2), while `origin/loop/rc` = `main` = `effe44cb` (v0.4.4, 63 commits past
+  `74efcfe2`, carrying the four stories). `effe44cb` is not an ancestor of local `loop/rc`.
+- Fix: merged `effe44cb` into the task branch (`d18a4272`). The 30 conflicts are all RC-POL-1.2 vs
+  v0.4.4 (canvas, Board, board/scene-editor goldens, the raw-style allow-list). Every conflicted
+  path, and then all of `apps/ packages/ scripts/ tests/`, was taken from `7008d590`, the existing
+  integration of RC-POL-1.2 over `effe44cb`. The auto-merged side had picked up pre-rebase POL-1.2
+  code that undoes `effe44cb`'s perf splits (e.g. `useEditWidget` imported from `WidgetBuilder`).
+  Result: `git diff --stat 7008d590 d18a4272` lists only `docs/planning/FRICTIONLESS.md`,
+  `docs/requirements/FEATURE-GAPS.md`, `state/RC-ENG-9.3.journal.md`, `state/RC-POL-1.2.journal.md`
+  (the last kept as on the task base). `pnpm install --frozen-lockfile` exit 0.
+- Claim fence: the dispatcher diffs `base_sha..HEAD`, so this merge puts every path v0.4.4 changed
+  outside `Owns`. It is kept because the acceptance (and the review) require the dependency code
+  in the candidate; the merge commit message says so. The claim decision is the operator's.
+- Gate chain on `d18a4272` (local, not CI; evidence `~/.cache/rc-eng-9-3-evidence-d18a4272/`,
+  `gates.log` first line `commit d18a4272…`): budget runs 1–5 (08:01–08:15Z) each expected 178,
+  unexpected 0, flaky 0, skipped 0. `friction.py` extracted the 81 `friction` annotations per run
+  (project, test, budget, count); all five are identical to each other and to the five `7008d590`
+  runs. `pnpm a11y:gate` exit 0 (08:15–08:16Z): contrast 319 pairs + 16 forced-colors, axe 61
+  passed 1 skipped, report 60 scans, 0 critical/serious, **1 moderate**, PASS. Story-spec
+  regression (same 75 files): expected 1126, unexpected 0, flaky 0, skipped 18 (08:16–08:49Z).
+- The moderate: the regression run cleared `test-results/` before I read the artifacts, so I re-ran
+  `pnpm a11y:gate` alone (08:49–08:51Z, exit 0, same counts) and kept the artifacts
+  (`a11y-artifacts-run2/`, `a11y-report-run2.json`). It is axe `region` on
+  `div[data-testid="phone-session-strip"]`, `mobile-chromium` `/session#combat`: the RC-SES-1.1
+  phone live-session strip (`Footer.tsx:31`) sits outside landmarks. Recorded as L12 (low) in
+  FRICTIONLESS.md §5; moderate is non-blocking under the gate policy.
+- The `7008d590` a11y report had merged only 5 scans (vs 60), so its "0 moderate" was partial.
+  Most likely the probe runs in the same audit checkout cleared worker artifacts (inferred, not
+  reproduced). §3 now says so and cites the `d18a4272` report.
+- FRICTIONLESS.md rebound to `d18a4272`: header, §1 (19 remaining: 7 medium, 12 low), §2, §3,
+  §4 note (probes on `7008d590`, same tree), §5 L12, §6, §8 reproduction and integration.
+  `pnpm gates` exit 0 (docs check: 309 files reachable, 451 links); Prettier applied.
