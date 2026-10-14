@@ -22,7 +22,8 @@ const PRECACHE = self.__LAMPLIGHT_PRECACHE__ ?? [];
 const VERSION = self.__LAMPLIGHT_VERSION__ ?? 'dev';
 const SHELL = self.__LAMPLIGHT_SHELL__ ?? './';
 
-const CACHE_NAME = `lamplight-${VERSION}`;
+// Retire entries admitted before the confidentiality policy, including unversioned dev caches.
+const CACHE_NAME = `lamplight-private-v2-${VERSION}`;
 const CACHE_PREFIX = 'lamplight-';
 
 /** Absolute URLs of the precached assets, resolved against this worker's own scope. */
@@ -91,6 +92,10 @@ async function networkFirst(request) {
 			const copy = response.clone();
 			const cache = await caches.open(CACHE_NAME);
 			await cache.put(request, copy);
+		} else {
+			// A public URL may become private. Do not leave its previous response available offline.
+			const cache = await caches.open(CACHE_NAME);
+			await cache.delete(request, { ignoreVary: true });
 		}
 		return response;
 	} catch (error) {
@@ -125,6 +130,8 @@ self.addEventListener('fetch', (event) => {
 	const url = new URL(request.url);
 	// Cross-origin traffic (cloud sync, signalling, AI providers) is never cached or replayed.
 	if (url.origin !== self.location.origin) return;
+	// Bypass both cache reads and writes, including precache and navigation fallback.
+	if (request.headers.has('authorization')) return;
 
 	if (request.mode === 'navigate') {
 		event.respondWith(handleNavigation(request));

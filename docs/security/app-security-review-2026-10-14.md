@@ -1,6 +1,6 @@
 # Whole-app security review v2 — 2026-10-14
 
-Task: RC-ENG-5.1. Reviewed source base: `81b6b34c85f88c9855c7e0ca5aab7f69b1bafdc2`.
+Task: RC-ENG-5.1. Original assessment source base: `81b6b34c85f88c9855c7e0ca5aab7f69b1bafdc2`.
 
 **Status: no open High.** H-01 (custom worker code in the app's storage origin) is fixed by
 failing closed: the app no longer starts package workers at all. M-01 is mitigated. The
@@ -26,17 +26,17 @@ supported by source and documented browser semantics; it is not a demonstrated l
 
 ## Surface assessment
 
-| Surface                         | Source reviewed / history anchor                                                                               | Assessment and remaining evidence                                                                                                                                                                                                                                       |
-| ------------------------------- | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Sandbox host, including WID-1.3 | `apps/gm-react/src/app/widgets/SandboxHost.tsx`, `public/widget-host.html`; latest host change `8bc8e0981`     | The iframe uses `allow-scripts` without `allow-same-origin`, a restrictive document CSP, and checks message source against its frame. The separate worker branch had H-01; it now runs no package code (fixed below).                                                   |
-| Host API                        | `apps/gm-react/src/app/widgets/hostBridge.ts`, `packages/core/src/security/widget-host-api.ts`; `5611f2362`    | Approved permissions are empty unless the package is trusted; forbidden capabilities are denied by core policy. These checks govern protocol calls, not ambient browser APIs, which is why H-01 was fixed by not running workers.                                       |
-| Widget package review           | `packages/core/src/commands/widget-package.ts`, `queries/widget-package-review.ts`; `83e83121f`                | Imported builtin runtime is rejected; runtime policy is validated; the existing trust-review and platform-review-fixes suites pass. A package review cannot substitute for storage isolation of executable code.                                                        |
-| System packages as data         | `packages/core/src/schemas/system-package.ts`, `state/system-package.ts`; `55b6c54fe`                          | Strict object schemas and a restricted formula parser, with own-property scope checks, keep this path declarative. Schema, command, and portability suites pass. No new High identified in this inspected path.                                                         |
-| Player-private store            | `apps/gm-react/src/platform/storage/privateStore.ts`; `98267e20b`                                              | Separate per-vault/per-character Dexie databases and import-boundary tests prevent ordinary replication/cloud/MCP integration. Database names are not a security boundary against app-origin code. H-01 broke this guarantee; it is fixed.                              |
-| PWA cache                       | `apps/gm-react/src/sw/service-worker.js`; `3c6e02666`                                                          | Cross-origin and non-GET traffic are excluded. Successful same-origin GETs are cached broadly, with `ignoreVary` on lookup. M-01 remains open; the service-worker registration tests are not a cache-confidentiality proof.                                             |
-| Auto-update signature           | `apps/gm-react/electron/updater.cjs`, `electron-builder.yml`, `.github/workflows/release.yml`; `ec1dd91d8`     | Packaged builds ignore the development feed override; download/install require explicit state transitions. Release CI contains macOS and Windows signature checks. Signature evidence remains incomplete: V-01.                                                         |
-| Stripe webhook                  | `packages/cloud-fns/src/billing/webhook.ts`; `95aa5f3ec`                                                       | Raw-body signature verification precedes event handling; mode mismatch is rejected; current subscriptions are re-read; duplicate events are tracked. All 43 billing tests pass. No new High identified in the inspected handler; no live Stripe verification performed. |
-| Cloud-Enhanced                  | `packages/core/src/security/cloud-security-decision.ts`, `packages/cloud-fns/src/sync/handler.ts`; `182805496` | Enhanced decision remains `approved: false`; sync accepts bounded encrypted-envelope shapes. Core privacy-mode and sync-handler suites pass. This is gate-closure coverage only, not approval of the deferred server-readable CLD-6 platform.                           |
+| Surface                         | Source reviewed / history anchor                                                                               | Assessment and remaining evidence                                                                                                                                                                                                                                        |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Sandbox host, including WID-1.3 | `apps/gm-react/src/app/widgets/SandboxHost.tsx`, `public/widget-host.html`; latest host change `8bc8e0981`     | The iframe uses `allow-scripts` without `allow-same-origin`, a restrictive document CSP, and checks message source against its frame. The separate worker branch had H-01; it now runs no package code (fixed below).                                                    |
+| Host API                        | `apps/gm-react/src/app/widgets/hostBridge.ts`, `packages/core/src/security/widget-host-api.ts`; `5611f2362`    | Approved permissions are empty unless the package is trusted; forbidden capabilities are denied by core policy. These checks govern protocol calls, not ambient browser APIs, which is why H-01 was fixed by not running workers.                                        |
+| Widget package review           | `packages/core/src/commands/widget-package.ts`, `queries/widget-package-review.ts`; `83e83121f`                | Imported builtin runtime is rejected; runtime policy is validated; the existing trust-review and platform-review-fixes suites pass. A package review cannot substitute for storage isolation of executable code.                                                         |
+| System packages as data         | `packages/core/src/schemas/system-package.ts`, `state/system-package.ts`; `55b6c54fe`                          | Strict object schemas and a restricted formula parser, with own-property scope checks, keep this path declarative. Schema, command, and portability suites pass. No new High identified in this inspected path.                                                          |
+| Player-private store            | `apps/gm-react/src/platform/storage/privateStore.ts`; `98267e20b`                                              | Separate per-vault/per-character Dexie databases and import-boundary tests prevent ordinary replication/cloud/MCP integration. Database names are not a security boundary against app-origin code. H-01 broke this guarantee; it is fixed.                               |
+| PWA cache                       | `apps/gm-react/src/sw/service-worker.js`; `3c6e02666`                                                          | Cross-origin and non-GET traffic are excluded. Successful same-origin GETs are cached broadly, with `ignoreVary` on lookup. M-01 is mitigated by credential bypass, private-response eviction, and cache-policy migration; dedicated regression tests cover these paths. |
+| Auto-update signature           | `apps/gm-react/electron/updater.cjs`, `electron-builder.yml`, `.github/workflows/release.yml`; `ec1dd91d8`     | Packaged builds ignore the development feed override; download/install require explicit state transitions. Release CI contains macOS and Windows signature checks. Signature evidence remains incomplete: V-01.                                                          |
+| Stripe webhook                  | `packages/cloud-fns/src/billing/webhook.ts`; `95aa5f3ec`                                                       | Raw-body signature verification precedes event handling; mode mismatch is rejected; current subscriptions are re-read; duplicate events are tracked. All 43 billing tests pass. No new High identified in the inspected handler; no live Stripe verification performed.  |
+| Cloud-Enhanced                  | `packages/core/src/security/cloud-security-decision.ts`, `packages/cloud-fns/src/sync/handler.ts`; `182805496` | Enhanced decision remains `approved: false`; sync accepts bounded encrypted-envelope shapes. Core privacy-mode and sync-handler suites pass. This is gate-closure coverage only, not approval of the deferred server-readable CLD-6 platform.                            |
 
 Paths abbreviated in the table are relative to the corresponding package's `src/`, except the
 sandbox document and desktop config, which are under `apps/gm-react/`.
@@ -94,17 +94,23 @@ Verification for this fix is listed under "Executed regression evidence" below.
 
 **Mitigated in this task; residual Low.** Before the fix, `apps/gm-react/src/sw/service-worker.js` admitted every basic
 successful GET response and wrote it to CacheStorage. Request authorization and response
-`Cache-Control` are not consulted, and cache lookup uses `ignoreVary: true`. If sensitive or
+`Cache-Control` were not consulted, and cache lookup used `ignoreVary: true`. If sensitive or
 account-dependent endpoints are served on the app origin, their responses can persist and be
 replayed offline across account changes. The current cross-origin exclusion limits this risk;
 this review did not establish an affected authenticated same-origin endpoint or actual disclosure.
 
-Mitigation: `isCacheable` now refuses requests that carry an `Authorization` header, and responses
-whose `Cache-Control` contains `no-store` or `private`. Those responses are still served but never
-written to the cache. The hosted assets use `immutable` or `no-cache` (`deploy.yml`) and are not
-affected. The PWA offline e2e suite passes on both Chromium profiles. The remaining risk is a
-cookie-authenticated same-origin endpoint that sends neither directive. No such route exists today.
-Before adding any same-origin API route, switch to an explicit public shell/asset allowlist and test
+Mitigation: requests carrying `Authorization` bypass all service-worker cache reads and writes,
+including precache and navigation fallback. `isCacheable` refuses `no-store`/`private` responses;
+a non-cacheable network response also evicts an older entry at the same URL. The cache namespace
+now includes the policy revision, so activation removes entries admitted by the former policy,
+even for unversioned development builds. Public assets retain offline fallback.
+
+Dedicated source-execution tests cover authenticated precache/runtime bypass, private-response
+replacement followed by offline access, public offline fallback, and old-cache cleanup. These are
+VM tests with mocked browser APIs, not a browser confidentiality proof. The earlier PWA browser
+results below predate this follow-up. Cookie-authenticated endpoints without cache directives and
+broad `ignoreVary` lookup remain residual risks; no affected endpoint was established in this review.
+Before adding same-origin authenticated APIs, use an explicit public shell/asset allowlist and test
 cache behaviour across account changes.
 
 ## V-01 — Update-signature evidence gap
@@ -134,14 +140,15 @@ Headroom stdout was retrieved, not inferred from compressed previews.
 | `pnpm exec vitest run --config vitest.cloud.config.ts packages/cloud-fns/src/billing/billing.test.ts packages/cloud-fns/src/sync-api`                                                                                                                                                   | 1 file / 43 billing tests; the second selector matched no sync tests | `9931305d8cee442d98cff74fe9fbacd9` |
 | `pnpm exec vitest run --config vitest.cloud.config.ts packages/cloud-fns/src/sync/handler.test.ts`                                                                                                                                                                                      | Corrected sync selector: 1 file / 36 tests                           | `a5a1a21371e54cfaa72161c332a6fb20` |
 
-Fix verification for H-01 and M-01. These ran on the fix commit in the task worktree:
+Historical fix verification for H-01 and M-01, recorded by the preceding implementation at
+`dc4da0010`. These results were not rerun as part of the follow-up unless listed separately:
 
 - **Default factory refuses (temporary test, not committed).** A vitest file stubbed `Worker` and
   `URL.createObjectURL` and started a `WidgetWorkerSession` with `refuseUnisolatedWorker`, once
   with a classic entrypoint and once with a module entrypoint. In both cases neither stub was called,
   the only published state was `{ phase: 'failed', diagnostic: WORKER_COPY.unsupported }`, and
-  `isolatedFrom()` was set. `WorkerHost.test.ts` is outside this task's owned paths, so the file was
-  run with the suites below and then deleted. Committing it to `WorkerHost.test.ts` is a follow-up.
+  `isolatedFrom()` was set. The preceding attempt deleted that scratch file. This follow-up commits equivalent regression
+  coverage in `WorkerHost.test.ts` under the companion-test allowance in roadmap §21.2.
 - `pnpm exec vitest run --config vitest.app.config.ts` on that file plus `WorkerHost.test.ts`,
   `serviceWorker.test.ts` and `WidgetRenderSlot`: 4 files, 37 tests passed.
 - `pnpm typecheck` (core, cloud-fns, gm-react) exited 0. `eslint` and `prettier --check` on both
@@ -149,6 +156,15 @@ Fix verification for H-01 and M-01. These ran on the fix commit in the task work
 - `playwright test tests/e2e/pwa-offline.spec.ts` on `desktop-chromium` and `mobile-chromium`: 18
   passed. This covers offline boot, offline create plus offline reload, and the manifest/worker
   checks under the changed cache admission.
+
+Follow-up verification from starting HEAD `dc4da0010`:
+
+- `pnpm exec vitest run tests/unit/service-worker-security.test.ts`: 8 tests passed.
+- `pnpm exec vitest run --config vitest.app.config.ts apps/gm-react/src/app/widgets/WorkerHost.test.ts apps/gm-react/src/platform/serviceWorker.test.ts apps/gm-react/src/app/widgets/WidgetRenderSlot.test.tsx`:
+  3 files, 37 tests passed, including both production-factory refusal cases. The renderer error
+  boundary test intentionally emits `renderer exploded` diagnostics.
+- Targeted ESLint, Prettier, and `git diff --check` passed. Native output was inspected;
+  no Headroom tool was exposed in this session.
 
 Not run: per-PR `/security-review`, dependency advisory audit, packaged update verification, full
 repository gates, and deployed-cloud checks. No browser test of a running custom worker was
@@ -169,7 +185,7 @@ described above. `WidgetRenderSlot.tsx` was not changed or needed.
 - [ ] Per-PR `/security-review` runs with exact reviewed revisions. This session has no
       `/security-review` command, so none ran.
 - [ ] Update-signature evidence (V-01) before a release sign-off.
-- [ ] Follow-up: commit the factory-refusal test to `WorkerHost.test.ts`. Isolated execution, if it
-      is ever wanted, should be a separate task with its own browser regression.
+- [x] Factory-refusal regression committed in `WorkerHost.test.ts`. Isolated execution, if it
+      is ever wanted, requires a separate task with its own browser regression.
 
 This report does not approve Cloud-Enhanced or certify release readiness.

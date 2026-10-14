@@ -189,8 +189,9 @@ one High (H-01) is fixed. A custom widget declared `sandbox: 'worker'` would hav
 worker in the app's own origin, with direct IndexedDB (including the player-private store) and
 CacheStorage access that bypassed the host bridge. The app's worker factory now refuses before any
 blob URL or `Worker` exists, and such widgets show the "disabled, preserved" placeholder until a
-storage-isolated runtime exists. The service worker also no longer caches credentialed requests or
-`no-store`/`private` responses. Still open: update-signature evidence and per-PR
+storage-isolated runtime exists. The service worker bypasses cache reads and writes for requests with `Authorization`,
+evicts earlier copies when responses become `no-store`/`private`, and retires caches created under
+the old policy. Cookie-authenticated routes without cache directives remain a residual risk. Still open: update-signature evidence and per-PR
 `/security-review` runs, so the report is not a release sign-off.
 
 ## 6. Open by design

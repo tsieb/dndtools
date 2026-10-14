@@ -19,6 +19,7 @@ import {
 	assembleWorkerScript,
 	normalizeWorkerResult,
 	parseWorkerMessage,
+	refuseUnisolatedWorker,
 	workerResultToTemplateData,
 	workerTemplateFor,
 	type WidgetWorkerLike,
@@ -343,7 +344,27 @@ describe('WidgetWorkerSession', () => {
 
 	afterEach(() => {
 		vi.useRealTimers();
+		vi.unstubAllGlobals();
 	});
+
+	it.each([false, true])(
+		'refuses package execution before creating a worker (module=%s)',
+		(module) => {
+			const constructWorker = vi.fn();
+			const createObjectURL = vi.fn();
+			vi.stubGlobal('Worker', constructWorker);
+			vi.stubGlobal('URL', { createObjectURL });
+			const { session: host, states } = session(definition, {
+				module,
+				createWorker: refuseUnisolatedWorker,
+			});
+			host.start();
+			expect(constructWorker).not.toHaveBeenCalled();
+			expect(createObjectURL).not.toHaveBeenCalled();
+			expect(states).toEqual([{ phase: 'failed', diagnostic: WORKER_COPY.unsupported }]);
+			expect(host.isolatedFrom()?.coreStateAvailable).toBe(true);
+		},
+	);
 
 	it('sends the props once the worker says it is ready, and renders what comes back', () => {
 		const { session: host, worker, states } = session(definition);

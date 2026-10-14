@@ -145,3 +145,24 @@ claimed, and no dispatcher control state, runtime file, push, promotion, or extr
   `pwa-offline.spec.ts` run on desktop and mobile Chromium passed 18/18.
 - Report and README updated: no open High. V-01 and the per-PR `/security-review` runs are still
   open, and a committed factory-refusal test is a follow-up.
+
+## Cache confidentiality follow-up — 2026-10-14
+
+- Starting HEAD `dc4da0010`; clean task branch. Existing H-01 fail-closed fix retained.
+- Found M-01 admission-only mitigation still allowed authenticated cache reads and retained old
+  public copies when a response became private. `service-worker.js` now bypasses cache handling
+  entirely for Authorization requests, deletes stale entries on non-cacheable network responses,
+  and versions the policy namespace to remove previously admitted entries on activation.
+- Added persistent regression coverage in `WorkerHost.test.ts` and
+  `tests/unit/service-worker-security.test.ts`. Roadmap §21.2 explicitly grants companion
+  `*.test.ts(x)` paths; these tests only cover the owned runtime fixes. This supersedes the prior
+  journal/report assumption that factory-refusal coverage had to remain a scratch file.
+- Current tests: service-worker confidentiality suite 8 passed; WorkerHost, serviceWorker and
+  WidgetRenderSlot suites 37 passed across 3 files. Renderer error-boundary diagnostics are
+  intentional. Targeted ESLint, Prettier and diff validation passed.
+- Report/README reconcile M-01 status, distinguish historical runs from current evidence, and
+  retain the update-signature evidence gap. No new open High identified; independent review
+  remains the central operator's gate. `/security-review` and Headroom are unavailable here;
+  required per-PR command runs remain outstanding, not replaced by this follow-up.
+- No push, promotion, dispatcher mutation, additional loop, or extra agent. No new browser,
+  deployed, dependency-advisory or installer-signature verification claimed.
