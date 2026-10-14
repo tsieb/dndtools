@@ -28,6 +28,9 @@ for (const theme of ['tavern', 'parchment', 'scholar', 'dungeon', 'high-contrast
 		const help = page.getByRole('dialog', { name: 'Help', exact: true });
 		await expect(help).toBeVisible();
 		await expect(help.getByText(/Version /)).toBeVisible();
+		// Pin the new feedback action within the complete dialog chrome, including the adjacent
+		// shortcuts action. The long onboarding guide otherwise leaves these controls offscreen.
+		await help.getByRole('region', { name: 'Send feedback', exact: true }).scrollIntoViewIfNeeded();
 		await expect(help).toHaveScreenshot(`help--${theme}.png`);
 
 		await help.getByRole('button', { name: 'Keyboard shortcuts' }).click();

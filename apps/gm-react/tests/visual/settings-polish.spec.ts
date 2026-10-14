@@ -30,8 +30,10 @@ for (const theme of THEMES) {
 		await stage(page, theme);
 		await page.goto('/#/settings?tab=vault');
 		await waitReady(page);
+		// Runtime readiness precedes the lazy Settings route's vault hydration on a busy runner.
+		// Wait for its actual ready state within the same 20-second budget used for app boot.
 		const title = page.getByText('No sources connected', { exact: true });
-		await expect(title).toBeVisible();
+		await expect(title).toBeVisible({ timeout: 20_000 });
 		await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
 		await page.waitForLoadState('networkidle');
 		await page.evaluate(() => document.fonts.ready);

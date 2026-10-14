@@ -130,3 +130,47 @@ launch prerequisite; it does not claim that a feedback route already exists.
 - Hosted acceptance remains outstanding. No local tag points at the starting candidate; no tag
   pushed, workflow dispatched, release altered, promotion attempted or dispatcher state changed.
   RC-ENG-7.2 must provide the authorized exact-tag run and verified release attachments.
+
+## Visual-gate repair — 2026-10-14
+
+- Starting candidate: `61ed07b0e6c0f7d9f8d6fa40f5330b5a63900a99`; clean worktree.
+- Read the original wrapper log at
+  `/home/trinkle/Programming/agent-dispatcher/.state/attempts/13602e91-6577-4b18-bda8-33f3b3ac74d0/output.log`.
+  It reports 572 passes and 16 failures: 15 Help snapshot mismatches and one Settings rail/tavern
+  readiness timeout. The Settings error context shows `Loading your vault…`, not an empty-state
+  rendering mismatch.
+- Corrected the previous journal's ownership conclusion: read-only inspection of the actual
+  dispatcher manifest confirms both `apps/gm-react/tests/visual/*.ts` and
+  `apps/gm-react/tests/visual/__screenshots__/*` are companion paths. No dispatcher state changed.
+- Updated the Help capture to scroll the feedback region into view before capturing the full
+  dialog. The baseline now verifies the requested action, its privacy copy, surrounding topics
+  and dialog chrome on five themes and three tiers. Reviewed all 15 final PNGs in tier contact
+  sheets. Existing command-palette and shortcut captures are retained.
+- Settings now waits up to the app boot budget of 20 seconds for its actual empty-state title;
+  runtime readiness alone does not guarantee that the lazy Settings route has hydrated its vault.
+  The assertion still fails if that state never arrives; screenshot thresholds are unchanged.
+- The initial extra feedback-region captures exceeded the unchanged 37 MiB baseline budget.
+  Retained one complete Help dialog capture per theme/tier instead, and applied lossless PNG
+  optimization with decoded RGBA equality checked before each write. No image pixels were
+  quantized, resized or masked to suppress a mismatch; no repository dependency was added.
+- Headroom tools are unavailable; original native logs inspected. The first targeted comparison
+  passed 30/30 Help and Settings tests. Final capture/comparison and budget results follow below.
+- The Discussions template, Electron bridge and hosted exact-tag rehearsal/attachments remain
+  outstanding as recorded above. This validation repair does not satisfy the release acceptance.
+
+### Final repair verification
+
+- `bash apps/gm-react/tests/visual/run-in-container.sh palette-help.spec.ts settings-polish.spec.ts
+--update-snapshots=none`: exit 0, **30 passed (1.2m)**; original log read at
+  `/tmp/rc-eng-7.1-visual-repair-final-compare.log`. This covers all 16 cases named in the failing
+  wrapper run plus the other Settings themes/tiers; the full 588-test wrapper was not rerun locally.
+- `node apps/gm-react/tests/visual/check-baseline-budget.mjs`: exit 0; 894 files,
+  **37802.9 KiB / 37888.0 KiB**. Final Zopfli optimization saved 339436 bytes with exact decoded
+  RGBA equality. Reproduction uses `zopfli.png.optimize(png_bytes, lossy_transparent=False,
+lossy_8bit=False)`; optimization tools were installed only in a temporary environment.
+- `pnpm gates`: exit 0; original `/tmp/rc-eng-7.1-visual-repair-final-gates.log` inspected,
+  six quality gates and docs checks passed, existing file-size warnings only.
+- `pnpm format:check:changed`: exit 0; original
+  `/tmp/rc-eng-7.1-visual-repair-format.log` inspected. Focused ESLint and `git diff --check` pass.
+- Committed scope: the two visual specs, 15 reviewed Help baselines, and this journal only.
+  No release, tag, publication, promotion or dispatcher-control mutation occurred.
