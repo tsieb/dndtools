@@ -172,8 +172,10 @@ URL fallback is not evidence that the form opens on desktop.
 
 The current claim includes only this checklist, `release.yml` and `HelpMenu.tsx`.
 Before retrying implementation, grant `.github/DISCUSSION_TEMPLATE/beta-feedback.yml`,
-`apps/gm-react/electron/main.cjs` and `apps/gm-react/electron/preload.cjs`, plus the renderer
-bridge declaration/adapter used by the action. Focused tests are companion paths under §21.2.
+`apps/gm-react/electron/main.cjs`, `apps/gm-react/electron/preload.cjs`, and
+`apps/gm-react/src/platform/capabilities.ts` for the typed renderer bridge/adapter used by the
+action. None of these four paths is covered by the current companion-path grants. Focused
+`*.test.ts` / `*.test.tsx` tests are granted companion paths under §21.2.
 The desktop bridge must accept no caller-supplied destination, validate the calling window/frame,
 ask for native confirmation and open only the fixed feedback URL. Verify cancellation, rejected
 callers, browser-open failure and successful opening through the real main/preload handlers;

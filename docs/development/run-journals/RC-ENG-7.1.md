@@ -299,3 +299,32 @@ play-polish.spec.ts golden-routes.spec.ts --project=visual-rail --project=visual
 - `pnpm gates`: exit 0; six quality gates pass, 310 reachable documents and 445 resolved
   links; existing file-size warnings only. Read the complete original output at
   `/tmp/rc-eng-7.1-scope-retry-gates.log`. No executable code changed in this retry.
+
+## Repeated independent-review handoff — 2026-10-14
+
+- Starting HEAD: `fa1232e845a9bb6d20e7dfb256c750e0587ace90`; worktree clean.
+  Headroom tools are unavailable; inspected native command output directly.
+- Rechecked `git ls-tree -r --name-only HEAD .github/DISCUSSION_TEMPLATE`: empty.
+  `git tag --points-at HEAD` is also empty. No hosted release evidence was produced.
+- Inspected `apps/gm-react/src/platform/capabilities.ts:539-555` and
+  `apps/gm-react/electron/main.cjs:670-706`: the renderer still falls through to
+  `globalThis.open`, and the main handler still denies non-display URLs. This is an
+  unresolved integration defect; no passing desktop-route test is claimed.
+- Read RC_ROADMAP §21.2 and the manifest companion/journal grants without changing them.
+  The supplied self-heal scope still adds only HelpMenu, leaving both reviewed defects
+  outside the write fence. The manifest grants this journal and focused tests, but not
+  the template, main/preload, or capabilities adapter.
+- Made the checklist's ownership correction concrete: grant
+  `.github/DISCUSSION_TEMPLATE/beta-feedback.yml`,
+  `apps/gm-react/electron/main.cjs`, `apps/gm-react/electron/preload.cjs`, and
+  `apps/gm-react/src/platform/capabilities.ts`. The typed bridge can live in that adapter.
+  The operator must apply the scope correction before another implementation retry.
+- Both high-priority findings remain unresolved. End-to-end tagged-release acceptance
+  remains outstanding for the authorized RC-ENG-7.2 rehearsal. No push, promotion,
+  tag/release creation, extra loop/agent, or dispatcher control-state edit occurred.
+- This retry changes documentation only; executable code and prior test results are
+  unchanged. Verification of this documentation change is recorded below.
+- Verification: `pnpm gates` exit 0 (six quality gates; 310 reachable docs and 445
+  resolved links; existing size warnings). Read the complete original log at
+  `/tmp/rc-eng-7.1-review-scope-gates.log`. Targeted Prettier and `git diff --check`
+  pass. No application, browser, desktop or hosted release test was rerun.
