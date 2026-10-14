@@ -55,3 +55,22 @@ Commit the report, README, and this journal on the current branch as a blocked a
 No push, promotion, extra agent, loop, or dispatcher control-state edit. This is useful preserved
 evidence, **not task completion**. The operator must resolve H-01 under an appropriate runtime
 claim and provide the required review capability before acceptance can be asserted.
+
+## Claim-gate feedback — required paths retained
+
+The candidate gate rejected `docs/security/README.md` and
+`docs/security/app-security-review-2026-10-14.md` against the literal owned path
+`docs/security/app-security-review-<date>.md`.
+
+Both files are retained under the feedback's explicit required-file exception:
+
+- `docs/security/README.md` is named verbatim in the acceptance criterion requiring its update.
+- `docs/security/app-security-review-2026-10-14.md` is the requested dated whole-app security
+  report, with `<date>` instantiated as the assessment date. Removing it would discard the
+  task's primary deliverable and the evidence for the open High.
+
+The follow-up commit message records these reasons for the operator. The claim has not been
+widened and the rejection is not fixed: operator approval of concrete claimed paths is still
+required. H-01 and the missing review/signature evidence remain open independently of the claim
+failure. No runtime or dispatcher changes were made in this feedback pass; earlier test results
+remain evidence for the unchanged reviewed source, not new test executions.
