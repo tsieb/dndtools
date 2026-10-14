@@ -244,3 +244,38 @@ play-polish.spec.ts golden-routes.spec.ts --project=visual-rail --project=visual
 - `pnpm gates`: exit 0, six quality gates and docs checks pass with existing size warnings
   (`/tmp/rc-eng-7.1-graph-diagnosis-gates.log`). This commit records evidence only; the last full
   wrapper result remains 587 passes and one timeout, pending operator disposition.
+
+## App-gate repair — pseudo-locale catalog, 2026-10-14
+
+- Starting candidate: `810cccfcf781c4b2a4e1f7d7a6d3d01add2f2a61`; clean worktree.
+- Read original wrapper app-test log at
+  `/home/trinkle/Programming/agent-dispatcher/.state/attempts/fd5420ea-5eef-4b3c-bb84-d4d6408c497c/output.log`:
+  2279 passed, 2 failed. Both failures identify the same task-caused omission: the generated
+  pseudo-locale lacks `help.sendFeedback`, `help.feedbackPrivacy`, and `help.feedbackFallback`,
+  introduced by the Help feedback action. This is not an inherited failure.
+- Regenerated with `pnpm exec tsx scripts/i18n-catalog.ts pseudo`, then applied Prettier.
+  The entire generated diff consists of those three entries. The existing exact-catalog and
+  100-percent pseudo-locale coverage tests remain unchanged and guard future omissions.
+- Confirmed read-only that `apps/gm-react/src/i18n/dev/qps-ploc.ts` is an authorized companion path.
+  Headroom unavailable; inspected original native output.
+- The preceding wrapper visual log
+  `/home/trinkle/Programming/agent-dispatcher/.state/attempts/30c46bc1-0be1-4091-af5f-0b1ef100aa51/output.log`
+  records **588 passed (15.3m)** on the starting candidate. That is the operator's full visual run,
+  not a new visual run on this catalog repair. The development-only pseudo catalog does not change
+  the English visual baselines.
+- Full app-suite and quality/format verification results follow below. No release, tag, workflow,
+  promotion, publication or dispatcher-control mutation occurred. The outstanding feedback-route
+  scope corrections and authorized tagged-release acceptance remain unresolved.
+
+### Pseudo-locale repair verification
+
+- `pnpm test:app`: exit 0, **190 files / 2281 tests passed**, 66.40s. Read original
+  `/tmp/rc-eng-7.1-pseudo-app.log`; this includes both previously failing i18n checks and the
+  feedback component tests. Existing test stderr includes expected error-path/React warnings;
+  the final suite reports no failures.
+- `pnpm gates`: exit 0, six quality gates and docs checks pass with existing size warnings
+  (`/tmp/rc-eng-7.1-pseudo-gates.log`).
+- `pnpm format:check:changed`: exit 0, both changed files pass
+  (`/tmp/rc-eng-7.1-pseudo-format.log`). `git diff --check` passes.
+- Commit contains only the three generated pseudo-locale entries and this journal. The catalog
+  repair fixes the observed app-gate regression; it does not claim the outstanding RC acceptance.

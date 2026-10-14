@@ -7430,6 +7430,11 @@ export default {
 	'firstSession.link.openSession': '[Óƥéñ Šéššíóñ~~~~ ]',
 	'firstSession.link.startSession': '[Šţáŕţ á šéššíóñ~~~~ ~]',
 	'firstSession.link.invitePlayers': '[Íñṽíţé ƥľáýéŕš~~~~ ~]',
+	'help.sendFeedback': '[Šéñď ƒééďƀáçķ~~~~ ~]',
+	'help.feedbackPrivacy':
+		'[Ƒééďƀáçķ íš ƥúƀľíç óñ ĞíţĤúƀ. Íñçľúďé ýóúŕ áƥƥ ṽéŕšíóñ áñď ƥľáţƒóŕḿ; ľéáṽé óúţ ƥŕíṽáţé çáḿƥáíğñ çóñţéñţ, çŕéďéñţíáľš áñď ṽáúľţ éẋƥóŕţš.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~]',
+	'help.feedbackFallback':
+		'[Íƒ ţĥé ƒóŕḿ ďíď ñóţ óƥéñ, çóƥý ţĥíš áďďŕéšš íñţó ýóúŕ ƀŕóŵšéŕ:~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ]',
 	'help.title': '[Ĥéľƥ~~]',
 	'help.gettingStarted': '[Ğéţţíñğ šţáŕţéď~~~~ ~]',
 	'help.gettingStartedParticipant':
