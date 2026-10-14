@@ -108,3 +108,25 @@ promotion, loop launch, dispatcher control-state edit, or unrelated tracked-file
 - Full wrapper gates and independent review remain with the central operator. Browser, hardware
   and live-service checks were not run. No push, promotion, loop launch, dispatcher control-state
   edit or unrelated tracked-file change was performed.
+
+## Billing preview review correction — 2026-10-14
+
+- Starting candidate: `c7f719db3c5e49fe6bd551def4ce190ca41723ac`; clean worktree.
+  Used the supplied docs-research skill; no Headroom tools were available.
+- Qualified the Plans & cloud limit: device-local or explicitly enabled preview enrollment
+  takes no payment; loaded server-backed accounts with preview enrollment disabled instead
+  show plan changes unavailable. Read EntitlementsProvider initialization and account handling,
+  Upgrade's gating/render branches, PlanCards' disabled actions, and both no-billing unit tests.
+  The inventory anchors the preview assertion and the production gating condition separately.
+  Application and validator changes were unnecessary. Table padding changed through Prettier.
+- `pnpm exec vitest run --config vitest.app.config.ts apps/gm-react/src/screens/Upgrade.test.tsx
+-t 'no billing configured'`: exit 0, 2 passed, 14 skipped. This exercises both preview and
+  unavailable states locally; it does not validate deployed billing. Existing Vite config warning.
+- `pnpm gates`: exit 0, six gates, 308 reachable docs and 443 resolved links; existing file-size
+  warnings only. Initial feature-audit caught an incorrectly transcribed test line; corrected it
+  to the actual assertion before the final check.
+- Full wrapper gates and independent review remain with the central operator. No browser,
+  hardware or live-service checks, push, promotion, loop launch or dispatcher-state edits.
+- Final `pnpm feature-audit`: exit 0, 48 declared limits, 0 stale anchors, 0 inventory issues,
+  no mock imports and 0/23 screens requiring wiring review. Original output inspected.
+- Scoped Prettier and `git diff --check` passed before commit.
