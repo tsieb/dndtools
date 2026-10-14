@@ -25,7 +25,7 @@ replicated to a player. Every durable write is a validated command.
 | Internet remote play (signaling + TURN) | Relay untrusted; sees only ECDH-wrapped offers and short-lived HMAC TURN credentials; admission needs an out-of-band join PIN                                                                                  | §3 below, `packages/cloud-fns`, `infra/signaling`, `infra/turn`                                                                          |
 | Cloud backup (Private mode)             | End-to-end encrypted with client-held per-epoch keys; the server stores ciphertext plus six metadata classes; tenant-isolated by Cognito `sub`                                                                 | [ADR-015](../adr/015-v2-cloud-security-model-and-key-custody.md), [ADR-017](../adr/017-concrete-cloud-e2ee-crypto.md)                    |
 | Cloud-Enhanced mode                     | Consented server-readable content under KMS. Phase 1 ships the consent only; the record is `approved: false` and every server-readable path stays gated. Phase 2 is deferred to roadmap epic CLD-6 and unbuilt | [ADR-026](../adr/026-opt-in-vault-privacy-modes.md), [`vault-privacy-modes-threat-model.md`](vault-privacy-modes-threat-model.md)        |
-| Custom widgets                          | Third-party script runs in an opaque-origin iframe or a worker; the core decides every permission and outbound request; trust is granted per permission by a DM review                                         | [ADR-031](../adr/031-custom-widget-runtime-host.md), [`../architecture/WIDGETS.md`](../architecture/WIDGETS.md)                          |
+| Custom widgets                          | Third-party script runs only in an opaque-origin iframe (worker widgets stay off until isolated); the core decides every permission and outbound request; DM review grants trust per permission                | [ADR-031](../adr/031-custom-widget-runtime-host.md), [`../architecture/WIDGETS.md`](../architecture/WIDGETS.md)                          |
 | AI providers                            | BYO key held device-local, never in the vault or op log; every model write is a staged proposal a DM approves                                                                                                  | [ADR-021](../adr/021-client-side-ai-provider-transport.md), [ADR-025](../adr/025-agentic-multi-step-assistant-runs.md)                   |
 | Billing (Stripe)                        | Card data never touches our code (hosted Checkout and portal, SAQ-A). The webhook is the only paid-entitlement writer: signature-verified, mode-checked, re-reads Stripe before writing                        | [ADR-027](../adr/027-stripe-web-billing-and-entitlement-write-path.md), [`../runbooks/stripe-billing.md`](../runbooks/stripe-billing.md) |
 | Product analytics                       | Opt-in, closed vocabulary, no identifiers, nothing stored server-side                                                                                                                                          | [ADR-036](../adr/036-opt-in-product-analytics.md), [`../development/PRODUCT_ANALYTICS.md`](../development/PRODUCT_ANALYTICS.md)          |
@@ -184,15 +184,14 @@ medium findings; a follow-up on 2026-07-07 added the join PIN and scoped `browse
 was retired from the tree on 2026-09-11 and remains in git history at
 `docs/security/cloud-security-audit-2026-07.md`.
 
-The [2026-10-14 whole-app v2 assessment](app-security-review-2026-10-14.md) records RC-ENG-5.1
-at source base `81b6b34c8`. **It is not a sign-off:** H-01 remains open because custom blob workers
-run in the app's storage origin when permitted by the hosted CSP. The private-store and widget
-guarantees above therefore do not cover this execution path until it is isolated or disabled.
-The report also records broad same-origin PWA caching, an update-signature evidence gap, and
-outstanding per-PR `/security-review` runs. Passing protocol/unit tests do not close these gaps.
-Independent review rejected candidate `f6d704839` with H-01 still open; documentation changes
-and historical unit-test results do not establish isolation. See the report's acceptance handoff for the runtime
-repair scope and outstanding review evidence.
+The [2026-10-14 whole-app v2 assessment](app-security-review-2026-10-14.md) is RC-ENG-5.1. Its
+one High (H-01) is fixed. A custom widget declared `sandbox: 'worker'` would have run as a blob
+worker in the app's own origin, with direct IndexedDB (including the player-private store) and
+CacheStorage access that bypassed the host bridge. The app's worker factory now refuses before any
+blob URL or `Worker` exists, and such widgets show the "disabled, preserved" placeholder until a
+storage-isolated runtime exists. The service worker also no longer caches credentialed requests or
+`no-store`/`private` responses. Still open: update-signature evidence and per-PR
+`/security-review` runs, so the report is not a release sign-off.
 
 ## 6. Open by design
 

@@ -54,7 +54,9 @@ import type { WidgetTemplateProps } from './templates/shared';
  * computed fields, and one of the eight declarative templates from WID-1.2 draws them. Nothing the
  * widget wrote reaches the page as markup, because the widget never writes markup — which is the
  * point. A worker has no DOM, no document, no parent window and no way to reach the host's, so the
- * whole class of "what did this untrusted string do to my page" questions does not arise for it.
+ * whole class of "what did this untrusted string do to my page" questions does not arise for it. It
+ * does share the page's storage origin, though, which is why the app's factory runs nothing yet: see
+ * {@link refuseUnisolatedWorker}.
  *
  * The protocol is host API v1, unchanged: `ready` / `render(props)` / `configChanged` /
  * `bindingChanged` in, `dispatch` / `requestPermission` / `outbound` / `error` out, every one of them
@@ -654,25 +656,23 @@ export class WidgetWorkerSession {
 }
 
 /**
- * The default factory: a classic or module worker built from a blob of the assembled script.
+ * The default factory, and it refuses. Package code does not run on any build yet (RC-ENG-5.1 H-01).
  *
- * A blob URL is the only way to run code that arrived as package data rather than as a file the build
- * shipped, and the worker it creates has no DOM and no reference to anything of the host's. Note that
- * the packaged shell's content policy has no `worker-src` yet, so there the constructor throws and the
- * widget shows the "does not run on this build" placeholder — fail closed, and visibly.
+ * The only way to run code that arrived as package data is a worker built from a blob URL, and a blob
+ * worker is NOT an isolated context: it inherits the page's origin, so it can open the app's IndexedDB
+ * (every vault, including each player's private store) and CacheStorage directly, never asking
+ * `hostBridge` anything. The hosted CSP allows `worker-src blob:`, so on the web that is exactly what
+ * would happen. Until a worker can be started in an opaque, storage-less origin and reach the host
+ * only through the bridge, this throws BEFORE a blob URL or a `Worker` exists, the session reports
+ * {@link WORKER_COPY.unsupported}, and the widget shows the "disabled, preserved" placeholder. The
+ * package, its configuration and its placement are untouched, so isolation arriving later is all it
+ * takes to run it again.
  */
-export function createBlobWorker(code: string, module: boolean): WidgetWorkerLike {
-	const url = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
-	try {
-		const worker = new Worker(url, module ? { type: 'module' } : undefined);
-		// Structurally narrower than `Worker` (its handlers are typed against `MessageEvent`), so the
-		// host talks to the small surface it actually uses and a test can be the other side of it.
-		return worker as unknown as WidgetWorkerLike;
-	} finally {
-		// The worker has already been given the blob; holding the URL open would leak it for the session.
-		URL.revokeObjectURL(url);
-	}
-}
+export const refuseUnisolatedWorker: WorkerFactory = () => {
+	throw new Error(
+		'Package workers run only in a storage-isolated context, which this build lacks.',
+	);
+};
 
 // --- Drawing the result ------------------------------------------------------------------------------
 
@@ -709,11 +709,11 @@ export function workerTemplateFor(definition: WidgetDefinition | null): WidgetTe
 export function WorkerHost({
 	widget,
 	onCommand,
-	createWorker = createBlobWorker,
+	createWorker = refuseUnisolatedWorker,
 }: {
 	widget: BoardWidget;
 	onCommand?: WidgetCommandHandler;
-	/** Injected by tests; the app always uses the blob worker. */
+	/** Injected by tests; the app always uses {@link refuseUnisolatedWorker}, which runs nothing. */
 	createWorker?: WorkerFactory;
 }): ReactElement {
 	const runtime = useRuntime();

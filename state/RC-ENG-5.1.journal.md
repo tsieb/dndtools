@@ -127,3 +127,21 @@ claimed, and no dispatcher control state, runtime file, push, promotion, or extr
 - Journal retained and updated under the implementation brief's explicit instruction to keep it
   current and roadmap §21.3's run-journal convention.
 - Validation: Prettier check passed for all three documents; `git diff --check` passed.
+
+## Self-heal round 2 — H-01 fixed, M-01 mitigated
+
+- Starting HEAD: `e7a6b35d45f76f26ea62b4162ee6d5f75a85c9ce`; working tree clean. Claim widened to
+  `WorkerHost.ts` and `service-worker.js`.
+- H-01: replaced `createBlobWorker` with `refuseUnisolatedWorker`, which throws before any blob URL
+  or `Worker` exists. The session's existing catch publishes `WORKER_COPY.unsupported` and
+  `isolateFrame`, and the tile shows the preserved placeholder. Package data is untouched.
+  `WidgetRenderSlot.tsx` was not changed.
+- M-01: `isCacheable` refuses `Authorization` requests and `no-store`/`private` responses. Hosted
+  headers (`immutable`, `no-cache`) are unaffected.
+- Verification: a temporary vitest file (stubbed `Worker`/`createObjectURL`, classic and module)
+  ran with `WorkerHost.test.ts`, `serviceWorker.test.ts` and `WidgetRenderSlot` tests: 4 files, 37
+  tests passed. The scratch file was deleted because the test file is unowned.
+  `pnpm typecheck` exited 0; eslint and prettier passed on the changed files. The
+  `pwa-offline.spec.ts` run on desktop and mobile Chromium passed 18/18.
+- Report and README updated: no open High. V-01 and the per-PR `/security-review` runs are still
+  open, and a committed factory-refusal test is a follow-up.

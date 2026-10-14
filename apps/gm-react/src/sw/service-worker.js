@@ -59,15 +59,18 @@ self.addEventListener('message', (event) => {
 	if (event.data && event.data.type === 'LAMPLIGHT_SKIP_WAITING') self.skipWaiting();
 });
 
-/** Only a plain, complete, same-origin GET response is worth keeping. */
+/**
+ * Only a plain, complete, same-origin GET response is worth keeping, and only one that is not tied
+ * to who asked: a credentialed request, or a response its server marked `no-store` or `private`, is
+ * served but never written, so it cannot be replayed offline to whoever signs in next.
+ */
 function isCacheable(request, response) {
-	return (
-		request.method === 'GET' &&
-		response &&
-		response.ok &&
-		response.type === 'basic' &&
-		response.status === 200
-	);
+	if (request.method !== 'GET' || request.headers.has('authorization')) return false;
+	if (!response || !response.ok || response.type !== 'basic' || response.status !== 200) {
+		return false;
+	}
+	const cacheControl = (response.headers.get('cache-control') ?? '').toLowerCase();
+	return !/(?:^|[\s,])(?:no-store|private)(?:$|[\s,=])/.test(cacheControl);
 }
 
 /**
