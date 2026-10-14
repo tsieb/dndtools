@@ -6,12 +6,16 @@ v1 document-editor have been removed; that application's last state is preserved
 
 ## [Unreleased]
 
-### Release candidate preview
+## [0.4.0] - 2026-10-14
 
-The Lamplight release candidate is in development. These notes describe changes on the current
-branch. Installers still come from the alpha releases.
+The first release-candidate preview of Lamplight. Installers are still alpha prereleases: the
+Android build is signed with the alpha key and the desktop installers are unsigned.
 
 ### For players and GMs
+
+- Graph and Search keep up on a large campaign: the graph updates after an edit in under a third
+  of the time it took, results appear as you type, and a full board opens without loading the
+  editing tools until you use them.
 
 - Preview as a player shows what that player's phone shows. Picking a player or Observer from the
   top bar's View as menu opens the player view as them, with their character and the scene you
