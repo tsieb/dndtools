@@ -73,3 +73,17 @@
 - Not pushed; no dispatcher control state edited. Central gates and independent review are the
   operator's. This branch is based on `81b6b34c`; FRICTIONLESS.md describes `7008d590` and is
   accurate only once integrated onto `loop/rc` at or after that commit.
+
+## Retry: quality gate (attempt `7805a19e`, head `6122e4bc`)
+
+- Failure, read from the original log: `pnpm gates` docs check, `[unreachable-doc]
+docs/planning/FRICTIONLESS.md: no chain of relative links from docs/README.md reaches this file`.
+  The file-size lines in the same log are warn-only and predate this task.
+- Fix: one paragraph in `docs/planning/README.md`, the planning index `docs/README.md` already links,
+  pointing to FRICTIONLESS.md, the 2026-09-29 reviews and FRICTION_BUDGETS.md. This crosses the
+  claim (`Owns` is FRICTIONLESS.md only) by the minimum the reachability gate needs. No owned or
+  companion path is a natural home: FEATURE-GAPS.md rows are parsed by `feature-audit` and edited in
+  place only; `docs/reference` and `docs/architecture` hold no friction material.
+- Re-run on this tree: `pnpm gates` exit 0 ("docs check passed: 309 file(s) reachable from
+  docs/README.md, 453 relative link(s) resolved"); Prettier check clean on the README; no audit
+  content changed.

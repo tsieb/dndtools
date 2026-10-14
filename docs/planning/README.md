@@ -19,6 +19,11 @@ against. Its [filed follow-up backlog](SCREENS_PARITY.md#filed-wid-stories)
 records open RC-WID-5.6–5.12 with acceptance criteria; operator registration in the execution
 roadmap remains separate from this documentation filing.
 
+[`FRICTIONLESS.md`](FRICTIONLESS.md) is the RC-ENG-9.3 exit audit for milestone M2.6: the
+[2026-09-29 friction reviews](friction-review-2026-09-29/README.md) re-run on one commit, the
+[friction budgets](FRICTION_BUDGETS.md) measured on five runs, and every remaining finding by
+severity.
+
 For what is actually built, read [`../requirements/FEATURE-GAPS.md`](../requirements/FEATURE-GAPS.md)
 and run `pnpm feature-audit`, not this folder.
 
