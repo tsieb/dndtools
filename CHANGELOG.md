@@ -6,6 +6,17 @@ v1 document-editor have been removed; that application's last state is preserved
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-14
+
+Same application as 0.4.0 with patched dependencies. 0.4.0's release build stopped at the
+dependency check, so it produced no installers and is superseded; its notes below describe this
+release too.
+
+### For players and GMs
+
+- Android: updated the app runtime to fix a flaw that could let remote content load as if it came
+  from the app itself.
+
 ## [0.4.0] - 2026-10-14
 
 The first release-candidate preview of Lamplight. Installers are still alpha prereleases: the
