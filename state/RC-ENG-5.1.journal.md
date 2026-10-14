@@ -74,3 +74,21 @@ widened and the rejection is not fixed: operator approval of concrete claimed pa
 required. H-01 and the missing review/signature evidence remain open independently of the claim
 failure. No runtime or dispatcher changes were made in this feedback pass; earlier test results
 remain evidence for the unchanged reviewed source, not new test executions.
+
+## Self-heal round 1 — document claim corrected
+
+The new implementation brief explicitly includes `docs/security/README.md` and
+`docs/security/app-security-review-2026-10-14.md` in the owned paths and requires keeping both.
+This supersedes the document-claim blocker in the preceding entry. Both files are preserved;
+the report's acceptance handoff now distinguishes this correction from the remaining blockers.
+
+The authorized paths still contain no runtime source. H-01 therefore remains open: remediation
+needs `apps/gm-react/src/app/widgets/WorkerHost.ts` (and affected tests), with
+`apps/gm-react/src/app/widgets/WidgetRenderSlot.tsx` additionally required if the repair is made
+at renderer selection. The existing report supplies the fail-closed remediation direction and
+browser validation criteria. The required `/security-review` runs and update-signature evidence
+also remain outstanding. No finding was waived or relabeled to satisfy acceptance.
+
+This pass changes only the report handoff and journal. Earlier test results are not new runs;
+formatting and diff checks are run for these documentation edits. No central gate success is
+claimed, and no dispatcher control state, runtime file, push, promotion, or extra agent is used.

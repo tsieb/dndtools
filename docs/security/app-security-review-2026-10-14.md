@@ -130,11 +130,15 @@ are the durable reproduction references.
 
 ## Acceptance handoff
 
+- [x] Document claim corrected by central self-heal round 1: the README and this concrete dated
+      report are now explicitly owned. Keep both changes. This removes the reported document-path
+      mismatch; no subsequent central claim-gate pass is asserted here.
 - [ ] No open High: H-01 remains open and needs a scoped runtime repair and independent validation.
 - [x] `docs/security/README.md` links this report and records the current limitation.
 - [ ] Required per-PR `/security-review` runs attached with exact reviewed revisions.
 - [ ] Update-signature gap resolved before whole-app sign-off.
 
-The central operator must repair the claim or land a prerequisite remediation task, supply the
-required review capability, and retry. This report does not widen ownership, alter dispatcher state,
-approve Cloud-Enhanced, waive the High, or certify release readiness.
+The central operator must authorize the H-01 runtime paths named above or land a prerequisite
+remediation task, supply the required review capability, and retry. The widened document claim
+does not authorize `WorkerHost.ts` or `WidgetRenderSlot.tsx`. This report does not widen ownership,
+alter dispatcher state, approve Cloud-Enhanced, waive the High, or certify release readiness.
