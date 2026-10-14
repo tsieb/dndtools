@@ -267,10 +267,12 @@ describe('the Add panel', () => {
 
 // RC-WID-6.7 (WID-16) — the gallery's copy lives in the message catalogs, not in a table of its own.
 describe('the Add panel copy', () => {
-	const source = readFileSync(
-		join(process.cwd(), 'apps', 'gm-react', 'src', 'app', 'canvas', 'AddWidgetGallery.tsx'),
-		'utf8',
-	)
+	// RC-POL-1.2 split the panel's miniature and its header/"More ways" parts into siblings.
+	const source = ['AddWidgetGallery.tsx', 'GalleryMiniature.tsx', 'GalleryParts.tsx']
+		.map((file) =>
+			readFileSync(join(process.cwd(), 'apps', 'gm-react', 'src', 'app', 'canvas', file), 'utf8'),
+		)
+		.join('\n')
 		.split('\n')
 		.filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
 		.join('\n');

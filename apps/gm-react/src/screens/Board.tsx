@@ -489,7 +489,7 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 				// small to read. A gutter there would shrink it further to buy whitespace it cannot
 				// afford — and it measurably tipped the phone board out of its own scroll range.
 				boxSizing: 'border-box',
-				padding: phone ? 0 : '16px 28px',
+				padding: phone ? 'var(--space-0)' : 'var(--space-4) var(--space-6)',
 				...(phone && Phone.PHONE_TEXT_FLOOR),
 			}}
 		>
@@ -557,7 +557,7 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 						? {
 								display: 'inline-flex',
 								alignItems: 'center',
-								gap: 6,
+								gap: 'var(--space-1-5)',
 								font: 'var(--text-xs) var(--font-sans)',
 								color: 'var(--color-text-secondary)',
 								flex: '0 0 auto',

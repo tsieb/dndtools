@@ -1,6 +1,6 @@
 import type { LayoutHistory } from './useLayoutHistory';
-import { useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { widgetPresentation, type WidgetLibraryEntry } from '@dndtools/core';
+import { useLayoutEffect, useMemo, useRef } from 'react';
+import { widgetPresentation } from '@dndtools/core';
 import { Badge, Icon, VisibilityChip } from '../../ds';
 import { useI18n, type MessageKey } from '../../i18n';
 import { noteDepth, type NoteDepth } from '../widgets/builtin/Note';
@@ -11,7 +11,6 @@ import {
 	safeBoundEntityName,
 	tileBindingState,
 	tileMetadataForWidget,
-	tileMetadataForDefinition,
 	type TileBindingState,
 } from '../widgets/tileMeta';
 import {
@@ -21,226 +20,16 @@ import {
 	type WidgetCommandHandler,
 } from '../widgets/WidgetRenderSlot';
 import { TileActionMenu, TRIGGER_SIZE, useLongPress, type MenuHandle } from './TileActionMenu';
+import { LIFT_TRANSITION, TileGrip, WidgetGlyph, liftStyle, useHoverLift } from './frameParts';
 
 /** Shared canvas frame and overlay controls. Frames follow the scene's metadata reading order;
  * explicit stack indices let the canvas change DOM order without changing visual overlap. */
-
-// Widget definition icons are normally semantic registry keys ('map', 'dice', …). Third-party
-// packages created by older builds may still contain an emoji glyph, so retain a decorative legacy
-// fallback instead of replacing persisted package content with a broken square.
-const isRegistryKey = (icon: string) => /^[a-z0-9-]+$/i.test(icon);
 
 const NOTE_DEPTH_LABEL: Record<NoteDepth, MessageKey> = {
 	title: 'widgetBody.note.depthTitle',
 	summary: 'widgetBody.note.depthSummary',
 	full: 'widgetBody.note.depthFull',
 };
-
-export function WidgetGlyph({
-	icon,
-	size = 'sm',
-	color = 'var(--color-accent)',
-}: {
-	icon: string;
-	size?: 'sm' | 'md' | number;
-	color?: string;
-}) {
-	if (isRegistryKey(icon)) return <Icon name={icon} size={size} color={color} />;
-	const px = size === 'md' ? 20 : typeof size === 'number' ? size : 16;
-	return (
-		<span aria-hidden style={{ fontSize: px, lineHeight: 1, flex: '0 0 auto' }}>
-			{icon}
-		</span>
-	);
-}
-
-/** Undo/Redo overlay control. Disabled — not hidden — so the canvas never gains or loses a control
- *  under the user's cursor, and the shortcut and the button always agree about what is available. */
-export function HistoryBtn({
-	icon,
-	label,
-	disabled,
-	onClick,
-}: {
-	icon: string;
-	label: string;
-	disabled: boolean;
-	onClick: () => void;
-}) {
-	return (
-		<button
-			type="button"
-			title={label}
-			aria-label={label}
-			disabled={disabled}
-			onClick={onClick}
-			onPointerDown={(e) => e.stopPropagation()}
-			style={{
-				display: 'inline-flex',
-				alignItems: 'center',
-				justifyContent: 'center',
-				width: 28,
-				height: 28,
-				border: 'none',
-				borderRadius: 'var(--radius-sm)',
-				background: 'transparent',
-				color: disabled ? 'var(--color-text-tertiary)' : 'var(--color-text-secondary)',
-				cursor: disabled ? 'default' : 'pointer',
-				opacity: disabled ? 0.5 : 1,
-			}}
-		>
-			<Icon name={icon} size="sm" />
-		</button>
-	);
-}
-
-/** The canvas Undo/Redo cluster. Anchored top-right on the bounded board (it scrolls, and an edit
- *  session starts at the top) and bottom-left on the free canvas, opposite its zoom cluster. */
-export function HistoryCluster({
-	history,
-	policy,
-}: {
-	history: LayoutHistory;
-	policy: 'bounded' | 'canvas';
-}) {
-	return (
-		<div
-			data-testid="canvas-history-controls"
-			style={{
-				position: 'absolute',
-				...(policy === 'bounded' ? { top: 12, right: 12 } : { left: 16, bottom: 16 }),
-				display: 'flex',
-				alignItems: 'center',
-				gap: 2,
-				padding: 4,
-				borderRadius: 'var(--radius-md)',
-				background: 'var(--color-surface-overlay)',
-				border: '1px solid var(--color-border-strong)',
-				boxShadow: 'var(--shadow-lg)',
-			}}
-		>
-			<HistoryBtn
-				icon="undo"
-				label={history.undoLabel ? `Undo ${history.undoLabel.toLowerCase()}` : 'Undo'}
-				disabled={!history.canUndo}
-				onClick={() => void history.undo()}
-			/>
-			<HistoryBtn
-				icon="redo"
-				label={history.redoLabel ? `Redo ${history.redoLabel.toLowerCase()}` : 'Redo'}
-				disabled={!history.canRedo}
-				onClick={() => void history.redo()}
-			/>
-		</div>
-	);
-}
-
-/** The empty canvas. It doubles as the LOADING state (a board has no widgets while
- *  `command-center.ensure-home` is in flight), so the caller may say which it is. The heading is
- *  sans: the display face starts at `--text-xl` (the RC-ENG-8.4 emphasis lint). */
-type EmptyCanvasProps = { title?: string; hint?: string; theme?: string };
-export function EmptyCanvas({ title, hint, theme }: EmptyCanvasProps) {
-	return (
-		<div
-			data-theme={theme}
-			style={{
-				position: 'absolute',
-				inset: 0,
-				display: 'flex',
-				flexDirection: 'column',
-				alignItems: 'center',
-				justifyContent: 'center',
-				gap: 'var(--space-3)',
-				pointerEvents: 'none',
-				textAlign: 'center',
-				padding: 'var(--space-6)',
-			}}
-		>
-			<Icon name="widget" size="xl" color="var(--color-text-secondary)" />
-			<div
-				style={{
-					font: '700 var(--text-lg) var(--font-sans)',
-					color: 'var(--color-text-secondary)',
-				}}
-			>
-				{title ?? 'An empty scene'}
-			</div>
-			<div
-				style={{
-					font: 'var(--text-sm) var(--font-sans)',
-					color: 'var(--color-text-secondary)',
-					maxWidth: 320,
-				}}
-			>
-				{hint ?? 'Press Edit, then add a widget.'}
-			</div>
-		</div>
-	);
-}
-
-const EASE = 'var(--duration-fast) var(--easing-standard)';
-/** RC-CAN-8.3 — edit mode's tile transition: the hover outline and shadow ease on the motion tokens,
- *  which collapse to 0ms under reduced motion (styles/tokens/spacing.css), so the cue is static. */
-export const LIFT_TRANSITION = `outline-color ${EASE}, box-shadow ${EASE}`;
-
-/**
- * RC-CAN-8.3 — the hover lift on an edited tile: an outline (unless a selection or drop ring is
- * already drawn) and an elevation shadow; a dragged tile casts the deeper shadow of a held card. The
- * lift is elevation only, never a `transform`: moving a frame that holds the focused menu trigger
- * made Chrome scroll the overflow-hidden canvas to keep the trigger in view, and the tile menu
- * closes on any scroll.
- */
-export function liftStyle(lift: 'rest' | 'hover' | 'drag', ringed: boolean): CSSProperties {
-	if (lift === 'rest') return {};
-	return {
-		...(ringed ? {} : { outline: '2px solid var(--color-accent-border)' }),
-		boxShadow: lift === 'drag' ? 'var(--shadow-lg)' : 'var(--shadow-md)',
-	};
-}
-
-/** Pointer hover on an edited tile. A finger has no hover, so touch never lifts a tile. Entering
- *  counts only while editing, so a view-mode frame does not re-render as the pointer crosses it. */
-export function useHoverLift(editing: boolean) {
-	const [hovered, setHovered] = useState(false);
-	return {
-		lifted: editing && hovered,
-		handlers: {
-			onPointerEnter: (e: React.PointerEvent) => setHovered(editing && e.pointerType !== 'touch'),
-			onPointerLeave: () => setHovered(false),
-		},
-	};
-}
-
-/**
- * RC-CAN-8.3 — the grip in an edited tile's title bar: the glyph that says "drag here". It lives on
- * the drag surface (the title row leaves it room), and it is `touch-action: none`, so a finger on it
- * drags the tile where a finger anywhere else on the tile still scrolls the board.
- */
-export function TileGrip() {
-	return (
-		<span
-			aria-hidden
-			data-testid="tile-grip"
-			style={{
-				position: 'absolute',
-				top: 'var(--space-2)',
-				left: 0,
-				display: 'inline-flex',
-				padding: 'var(--space-1)',
-				color: 'var(--color-text-secondary)',
-				touchAction: 'none',
-				cursor: 'grab',
-			}}
-		>
-			<Icon name="drag-handle" size={16} />
-		</span>
-	);
-}
-
-/** The zoom cluster's control: the same overlay button, never disabled. */
-export function ZoomBtn(props: { icon: string; label: string; onClick: () => void }) {
-	return <HistoryBtn {...props} disabled={false} />;
-}
 
 /** The header's binding glyph: a word as well as a shape, so no state rests on colour alone. */
 const QUIET = 'var(--color-text-secondary)';
@@ -547,7 +336,7 @@ export function WidgetFrame({
 						style={{
 							display: 'inline-flex',
 							alignItems: 'center',
-							gap: 5,
+							gap: 'var(--space-1-5)',
 							font: '600 var(--text-2xs) var(--font-sans)',
 							color: 'var(--color-status-warning-text)',
 							flex: '0 0 auto',
@@ -608,8 +397,8 @@ export function WidgetFrame({
 							overflow: 'hidden',
 							display: selected ? 'inline-flex' : 'none',
 							alignItems: 'center',
-							gap: 5,
-							padding: '2px 7px',
+							gap: 'var(--space-1-5)',
+							padding: 'var(--space-0-5) var(--space-2)',
 							borderRadius: 'var(--radius-sm)',
 							background: 'var(--color-accent)',
 							color: 'var(--color-accent-foreground)',
@@ -660,7 +449,7 @@ export function WidgetFrame({
 								bottom: -5,
 								width: 24,
 								height: 24,
-								padding: 0,
+								padding: 'var(--space-0)',
 								touchAction: 'none',
 								borderRadius: 'var(--radius-sm)',
 								// A tinted handle, not a gold fill: the canvas's one accent-filled primary
@@ -676,114 +465,5 @@ export function WidgetFrame({
 				</>
 			)}
 		</div>
-	);
-}
-
-/** Row text: one font shorthand plus a colour. */
-const rowText = (font: string, color: string) => ({ font: `${font} var(--font-sans)`, color });
-const ONE_LINE = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as const;
-type RowProps = {
-	entry: WidgetLibraryEntry;
-	/** The pick control's whole name, "Add Dice": the row's visible title is part of it. */
-	label: string;
-	onPick: () => void;
-	/** Hover by mouse or keyboard focus: the row to show a miniature beside, or null to hide it. */
-	onPreview?: (row: HTMLElement | null) => void;
-};
-
-/**
- * One Add-panel row (RC-CAN-8.5): glyph, title, category and a one-line purpose, all inside ONE
- * button named "Add <widget>". The miniature is not part of the row — the gallery draws it beside
- * the row on mouse hover or keyboard focus, `aria-hidden` and `inert`, so a list of forty widgets
- * is forty short rows and forty tab stops, not forty live bodies full of dead buttons.
- */
-export function WidgetLibraryCard({ entry, label, onPick, onPreview }: RowProps) {
-	const baseId = useId();
-	const [descId, reasonId] = [`${baseId}-desc`, `${baseId}-reason`];
-	const meta = tileMetadataForDefinition(entry);
-	const reason = entry.availability.available ? null : entry.availability.reason;
-	const accent = reason ? 'var(--color-border-strong)' : `var(${meta.accentToken})`;
-	const show = (e: React.SyntheticEvent<HTMLElement>) => onPreview?.(e.currentTarget);
-	const hide = () => onPreview?.(null);
-	return (
-		<li data-testid={`gallery-card-${entry.type}`} className={meta.silhouetteClass}>
-			<button
-				type="button"
-				data-testid={`gallery-entry-${entry.type}`}
-				data-category={entry.category ?? ''}
-				aria-label={label}
-				aria-describedby={reason ? `${descId} ${reasonId}` : descId}
-				// `aria-disabled`, not `disabled`, keeps the reason reachable by keyboard (tab order).
-				aria-disabled={reason ? true : undefined}
-				onClick={() => reason || onPick()}
-				onPointerEnter={(e) => e.pointerType === 'mouse' && show(e)}
-				onPointerLeave={hide}
-				// Keyboard focus only: a tap focuses the row on its way to picking it.
-				onFocus={(e) => e.currentTarget.matches(':focus-visible') && show(e)}
-				onBlur={hide}
-				style={{
-					display: 'grid',
-					gridTemplateColumns: 'auto minmax(0, 1fr) auto',
-					alignItems: 'center',
-					columnGap: 'var(--space-2)',
-					rowGap: 'var(--space-0-5)',
-					width: '100%',
-					minHeight: 44,
-					padding: 'var(--space-2) var(--space-3)',
-					textAlign: 'left',
-					border: '1px solid var(--color-border)',
-					// The accent rail is a border, not a background: forced-colors keeps it (as WidgetFrame's).
-					borderLeft: `4px solid ${accent}`,
-					borderRadius: 'var(--radius-md)',
-					background: reason ? 'var(--color-surface-sunken)' : 'var(--color-surface-raised)',
-					cursor: reason ? 'not-allowed' : 'pointer',
-				}}
-			>
-				<WidgetGlyph
-					icon={meta.icon}
-					size={16}
-					color={reason ? 'var(--color-text-tertiary)' : accent}
-				/>
-				<span
-					style={{
-						...ONE_LINE,
-						...rowText(
-							'600 var(--text-sm)',
-							reason ? 'var(--color-text-secondary)' : 'var(--color-text-primary)',
-						),
-					}}
-				>
-					{entry.displayName}
-				</span>
-				<span style={rowText('var(--text-2xs)', 'var(--color-text-tertiary)')}>
-					{entry.category ?? ''}
-				</span>
-				<span
-					id={descId}
-					style={{
-						gridColumn: '2 / -1',
-						...ONE_LINE,
-						...rowText('var(--text-2xs)/1.4', 'var(--color-text-secondary)'),
-					}}
-				>
-					{meta.description}
-				</span>
-				{reason && (
-					<span
-						id={reasonId}
-						style={{
-							gridColumn: '2 / -1',
-							display: 'flex',
-							alignItems: 'center',
-							gap: 'var(--space-1)',
-							...rowText('600 var(--text-2xs)/1.4', 'var(--color-text-primary)'),
-						}}
-					>
-						<Icon name="lock" size="sm" />
-						{reason}
-					</span>
-				)}
-			</button>
-		</li>
 	);
 }

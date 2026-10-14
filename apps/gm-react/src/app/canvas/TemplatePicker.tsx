@@ -8,95 +8,27 @@ import {
 } from '@dndtools/core';
 import { Button, Callout, Dialog, Sheet, Toaster } from '../../ds';
 import { useRuntime } from '../../runtime/RuntimeContext';
-import { useI18n, type MessageValues } from '../../i18n';
-import { formatMessage } from '../../i18n/format';
+import { useI18n, type MessageKey } from '../../i18n';
 import { tileMetadataForDefinition } from '../widgets/tileMeta';
 import type { Viewport } from '../useViewport';
-import { WidgetGlyph } from './WidgetFrame';
+import { WidgetGlyph } from './frameParts';
 import { CreateEntry } from './AddWidgetGallery';
 
-// Feature-local translations, the same pattern as AddWidgetGallery: the built-in names come from the
-// core in English, so their localized copy lives here keyed by template id.
-const pickerMessages = {
-	en: {
-		'templates.title': 'Start from a template',
-		'templates.description':
-			'Pick a layout and its tiles land in this scene. Anything already here stays put.',
-		'templates.builtin': 'Built-in templates',
-		'templates.saved': 'Your templates',
-		'templates.savedEmpty':
-			'Save a board layout or mark a scene as a template and it shows up here.',
-		'templates.tileCount': '{count, plural, one {# tile} other {# tiles}}',
-		'templates.presetKind': 'Saved layout',
-		'templates.sceneKind': 'Template scene',
-		'templates.applied': 'Applied “{name}”.',
-		'templates.appliedPartly':
-			'Applied “{name}”. Skipped tiles whose widget is no longer installed: {types}.',
-		'templates.notSaved': "That template couldn't be saved to this device. Try again.",
-		'templates.cancel': 'Cancel',
-		'templates.startEntry': 'Use a scene template',
-		'templates.startEntryHint':
-			'Lay out a whole scene at once: combat, social, exploration and more.',
-		'templates.combat.name': 'Combat scene',
-		'templates.combat.body': 'Initiative, the battle map, dice and a round timer in reach.',
-		'templates.social.name': 'Social encounter',
-		'templates.social.body': 'NPC notes, a handout to reveal, dice for checks and ambience.',
-		'templates.exploration.name': 'Exploration',
-		'templates.exploration.body': 'The region map with travel notes, a watch timer and dice.',
-		'templates.town.name': 'Town visit',
-		'templates.town.body': 'A town map, shop and rumour notes, and a handout for posted notices.',
-		'templates.session-prep.name': 'Session prep',
-		'templates.session-prep.body':
-			'Prep checklist, session notes, the reference shelf and the next map.',
-	},
-	es: {
-		'templates.title': 'Empieza con una plantilla',
-		'templates.description':
-			'Elige un diseño y sus widgets se colocarán en esta escena. Lo que ya haya se queda donde está.',
-		'templates.builtin': 'Plantillas incluidas',
-		'templates.saved': 'Tus plantillas',
-		'templates.savedEmpty':
-			'Guarda un diseño del tablero o marca una escena como plantilla y aparecerá aquí.',
-		'templates.tileCount': '{count, plural, one {# widget} other {# widgets}}',
-		'templates.presetKind': 'Diseño guardado',
-		'templates.sceneKind': 'Escena plantilla',
-		'templates.applied': 'Se aplicó «{name}».',
-		'templates.appliedPartly':
-			'Se aplicó «{name}». Se omitieron los widgets que ya no están instalados: {types}.',
-		'templates.notSaved':
-			'No se pudo guardar la plantilla en este dispositivo. Inténtalo de nuevo.',
-		'templates.cancel': 'Cancelar',
-		'templates.startEntry': 'Usar una plantilla de escena',
-		'templates.startEntryHint':
-			'Monta una escena entera de una vez: combate, social, exploración y más.',
-		'templates.combat.name': 'Escena de combate',
-		'templates.combat.body': 'Iniciativa, el mapa de batalla, dados y un temporizador de asalto.',
-		'templates.social.name': 'Encuentro social',
-		'templates.social.body':
-			'Notas de PNJ, un documento para revelar, dados para pruebas y ambientación.',
-		'templates.exploration.name': 'Exploración',
-		'templates.exploration.body':
-			'El mapa de la región con notas de viaje, un temporizador de guardia y dados.',
-		'templates.town.name': 'Visita a la ciudad',
-		'templates.town.body':
-			'Un mapa de la ciudad, notas de tiendas y rumores, y un documento para los avisos.',
-		'templates.session-prep.name': 'Preparación de sesión',
-		'templates.session-prep.body':
-			'Lista de preparación, notas de sesión, la referencia y el próximo mapa.',
-	},
-} as const;
-
-type PickerKey = keyof typeof pickerMessages.en;
-
-function usePickerCopy() {
-	const { locale } = useI18n();
-	return (key: PickerKey, values?: MessageValues) =>
-		formatMessage(
-			locale,
-			(pickerMessages[locale as keyof typeof pickerMessages] ?? pickerMessages.en)[key],
-			values,
-		);
-}
+/** A built-in template's catalog keys; the core names them in English (RC-POL-1.2). */
+const TEMPLATE_COPY: Record<BuiltinSceneTemplateId, readonly [name: MessageKey, body: MessageKey]> =
+	{
+		combat: ['boardCanvas.templates.combat.name', 'boardCanvas.templates.combat.body'],
+		social: ['boardCanvas.templates.social.name', 'boardCanvas.templates.social.body'],
+		exploration: [
+			'boardCanvas.templates.exploration.name',
+			'boardCanvas.templates.exploration.body',
+		],
+		town: ['boardCanvas.templates.town.name', 'boardCanvas.templates.town.body'],
+		'session-prep': [
+			'boardCanvas.templates.sessionPrep.name',
+			'boardCanvas.templates.sessionPrep.body',
+		],
+	};
 
 /** The miniature's box. A layout is scaled down into it, never up. */
 const MINI_WIDTH = 224;
@@ -230,15 +162,15 @@ function TemplateCard({
 	disabled: boolean;
 	onPick: () => void;
 }) {
-	const copy = usePickerCopy();
+	const { t } = useI18n();
 	const baseId = useId();
 	const nameId = `${baseId}-name`;
 	const descId = `${baseId}-desc`;
 	const kind =
 		option.source.kind === 'preset'
-			? copy('templates.presetKind')
+			? t('boardCanvas.templates.presetKind')
 			: option.source.kind === 'scene'
-				? copy('templates.sceneKind')
+				? t('boardCanvas.templates.sceneKind')
 				: null;
 	return (
 		<li
@@ -270,7 +202,7 @@ function TemplateCard({
 				<span
 					style={{ font: 'var(--text-2xs) var(--font-sans)', color: 'var(--color-text-tertiary)' }}
 				>
-					{copy('templates.tileCount', { count: option.tiles.length })}
+					{t('boardCanvas.templates.tileCount', { count: option.tiles.length })}
 				</span>
 			</div>
 			<div
@@ -306,12 +238,12 @@ function TemplateCard({
 
 /** The gallery header's "Use a scene template" entry (its `startAction` slot, shown while empty). */
 export function TemplateStartEntry({ onPick }: { onPick: () => void }) {
-	const copy = usePickerCopy();
+	const { t } = useI18n();
 	return (
 		<CreateEntry
 			icon="layers"
-			label={copy('templates.startEntry')}
-			hint={copy('templates.startEntryHint')}
+			label={t('boardCanvas.templates.startEntry')}
+			hint={t('boardCanvas.templates.startEntryHint')}
 			onClick={onPick}
 		/>
 	);
@@ -347,7 +279,7 @@ export function TemplatePicker({
 	sceneId,
 	onApplied,
 }: TemplatePickerProps) {
-	const copy = usePickerCopy();
+	const { t } = useI18n();
 	const runtime = useRuntime();
 	const actorId = runtime.defaultActorId;
 	const [busy, setBusy] = useState(false);
@@ -356,8 +288,8 @@ export function TemplatePicker({
 	const builtins: TemplateOption[] = BUILTIN_SCENE_TEMPLATES.map((template) => ({
 		id: `builtin-${template.id}`,
 		source: { kind: 'builtin', templateId: template.id },
-		name: copy(`templates.${template.id}.name` as PickerKey),
-		description: copy(`templates.${template.id}.body` as PickerKey),
+		name: t(TEMPLATE_COPY[template.id][0]),
+		description: t(TEMPLATE_COPY[template.id][1]),
 		icon: template.icon,
 		preview: 'generated',
 		tiles: template.widgets.map((widget, index) => ({
@@ -446,13 +378,16 @@ export function TemplatePicker({
 				event && event.kind === 'scene.template-applied' ? event.missingWidgetTypes : [];
 			Toaster.success(
 				missing.length > 0
-					? copy('templates.appliedPartly', { name: option.name, types: missing.join(', ') })
-					: copy('templates.applied', { name: option.name }),
+					? t('boardCanvas.templates.appliedPartly', {
+							name: option.name,
+							types: missing.join(', '),
+						})
+					: t('boardCanvas.templates.applied', { name: option.name }),
 			);
 			close();
 			onApplied?.();
 		} catch {
-			setError(copy('templates.notSaved'));
+			setError(t('boardCanvas.templates.notSaved'));
 		} finally {
 			setBusy(false);
 		}
@@ -496,16 +431,16 @@ export function TemplatePicker({
 					{error}
 				</Callout>
 			)}
-			<h3 style={heading}>{copy('templates.builtin')}</h3>
-			{list(builtins, copy('templates.builtin'))}
-			<h3 style={heading}>{copy('templates.saved')}</h3>
+			<h3 style={heading}>{t('boardCanvas.templates.builtin')}</h3>
+			{list(builtins, t('boardCanvas.templates.builtin'))}
+			<h3 style={heading}>{t('boardCanvas.templates.saved')}</h3>
 			{saved.length > 0 ? (
-				list(saved, copy('templates.saved'))
+				list(saved, t('boardCanvas.templates.saved'))
 			) : (
 				<div
 					style={{ font: 'var(--text-xs) var(--font-sans)', color: 'var(--color-text-tertiary)' }}
 				>
-					{copy('templates.savedEmpty')}
+					{t('boardCanvas.templates.savedEmpty')}
 				</div>
 			)}
 		</div>
@@ -517,7 +452,7 @@ export function TemplatePicker({
 				open={open}
 				onClose={close}
 				side="bottom"
-				title={copy('templates.title')}
+				title={t('boardCanvas.templates.title')}
 				data-testid="template-picker-sheet"
 			>
 				{body}
@@ -528,13 +463,13 @@ export function TemplatePicker({
 		<Dialog
 			open={open}
 			onClose={close}
-			title={copy('templates.title')}
-			description={copy('templates.description')}
+			title={t('boardCanvas.templates.title')}
+			description={t('boardCanvas.templates.description')}
 			size="lg"
 			data-testid="template-picker-dialog"
 			footer={
 				<Button variant="secondary" size="sm" onClick={close}>
-					{copy('templates.cancel')}
+					{t('common.action.cancel')}
 				</Button>
 			}
 		>

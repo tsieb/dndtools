@@ -1,5 +1,5 @@
 import { Button } from '../../ds';
-import { ZoomBtn } from './WidgetFrame';
+import { ZoomBtn } from './frameParts';
 import { useI18n } from '../../i18n';
 import { ZOOM_PRESETS, ZOOM_PRESET_KEY, type ZoomPreset } from '../SceneBoardModel';
 
@@ -33,8 +33,8 @@ export function ZoomCluster({
 				bottom: 16,
 				display: 'flex',
 				alignItems: 'center',
-				gap: 2,
-				padding: 4,
+				gap: 'var(--space-0-5)',
+				padding: 'var(--space-1)',
 				borderRadius: 'var(--radius-md)',
 				background: 'var(--color-surface-overlay)',
 				border: '1px solid var(--color-border-strong)',

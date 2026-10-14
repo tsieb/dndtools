@@ -1,35 +1,23 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-	useCallback,
-	useEffect,
-	useLayoutEffect,
-	useMemo,
-	useRef,
-	useState,
-	type CSSProperties,
-} from 'react';
-import {
-	dockedPosition,
 	fitWidgetSize,
 	frameName,
 	isWidgetResizable,
 	nextSizePreset,
 	type BoardWidget,
 } from './board-helpers';
-import { getSceneForActor, type CoreCommand, type SectionLayoutRegion } from '@dndtools/core';
-import { useParams } from 'react-router-dom';
-import { EmptyCanvas, HistoryCluster, WidgetFrame } from './canvas/WidgetFrame';
+import { type CoreCommand } from '@dndtools/core';
+
+import { WidgetFrame } from './canvas/WidgetFrame';
+import { EmptyCanvas, HistoryCluster } from './canvas/frameParts';
 import {
 	arrangeCommand,
 	arrangeShortcut,
-	alignTo,
-	boxFromPoints,
-	dragGuides,
 	enclosedIds,
 	extentOf,
 	planPlacements,
 	toggleSelection,
 	withGroupMates,
-	zoomAbout,
 	type ArrangeAction,
 	type Box,
 	type DragGuides,
@@ -49,27 +37,20 @@ import {
 } from './canvas/keyboard';
 import { matchesShortcut } from './shortcuts/registry';
 import { ZoomCluster } from './canvas/ZoomCluster';
-import * as A11y from './canvas/surfaceA11y';
+import { useCanvasZoom, usePaneWidth } from './canvas/useCanvasZoom';
+import { useCanvasScene } from './canvas/useCanvasScene';
+import { useWindowGestures } from './canvas/useWindowGestures';
 import {
-	ARROW_DELTA,
-	clamp,
-	FIT_FLOOR,
-	FIXED_PRESET_SCALE,
-	GRID,
-	snapTo,
-	ZOOM_PRESETS,
-	ZOOM_PRESET_KEY,
-	type Drag,
-	type SceneBoardCanvasProps,
-	type View,
-	type ZoomPreset,
-} from './SceneBoardModel';
+	CanvasAnnouncements,
+	CanvasBackdrop,
+	CanvasStage,
+	canvasSurfaceStyle,
+} from './canvas/CanvasLayers';
+import * as A11y from './canvas/surfaceA11y';
+import { ARROW_DELTA, GRID, type Drag, type SceneBoardCanvasProps } from './SceneBoardModel';
 export { ZOOM_PRESETS, ZOOM_PRESET_KEY, type ZoomPreset } from './SceneBoardModel';
-export { WidgetGlyph } from './canvas/WidgetFrame';
-import { srOnly } from './screen-kit';
+export { WidgetGlyph } from './canvas/frameParts';
 import { useI18n } from '../i18n';
-
-const NO_SECTIONS: SectionLayoutRegion[] = [];
 
 export function SceneBoardCanvas({
 	widgets: authoredWidgets,
@@ -91,10 +72,11 @@ export function SceneBoardCanvas({
 	onZoomPresetChange,
 }: SceneBoardCanvasProps) {
 	const wrapRef = useRef<HTMLDivElement | null>(null);
-	const [wrapWidth, setWrapWidth] = useState(0);
 	const dragRef = useRef<Drag | null>(null);
 	const resizeMoved = useRef(false);
 	const [notice, announce] = A11y.useOperationNotice();
+	const { t } = useI18n();
+	const op = useMemo(() => A11y.operationText(t), [t]);
 	// The undo stack, read from inside the window pointer listeners without re-subscribing them.
 	const historyRef = useRef(history);
 	historyRef.current = history;
@@ -105,10 +87,10 @@ export function SceneBoardCanvas({
 	const resizeWidget = useCallback(
 		(w: BoardWidget, width: number, height: number) => {
 			const next = fitWidgetSize(w, width, height, policy === 'bounded');
-			announce(A11y.OPERATION_TEXT.resized(w.title, next.w, next.h));
+			announce(op.resized(w.title, next.w, next.h));
 			return Promise.resolve(onResize(w.id, next.w, next.h));
 		},
-		[onResize, policy, announce],
+		[onResize, policy, announce, op],
 	);
 	const cycleSize = useCallback(
 		(w: BoardWidget) => {
@@ -119,7 +101,6 @@ export function SceneBoardCanvas({
 	);
 	const frameRefs = useRef(new Map<string, HTMLDivElement>());
 	const [focusedId, setFocusedId] = useState<string | null>(null);
-	const { t } = useI18n();
 	const runtime = useRuntime();
 	const [multi, setMulti] = useState<string[]>([]);
 	const [marquee, setMarquee] = useState<Box | null>(null);
@@ -128,48 +109,9 @@ export function SceneBoardCanvas({
 	const marqueeRef = useRef<{ x: number; y: number; base: string[] } | null>(null);
 	const groupDrag = useRef<Record<string, { x: number; y: number }>>({});
 	const selection = multi.length ? multi : selectedId ? [selectedId] : [];
-	const { id: routeSceneId } = useParams();
-	const scene = useMemo(
-		() =>
-			runtime.state.scenes.scenes[
-				routeSceneId ??
-					(policy === 'bounded' ? (runtime.state.commandCenter.homeSceneId ?? '') : '')
-			] ??
-			Object.values(runtime.state.scenes.scenes).find((sc) =>
-				sc.widgets.some((w) => w.id === authoredWidgets[0]?.id),
-			),
-		[runtime.state, authoredWidgets, routeSceneId, policy],
-	);
-	const summary = scene
-		? getSceneForActor(
-				runtime.state.scenes,
-				runtime.state.permissions,
-				runtime.defaultActorId,
-				scene.id,
-			)
-		: null;
-	const sections = summary && !('kind' in summary) ? summary.sections : NO_SECTIONS;
-	const background = summary && !('kind' in summary) ? summary.visualSettings.background : 'paper';
-	const surfaceTheme =
-		background === 'paper' || background === 'parchment'
-			? 'parchment'
-			: background === 'dark'
-				? 'tavern'
-				: undefined;
-	const widgets = useMemo(() => {
-		const extent = extentOf([...authoredWidgets, ...sections.map((section) => section.bounds)]);
-		return authoredWidgets.map((widget) => ({
-			...widget,
-			...dockedPosition(
-				widget,
-				scene?.widgets.find((w) => w.id === widget.id)?.layout.dock ?? null,
-				extent,
-			),
-		}));
-	}, [authoredWidgets, scene, sections]);
-	const groupOf = useMemo(
-		() => new Map(scene?.widgets.map((w) => [w.id, w.layout.groupId]) ?? []),
-		[scene],
+	const { scene, sections, background, surfaceTheme, widgets, groupOf } = useCanvasScene(
+		authoredWidgets,
+		policy,
 	);
 	const select = (ids: string[]) => {
 		setMulti(ids.length > 1 ? ids : []);
@@ -179,20 +121,6 @@ export function SceneBoardCanvas({
 		if (!editing || !selectedId || !multi.includes(selectedId))
 			setMulti((m) => (m.length ? [] : m));
 	}, [editing, selectedId, multi]);
-	const [view, setView] = useState<View>({ tx: 32, ty: 32, scale: 1 });
-	const paneCentre = (): [number, number] => {
-		const r = wrapRef.current?.getBoundingClientRect();
-		return [(r?.width ?? 800) / 2, (r?.height ?? 600) / 2];
-	};
-	const [localPreset, setLocalPreset] = useState<ZoomPreset>(
-		policy === 'bounded' ? 'fit' : 'comfortable',
-	);
-	const [zoomNotice, setZoomNotice] = useState<{
-		seq: number;
-		preset: ZoomPreset;
-		percent: number;
-	} | null>(null);
-	const zoomSeq = useRef(0);
 	const { pending, nudge } = useNudges();
 	const rects = useMemo(
 		() =>
@@ -214,87 +142,30 @@ export function SceneBoardCanvas({
 		[onMove],
 	);
 
-	useEffect(() => {
-		const node = wrapRef.current;
-		if (!node) return;
-		const update = () => setWrapWidth(node.clientWidth);
-		update();
-		const observer = new ResizeObserver(update);
-		observer.observe(node);
-		return () => observer.disconnect();
-	}, []);
-
-	// A pane that changes width re-scales a Fit board, moving every tile. Keep whatever has focus in
-	// view across it: closing the Add panel widens the pane after the gallery has scrolled the new
-	// tile into view, and the larger scale would otherwise push it back off the bottom.
-	useLayoutEffect(() => {
-		const focused = document.activeElement;
-		if (focused instanceof HTMLElement && wrapRef.current?.contains(focused)) {
-			focused.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-		}
-	}, [wrapWidth]);
+	const wrapWidth = usePaneWidth(wrapRef);
 
 	const contentExtent = extentOf([...authoredWidgets, ...rects, ...sections.map((s) => s.bounds)]);
-
-	const fitScale = wrapWidth > 0 ? clamp((wrapWidth - 16) / contentExtent.width, FIT_FLOOR, 1) : 1;
-	const scaleForPreset = useCallback(
-		(p: ZoomPreset) => (p === 'fit' ? fitScale : FIXED_PRESET_SCALE[p]),
-		[fitScale],
-	);
-	const preset = zoomPreset ?? localPreset;
-
-	const boundedScale = policy === 'bounded' ? scaleForPreset(preset) : 1;
-	const scale = policy === 'canvas' ? view.scale : boundedScale;
-	const tx = policy === 'canvas' ? view.tx : boundedScale < 1 ? 8 : 0;
-	const ty = policy === 'canvas' ? view.ty : boundedScale < 1 ? 8 : 0;
-	const overflowsHorizontally = policy === 'bounded' && scale * contentExtent.width > wrapWidth;
-
-	/** Move to a named step. The bounded board reads its scale straight off the preset; the free
-	 *  canvas has a translate to keep honest as well, so it re-frames or re-centres. */
-	const applyPreset = useCallback(
-		(next: ZoomPreset) => {
-			setLocalPreset(next);
-			onZoomPresetChange?.(next);
-			const s1 = scaleForPreset(next);
-			if (policy === 'canvas') {
-				if (next === 'fit') setView({ tx: 32, ty: 32, scale: s1 });
-				else setView((v) => zoomAbout(v, ...paneCentre(), s1));
-			}
-		},
-		[onZoomPresetChange, policy, scaleForPreset],
-	);
-
-	const announcedRef = useRef<ZoomPreset | null>(null);
-	useEffect(() => {
-		if (announcedRef.current === null || announcedRef.current === preset) {
-			announcedRef.current = preset;
-			return;
-		}
-		announcedRef.current = preset;
-		zoomSeq.current += 1;
-		setZoomNotice({
-			seq: zoomSeq.current,
-			preset,
-			percent: Math.round(scaleForPreset(preset) * 100),
-		});
-	}, [preset, scaleForPreset]);
-
-	/** `+`/`-` step through the presets from whichever one the current scale sits nearest, and stop
-	 *  at the ends: wrapping Detail back round to Fit reads as the control losing its place. */
-	const cyclePreset = useCallback(
-		(direction: 1 | -1) => {
-			const nearest = ZOOM_PRESETS.reduce((best, p) =>
-				Math.abs(scaleForPreset(p) - scale) < Math.abs(scaleForPreset(best) - scale) ? p : best,
-			);
-			const next = ZOOM_PRESETS[clamp(ZOOM_PRESETS.indexOf(nearest) + direction, 0, 2)];
-			applyPreset(next);
-		},
-		[applyPreset, scale, scaleForPreset],
-	);
-	/** Which step the current scale IS — the free canvas can sit between two of them after a wheel
-	 *  zoom, and then no preset is pressed. */
-	const activePreset =
-		ZOOM_PRESETS.find((p) => Math.abs(scaleForPreset(p) - scale) < 0.005) ?? null;
+	const {
+		view,
+		setView,
+		scale,
+		tx,
+		ty,
+		overflowsHorizontally,
+		applyPreset,
+		cyclePreset,
+		activePreset,
+		zoomNotice,
+		onWheel,
+		zoom,
+	} = useCanvasZoom({
+		policy,
+		wrapRef,
+		wrapWidth,
+		contentWidth: contentExtent.width,
+		zoomPreset,
+		onZoomPresetChange,
+	});
 
 	const capture = (e: React.PointerEvent) => {
 		try {
@@ -369,132 +240,29 @@ export function SceneBoardCanvas({
 	const marqueeEnd = useRef((_box: Box, _base: string[]) => {});
 	marqueeEnd.current = (box, base) =>
 		select([...new Set([...base, ...withGroupMates(enclosedIds(rects, box), groupOf)])]);
-
-	useEffect(() => {
-		const move = (e: PointerEvent) => {
-			const m = marqueeRef.current;
-			if (m) return setMarquee(boxFromPoints(m, boardPoint.current(e)));
-			const d = dragRef.current;
-			if (!d) return;
-			if (d.mode === 'pan') {
-				setView((v) => ({ ...v, tx: d.tx + (e.clientX - d.sx), ty: d.ty + (e.clientY - d.sy) }));
-				return;
-			}
-			if (d.mode === 'scroll-pan') {
-				const el = wrapRef.current;
-				if (el) {
-					el.scrollLeft = d.sl - (e.clientX - d.sx);
-					el.scrollTop = d.st - (e.clientY - d.sy);
-				}
-				return;
-			}
-			const dx = (e.clientX - d.sx) / scale;
-			const dy = (e.clientY - d.sy) / scale;
-			if (d.mode === 'move') {
-				const size = overlay.sizeRef.current[d.id] ??
-					widgets.find((w) => w.id === d.id) ?? { w: 0, h: 0 };
-				const still = widgets.filter((w) => w.id !== d.id && !(w.id in groupDrag.current));
-				const free = { x: d.ox + dx, y: d.oy + dy, w: size.w, h: size.h };
-				// RC-CAN-8.3 — with Snap on, a still tile's edge or centre within 6 screen px wins over
-				// the grid, and the guides show what the tile now shares.
-				const pull = snap ? alignTo(free, still, 6 / scale) : {};
-				const x = Math.max(0, pull.x ?? snapTo(free.x, snap));
-				const y = Math.max(0, pull.y ?? snapTo(free.y, snap));
-				overlay.setPos((prev) => {
-					const next = { ...prev, [d.id]: { x, y } };
-					for (const [id, o] of Object.entries(groupDrag.current))
-						next[id] = { x: Math.max(0, o.x + x - d.ox), y: Math.max(0, o.y + y - d.oy) };
-					return next;
-				});
-				setGuides({ id: d.id, ...dragGuides({ ...free, x, y }, still) });
-			} else {
-				if (!resizeMoved.current && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 4) return;
-				resizeMoved.current = true;
-				const widget = widgets.find((w) => w.id === d.id);
-				if (!widget) return;
-				const width = snapTo(d.ow + dx, snap);
-				const next = fitWidgetSize(widget, width, snapTo(d.oh + dy, snap), policy === 'bounded');
-				overlay.setSize((prev) => ({ ...prev, [d.id]: next }));
-			}
-		};
-		const up = (e: PointerEvent) => {
-			const d = dragRef.current;
-			const m = marqueeRef.current;
-			dragRef.current = null;
-			marqueeRef.current = null;
-			setGuides(null);
-			document.body.style.userSelect = '';
-			if (m) {
-				setMarquee(null);
-				marqueeEnd.current(boxFromPoints(m, boardPoint.current(e)), m.base);
-			}
-			if (!d) return;
-			if (d.mode === 'move') {
-				const ids = [d.id, ...Object.keys(groupDrag.current)];
-				groupDrag.current = {};
-				const drafts = overlay.posRef.current;
-				const p = drafts[d.id];
-				const list = ids.flatMap((id) => (drafts[id] ? [{ id, ...drafts[id] }] : []));
-				// The overlay clears when the commit settles, so the frame lands on the committed
-				// (possibly clamped) layout rather than on the pointer's drop point.
-				const step = () => moveAll(list);
-				if (p) void (historyRef.current?.oneStep(step) ?? step()).finally(() => overlay.clear(ids));
-				const w = widgets.find((c) => c.id === d.id);
-				if (p && w) announce(A11y.OPERATION_TEXT.moved(w.title, p.x, p.y));
-			} else if (d.mode === 'resize') {
-				const s = overlay.sizeRef.current[d.id];
-				const widget = widgets.find((w) => w.id === d.id);
-				if (widget) {
-					const commit = resizeMoved.current
-						? s && resizeWidget(widget, s.w, s.h)
-						: cycleSize(widget);
-					void commit?.finally(() => overlay.clear([d.id]));
-				}
-			}
-		};
-		const cancel = () => {
-			const d = dragRef.current;
-			dragRef.current = null;
-			marqueeRef.current = null;
-			setMarquee(null);
-			setGuides(null);
-			document.body.style.userSelect = '';
-			if (!d || d.mode === 'pan' || d.mode === 'scroll-pan') return;
-			overlay.clear([d.id, ...Object.keys(groupDrag.current)]);
-			groupDrag.current = {};
-		};
-		window.addEventListener('pointermove', move);
-		window.addEventListener('pointerup', up);
-		window.addEventListener('pointercancel', cancel);
-		return () => {
-			window.removeEventListener('pointermove', move);
-			window.removeEventListener('pointerup', up);
-			window.removeEventListener('pointercancel', cancel);
-		};
-	}, [scale, snap, policy, moveAll, overlay, widgets, cycleSize, resizeWidget, announce]);
-
-	const onWheel = useCallback(
-		(e: React.WheelEvent) => {
-			if (policy !== 'canvas') return;
-			if (e.ctrlKey || e.metaKey) {
-				const r = wrapRef.current?.getBoundingClientRect();
-				if (!r) return;
-				const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
-				setView((v) =>
-					zoomAbout(v, e.clientX - r.left, e.clientY - r.top, clamp(v.scale * factor, 0.4, 1.8)),
-				);
-			} else {
-				const horizontal = e.shiftKey && e.deltaX === 0;
-				const dx = horizontal ? e.deltaY : e.deltaX;
-				const dy = horizontal ? 0 : e.deltaY;
-				setView((v) => ({ ...v, tx: v.tx - dx, ty: v.ty - dy }));
-			}
-		},
-		[policy],
-	);
-
-	const zoom = (factor: number) =>
-		setView((v) => zoomAbout(v, ...paneCentre(), clamp(v.scale * factor, 0.4, 1.8)));
+	useWindowGestures({
+		dragRef,
+		marqueeRef,
+		groupDrag,
+		resizeMoved,
+		boardPoint,
+		marqueeEnd,
+		wrapRef,
+		historyRef,
+		overlay,
+		widgets,
+		scale,
+		snap,
+		policy,
+		moveAll,
+		cycleSize,
+		resizeWidget,
+		announce,
+		op,
+		setMarquee,
+		setView,
+		setGuides,
+	});
 
 	const orderedWidgets = useReadingOrder(widgets, focusOrder, focusedId, frameRefs, wrapRef);
 
@@ -520,7 +288,7 @@ export function SceneBoardCanvas({
 			e.stopPropagation();
 			// RC-CAN-8.1 — Escape ends the keyboard burst: its nudges are now ONE undo step.
 			history?.settle();
-			if (editing && selectedId === w.id) announce(A11y.OPERATION_TEXT.dropped(w.title));
+			if (editing && selectedId === w.id) announce(op.dropped(w.title));
 			onSelect(null);
 			e.currentTarget.focus();
 			return;
@@ -535,7 +303,7 @@ export function SceneBoardCanvas({
 			if (!editing || !selection.includes(w.id)) select(withGroupMates([w.id], groupOf));
 			if (e.key === 'Enter') enterTileContent(e.currentTarget);
 			else e.currentTarget.focus();
-			if (e.key !== 'Enter' && editing) announce(A11y.OPERATION_TEXT.picked(w.title));
+			if (e.key !== 'Enter' && editing) announce(op.picked(w.title));
 			return;
 		}
 		if ((e.key === 'Delete' || e.key === 'Backspace') && editing && onRemove) {
@@ -566,7 +334,7 @@ export function SceneBoardCanvas({
 				const commit = moveAll(moved);
 				for (const m of moved) nudge(m.id, { x: m.x, y: m.y }, commit);
 				const own = moved.find((m) => m.id === w.id);
-				if (own) announce(A11y.OPERATION_TEXT.moved(w.title, own.x, own.y));
+				if (own) announce(op.moved(w.title, own.x, own.y));
 			}
 			return;
 		}
@@ -584,7 +352,9 @@ export function SceneBoardCanvas({
 			await moveAll(placed);
 			if (!resolved) return;
 			const command = { ...resolved, actorId: runtime.defaultActorId } as CoreCommand;
-			await (history ? history.run(command, 'Arranged tiles') : runtime.dispatch(command));
+			await (history
+				? history.run(command, t('boardCanvas.step.arranged'))
+				: runtime.dispatch(command));
 		};
 		await (history ? history.oneStep(step) : step());
 		if (resolved) {
@@ -642,7 +412,7 @@ export function SceneBoardCanvas({
 				dragging={guides?.id === w.id}
 				tabbable
 				stackOrder={widgets.indexOf(w)}
-				ariaLabel={frameName(w, { editing, selected: selected && multi.length > 0 })}
+				ariaLabel={frameName(w, { editing, selected: selected && multi.length > 0 }, t)}
 				onKeyDown={(e) => frameKeyDown(e, w)}
 				onFocusIn={() => setFocusedId(w.id)}
 				onSettle={() => history?.settle()}
@@ -668,78 +438,35 @@ export function SceneBoardCanvas({
 			ref={wrapRef}
 			data-testid={`scene-board-${policy}`}
 			data-background={background}
-			{...A11y.canvasSurfaceProps(policy, editing, widgets.length)}
+			{...A11y.canvasSurfaceProps(policy, editing, widgets.length, t)}
 			tabIndex={widgets.length === 0 ? 0 : -1}
 			onWheel={onWheel}
 			onKeyDown={canvasKeyDown}
 			onPointerDown={onBgDown}
-			style={{
-				position: 'relative',
-				flex: 1,
-				minHeight: 0,
-				background: 'var(--color-bg)',
-				// RC-CAN-3.1: Fit stops at `FIT_FLOOR`, and Comfortable/Detail are deliberately bigger
-				// than the pane on a narrow window — so the bounded board scrolls sideways to the rest
-				// of the layout instead of scaling it away.
-				overflowX: overflowsHorizontally ? 'auto' : 'hidden',
-				overflowY: policy === 'bounded' ? 'auto' : 'hidden',
-				cursor: policy === 'canvas' ? 'grab' : 'default',
-				// The bounded board deliberately overflows vertically. Let a finger pan that scroll
-				// region; `none` turns a mobile GM Screen into a desktop-only scrollbar workflow.
-				// Free-canvas scenes retain their gesture ownership for drag/pan/zoom interactions.
-				touchAction:
-					policy === 'bounded' ? (overflowsHorizontally ? 'pan-x pan-y' : 'pan-y') : 'none',
-				borderRadius: 'var(--radius-lg)',
-				border: '1px solid var(--color-border)',
-			}}
+			style={canvasSurfaceStyle(policy, overflowsHorizontally)}
 		>
-			<div
-				data-testid="scene-background"
-				data-theme={surfaceTheme}
-				style={{
-					position: 'absolute',
-					inset: 0,
-					minWidth: policy === 'bounded' ? tx + contentExtent.width * scale : undefined,
-					minHeight: policy === 'bounded' ? ty + contentExtent.height * scale : undefined,
-					background: background === 'paper' ? 'var(--color-surface-raised)' : 'var(--color-bg)',
-					pointerEvents: 'none',
-				}}
+			<CanvasBackdrop
+				policy={policy}
+				theme={surfaceTheme}
+				background={background}
+				tx={tx}
+				ty={ty}
+				scale={scale}
+				extent={contentExtent}
 			/>
-			<div
-				style={
-					{
-						position: 'absolute',
-						left: 0,
-						top: 0,
-						transformOrigin: '0 0',
-						transform: `translate(${tx}px, ${ty}px) scale(${scale})`,
-						// Bare number: `.scene-board-operation` divides its touch target by it.
-						'--scene-board-scale': String(scale),
-						minWidth: policy === 'bounded' ? contentExtent.width : '100%',
-						height: policy === 'bounded' ? contentExtent.height : undefined,
-					} as CSSProperties
-				}
+			<CanvasStage
+				policy={policy}
+				tx={tx}
+				ty={ty}
+				scale={scale}
+				extent={contentExtent}
+				showGrid={editing || background === 'grid'}
+				sections={sections}
+				marquee={marquee}
+				guides={guides}
 			>
-				{(editing || background === 'grid') && (
-					<div
-						style={{
-							position: 'absolute',
-							// Bounded covers only its own extent: an oversized sheet inside its scroll
-							// container ballooned /board's scrollHeight. The free canvas keeps the sheet.
-							...(policy === 'bounded'
-								? { inset: 0 }
-								: { left: -2000, top: -2000, width: 6000, height: 6000 }),
-							backgroundImage: 'radial-gradient(var(--color-border-strong) 1px, transparent 1px)',
-							backgroundSize: `${GRID}px ${GRID}px`,
-							pointerEvents: 'none',
-						}}
-					/>
-				)}
-				<A11y.SectionBands sections={sections} />
 				{frames}
-				{marquee && <A11y.Marquee box={marquee} />}
-				{guides && <A11y.DragGuides {...guides} scale={scale} />}
-			</div>
+			</CanvasStage>
 
 			{history && editing && <HistoryCluster history={history} policy={policy} />}
 			{editing && selection.length > 1 && (
@@ -751,27 +478,7 @@ export function SceneBoardCanvas({
 				/>
 			)}
 
-			{/* Permanent live regions: announced by CONTENT changing, never by a region being inserted
-			    (screen readers drop those). Re-keying on `seq` repeats an identical announcement. */}
-			{history && (
-				<div role="status" aria-live="polite" aria-atomic="true" style={srOnly}>
-					{history.announcement && (
-						<span key={history.announcement.seq}>{history.announcement.text}</span>
-					)}
-				</div>
-			)}
-
-			{/* RC-CAN-3.1: zoom steps announce here — bare `aria-live`, since one `status` per canvas. */}
-			<div aria-live="polite" aria-atomic="true" style={srOnly}>
-				{zoomNotice && (
-					<span key={zoomNotice.seq}>
-						{t('boardCanvas.zoomAnnouncement', {
-							preset: t(ZOOM_PRESET_KEY[zoomNotice.preset]),
-							percent: zoomNotice.percent,
-						})}
-					</span>
-				)}
-			</div>
+			<CanvasAnnouncements history={history} zoomNotice={zoomNotice} />
 
 			{policy === 'canvas' && zoomPreset === undefined && (
 				<ZoomCluster

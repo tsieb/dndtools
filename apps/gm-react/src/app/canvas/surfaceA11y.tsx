@@ -3,6 +3,7 @@ import { useI18n, type MessageKey } from '../../i18n';
 import { srOnly } from '../screen-kit';
 import type { SectionLayoutRegion } from '@dndtools/core';
 import type { ArrangeAction, Box, DragGuides as DragGuideSet } from './geometry';
+import { englishCopy, type Translate } from './canvasCopy';
 
 /**
  * RC-UX-2.2 — the screen-reader contract every widget surface shares: the GM Screen (`/board`), the
@@ -21,7 +22,7 @@ import type { ArrangeAction, Box, DragGuides as DragGuideSet } from './geometry'
  * (`useReadingOrder`), so Tab walks every widget, and each frame's name carries its title, type and
  * (while editing) its position. No widget is reachable only by pointing.
  *
- * Copy is English-only, the convention the rest of this directory (`WidgetFrame`, `FlowBoard`) keeps.
+ * Copy comes from the catalogs (RC-POL-1.2): components pass their `t`; pure callers get English.
  *
  * Below the contract are the surface-level pieces drawn over the board rather than in a tile: the
  * multi-selection arrange toolbar, the marquee, the drag guides and the section bands (moved here
@@ -32,30 +33,40 @@ import type { ArrangeAction, Box, DragGuides as DragGuideSet } from './geometry'
  *  scene's flow layout. */
 export type CanvasSurfaceKind = 'bounded' | 'canvas' | 'flow';
 
-const SURFACE_NAME: Record<CanvasSurfaceKind, { view: string; edit: string }> = {
-	bounded: { view: 'GM Screen', edit: 'GM Screen layout editor' },
-	canvas: { view: 'Scene canvas', edit: 'Scene layout editor' },
-	flow: { view: 'Scene layout', edit: 'Scene layout editor' },
+const SURFACE_NAME: Record<CanvasSurfaceKind, { view: MessageKey; edit: MessageKey }> = {
+	bounded: { view: 'boardCanvas.surface.bounded', edit: 'boardCanvas.surface.boundedEdit' },
+	canvas: { view: 'boardCanvas.surface.canvas', edit: 'boardCanvas.surface.canvasEdit' },
+	flow: { view: 'boardCanvas.surface.flow', edit: 'boardCanvas.surface.flowEdit' },
 };
 
-export const widgetCount = (n: number) => `${n} ${n === 1 ? 'widget' : 'widgets'}`;
-
-export function canvasSurfaceProps(kind: CanvasSurfaceKind, editing: boolean, count: number) {
-	const name = SURFACE_NAME[kind][editing ? 'edit' : 'view'];
+export function canvasSurfaceProps(
+	kind: CanvasSurfaceKind,
+	editing: boolean,
+	count: number,
+	t: Translate = englishCopy,
+) {
+	const surface = t(SURFACE_NAME[kind][editing ? 'edit' : 'view']);
 	return {
 		role: editing ? ('application' as const) : ('region' as const),
-		'aria-label': `${name}, ${widgetCount(count)}`,
+		'aria-label': t('boardCanvas.surface.name', { surface, count }),
 	};
 }
 
-/** Announcement copy for the canvas operations that had no voice before RC-UX-2.2. */
-export const OPERATION_TEXT = {
-	moved: (title: string, x: number, y: number) => `${title}, moved to ${x}, ${y}`,
-	resized: (title: string, w: number, h: number) => `${title}, size ${w} by ${h}`,
-	picked: (title: string) =>
-		`${title} selected. Arrows move it, Shift with arrows resizes it, Escape puts it down.`,
-	dropped: (title: string) => `${title} put down.`,
-};
+/** Announcement copy for the canvas operations that had no voice before RC-UX-2.2. Coordinates go
+ *  in as strings, so a large one is never grouped ("1,032") in a spoken position. */
+export function operationText(t: Translate = englishCopy) {
+	return {
+		moved: (title: string, x: number, y: number) =>
+			t('boardCanvas.op.moved', { title, x: String(x), y: String(y) }),
+		resized: (title: string, w: number, h: number) =>
+			t('boardCanvas.op.resized', { title, w: String(w), h: String(h) }),
+		picked: (title: string) => t('boardCanvas.op.picked', { title }),
+		dropped: (title: string) => t('boardCanvas.op.dropped', { title }),
+	};
+}
+export type OperationText = ReturnType<typeof operationText>;
+/** The English copy, for callers outside React. */
+export const OPERATION_TEXT = operationText();
 
 export interface OperationNotice {
 	seq: number;

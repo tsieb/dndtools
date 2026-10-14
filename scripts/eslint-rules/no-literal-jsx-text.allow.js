@@ -19,7 +19,6 @@
  * new copy, and they ratchet down like any other entry.
  */
 export const allow = {
-	'apps/gm-react/src/app/canvas/FlowBoard.tsx': 2,
 	'apps/gm-react/src/app/charBuilder/steps/Abilities.tsx': 1,
 	'apps/gm-react/src/app/charBuilder/ui.tsx': 2,
 	'apps/gm-react/src/app/map/ToolOptionControls.tsx': 3,

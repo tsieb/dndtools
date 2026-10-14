@@ -138,7 +138,7 @@ export function BoardLayoutsPanel({
 					</span>
 					<ul
 						aria-labelledby="board-layouts-saved"
-						style={{ ...column, listStyle: 'none', margin: 0, padding: 0 }}
+						style={{ ...column, listStyle: 'none', margin: 'var(--space-0)', padding: 'var(--space-0)' }}
 					>
 						{presets.map((preset) => (
 							<li key={preset.id}>

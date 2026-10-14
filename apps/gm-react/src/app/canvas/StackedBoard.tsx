@@ -1,12 +1,4 @@
-import {
-	useEffect,
-	useId,
-	useMemo,
-	useRef,
-	useState,
-	type CSSProperties,
-	type KeyboardEvent,
-} from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Button, Icon, IconButton } from '../../ds';
 import { useI18n } from '../../i18n';
 import { visibilityChip, type BoardWidget } from '../board-helpers';
@@ -15,7 +7,26 @@ import { useDirection } from '../useViewport';
 import { tileMetadataForWidget } from '../widgets/tileMeta';
 import { WidgetRenderSlot, type WidgetCommandHandler } from '../widgets/WidgetRenderSlot';
 import type { LayoutHistory } from './useLayoutHistory';
-import { WidgetGlyph } from './WidgetFrame';
+import { WidgetGlyph, redoLabel, undoLabel } from './frameParts';
+import {
+	LIST,
+	TILE,
+	RAIL,
+	HEADER,
+	HEADING,
+	HEADING_ROW,
+	DISCLOSURE,
+	TITLE,
+	CHIP_DM,
+	CHIP_PLAYERS,
+	TOUCH_TARGET,
+	BODY,
+	CONTENT,
+	STATUS_NOTE,
+	EMPTY,
+	EMPTY_TITLE,
+	EMPTY_HINT,
+} from './stackedStyles';
 import {
 	PREFERENCE_KEYS,
 	SESSION_KEY_PREFIXES,
@@ -159,6 +170,7 @@ function StackedList({
 	emptyHint,
 	onMaximizedChange,
 }: StackedBoardProps) {
+	const { t } = useI18n();
 	const scene = sceneId ?? null;
 	const ordered = useMemo(() => stackOrder(widgets), [widgets]);
 	const [expanded, setExpanded] = useState<ExpandedById>(() => readExpanded(scene));
@@ -246,13 +258,13 @@ function StackedList({
 				<div>
 					<IconButton
 						icon="undo"
-						label={history.undoLabel ? `Undo ${history.undoLabel.toLowerCase()}` : 'Undo'}
+						label={undoLabel(t, history)}
 						disabled={!history.canUndo}
 						onClick={() => void history.undo()}
 					/>
 					<IconButton
 						icon="redo"
-						label={history.redoLabel ? `Redo ${history.redoLabel.toLowerCase()}` : 'Redo'}
+						label={redoLabel(t, history)}
 						disabled={!history.canRedo}
 						onClick={() => void history.redo()}
 					/>
@@ -319,7 +331,7 @@ function StackedTile({
 			<span style={TITLE}>{w.title}</span>
 			<span style={chip.players ? CHIP_PLAYERS : CHIP_DM}>
 				<Icon name={chip.players ? 'visibility-players' : 'dm-only'} size={11} />
-				{chip.label}
+				{t(chip.label)}
 			</span>
 		</>
 	);
@@ -412,159 +424,3 @@ function StackedTile({
 		</div>
 	);
 }
-
-const LIST: CSSProperties = {
-	flex: 1,
-	minHeight: 0,
-	minWidth: 0,
-	display: 'flex',
-	flexDirection: 'column',
-	gap: 'var(--space-2)',
-	padding: 'var(--space-2)',
-	boxSizing: 'border-box',
-	overflowX: 'hidden',
-	overscrollBehavior: 'contain',
-	// Vertical scroll is the ONLY gesture on the stack: no pinch-zoom and no sideways pan.
-	touchAction: 'pan-y',
-};
-
-const TILE: CSSProperties = {
-	position: 'relative',
-	flexDirection: 'column',
-	minHeight: 0,
-	borderRadius: 'var(--radius-md)',
-};
-
-const RAIL: CSSProperties = {
-	position: 'absolute',
-	insetInlineStart: 0,
-	top: 0,
-	bottom: 0,
-	width: 0,
-	borderStartStartRadius: 'var(--radius-md)',
-	borderEndStartRadius: 'var(--radius-md)',
-};
-
-const HEADER: CSSProperties = {
-	display: 'flex',
-	alignItems: 'center',
-	gap: 'var(--space-1)',
-	height: 'var(--space-12)',
-	boxSizing: 'border-box',
-	paddingInline: 'var(--space-1)',
-	flex: '0 0 auto',
-};
-
-const HEADING: CSSProperties = {
-	margin: 'var(--space-0)',
-	flex: '1 1 auto',
-	minWidth: 0,
-	display: 'flex',
-	height: '100%',
-};
-
-const HEADING_ROW: CSSProperties = {
-	flex: '1 1 auto',
-	minWidth: 0,
-	height: '100%',
-	display: 'flex',
-	alignItems: 'center',
-	gap: 'var(--space-2)',
-	padding: 'var(--space-1) var(--space-2)',
-	boxSizing: 'border-box',
-	color: 'var(--color-text-secondary)',
-};
-
-const DISCLOSURE: CSSProperties = {
-	background: 'transparent',
-	border: 'none',
-	cursor: 'pointer',
-	font: 'inherit',
-	textAlign: 'start',
-};
-
-const TITLE: CSSProperties = {
-	flex: '1 1 auto',
-	minWidth: 0,
-	font: '700 var(--text-sm) var(--font-sans)',
-	color: 'var(--color-text-primary)',
-	overflow: 'hidden',
-	textOverflow: 'ellipsis',
-	whiteSpace: 'nowrap',
-};
-
-const CHIP: CSSProperties = {
-	display: 'inline-flex',
-	alignItems: 'center',
-	gap: 'var(--space-1)',
-	flex: '0 0 auto',
-	padding: 'var(--space-0-5) var(--space-2)',
-	borderRadius: 'var(--radius-full)',
-	font: '600 var(--text-2xs) var(--font-sans)',
-	whiteSpace: 'nowrap',
-};
-
-// Secondary, not tertiary, text on the sunken chip: the same 4.5:1 fix WidgetFrame's chip carries.
-const CHIP_DM: CSSProperties = {
-	...CHIP,
-	background: 'var(--color-surface-sunken)',
-	color: 'var(--color-text-secondary)',
-};
-
-const CHIP_PLAYERS: CSSProperties = {
-	...CHIP,
-	background: 'var(--color-accent-subtle)',
-	color: 'var(--color-accent)',
-};
-
-// The design package's touch floor on the phone tier (44px there, via the density lock).
-const TOUCH_TARGET: CSSProperties = {
-	width: 'var(--density-touch-target)',
-	height: 'var(--density-touch-target)',
-	flex: '0 0 auto',
-};
-
-const BODY: CSSProperties = {
-	flexDirection: 'column',
-	gap: 'var(--space-2)',
-	minHeight: 0,
-	padding: 'var(--space-2) var(--space-3) var(--space-3)',
-	boxSizing: 'border-box',
-	overflow: 'auto',
-};
-
-const CONTENT: CSSProperties = {
-	flex: '1 1 auto',
-	minHeight: 0,
-	minWidth: 0,
-};
-
-const STATUS_NOTE: CSSProperties = {
-	display: 'inline-flex',
-	alignItems: 'center',
-	gap: 'var(--space-1)',
-	flex: '0 0 auto',
-	font: '600 var(--text-2xs) var(--font-sans)',
-	color: 'var(--color-status-warning-text)',
-};
-
-const EMPTY: CSSProperties = {
-	margin: 'auto',
-	display: 'flex',
-	flexDirection: 'column',
-	alignItems: 'center',
-	gap: 'var(--space-3)',
-	padding: 'var(--space-6)',
-	textAlign: 'center',
-};
-
-const EMPTY_TITLE: CSSProperties = {
-	font: '700 var(--text-lg) var(--font-sans)',
-	color: 'var(--color-text-secondary)',
-};
-
-const EMPTY_HINT: CSSProperties = {
-	font: 'var(--text-sm) var(--font-sans)',
-	color: 'var(--color-text-tertiary)',
-	maxWidth: '20rem',
-};

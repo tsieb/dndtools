@@ -8,8 +8,6 @@
  */
 
 export const allow = {
-	'apps/gm-react/src/app/canvas/WidgetFrame.tsx': 6,
-	'apps/gm-react/src/app/canvas/ZoomCluster.tsx': 2,
 	'apps/gm-react/src/app/ProjectionControl.tsx': 5,
 	'apps/gm-react/src/app/sceneCardMood.ts': 20,
 	'apps/gm-react/src/app/screen-kit.tsx': 20,
@@ -27,8 +25,6 @@ export const allow = {
 	'apps/gm-react/src/app/widgets/builtin/SessionBody.tsx': 1,
 	'apps/gm-react/src/app/widgets/builtin/TimerBody.tsx': 1,
 	'apps/gm-react/src/app/widgets/builtin/ToolsBody.tsx': 1,
-	'apps/gm-react/src/screens/Board.tsx': 3,
-	'apps/gm-react/src/screens/BoardLayoutsPanel.tsx': 2,
 	'apps/gm-react/src/screens/characters/shared.tsx': 2,
 	'apps/gm-react/src/screens/characters/sheet/BioPanel.tsx': 2,
 	'apps/gm-react/src/screens/characters/sheet/SharingPanel.tsx': 7,

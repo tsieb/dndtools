@@ -1,7 +1,7 @@
 import { findWidgetDefinition } from '@dndtools/core';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { tileMetadataForDefinition } from '../../app/widgets/tileMeta';
-import { WidgetGlyph } from '../../app/canvas/WidgetFrame';
+import { WidgetGlyph } from '../../app/canvas/frameParts';
 import { Icon } from '../../ds';
 import { T } from '../../app/screen-kit';
 
