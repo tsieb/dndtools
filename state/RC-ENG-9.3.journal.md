@@ -55,3 +55,21 @@
   animations on `/`, `/board`, `/session`, `/graph`.
 - Loaded the `design-polish` and `design:design-critique` checklists and applied them to the
   captures (review-only; no code edited).
+
+## Story-spec regression on `7008d590`
+
+- 75 spec files collected from the commits of the 45 dependency stories plus five surface specs
+  (`player-join-first`, `companion-frame`, `play-polish`, `session-standby`, `onboarding-polish`),
+  excluding the five budget specs and the axe gate. Both profiles, retries 0, 07:25–07:55Z:
+  JSON stats expected 1126, unexpected 0, flaky 0, skipped 18 (all declared single-profile skips
+  or the demo vault's performance capture). Log `~/.cache/rc-eng-9-3-evidence/regression.{log,json}`.
+- Recorded in FRICTIONLESS.md §6; the "(spec)" rows in §4 rest on it.
+
+## Cleanup
+
+- Probe dev server (port 5392) stopped; scratch worktree `~/.cache/rc-eng-9-3-audit-7008d590`
+  removed with `git worktree remove --force` (it held only the uncommitted probe specs). Evidence
+  kept in `~/.cache/rc-eng-9-3-evidence/` (logs, JSON reports, screenshots, metrics).
+- Not pushed; no dispatcher control state edited. Central gates and independent review are the
+  operator's. This branch is based on `81b6b34c`; FRICTIONLESS.md describes `7008d590` and is
+  accurate only once integrated onto `loop/rc` at or after that commit.

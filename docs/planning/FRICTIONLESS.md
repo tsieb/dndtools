@@ -308,7 +308,13 @@ open items are vocabulary (M1, M3, L9, L10) and rail target sizes (M2, M7). What
 first-session guide, the Quick track, list-posture arranging on the phone, inline relationships on
 Story, and the companion preview that shows the exact page a player's phone renders.
 
-**Story specs on the same commit.** <!-- regression -->
+**Story specs on the same commit.** One run of the 75 e2e spec files the 45 dependency stories
+added or changed (found through their commits), plus the join-first, companion-frame, play-polish,
+Standby-session and onboarding-polish specs, minus the five already run five times and the axe
+gate. Both profiles, retries 0, 07:25–07:55Z: **1,126 passed, 0 failed, 0 flaky, 18 skipped**. Each
+skip is a declared single-profile test (a touch gesture, the phone panel list, a desktop-only
+canvas check) or the demo vault's dedicated performance capture. This is the run the "(spec)" rows
+in §4 rest on.
 
 ## 7. Not checked
 
