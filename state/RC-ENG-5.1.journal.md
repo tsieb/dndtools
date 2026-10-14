@@ -110,3 +110,20 @@ claimed, and no dispatcher control state, runtime file, push, promotion, or extr
 - Validation for these documentation edits: Prettier check of all three changed documents and
   `git diff --check` (results recorded during commit preparation). No runtime tests warranted
   for this documentation-only follow-up; browser and signature evidence remain outstanding.
+
+## Latest independent-review rejection — f6d704839
+
+- Starting HEAD: `f6d70483906e18410ab46f56389e6e7c204c5e79`; working tree clean.
+- Rechecked the production blob-worker factory, custom-worker renderer selection, hosted CSP,
+  and service-worker cache admission directly. H-01 and conditional M-01 remain unchanged.
+- The current explicit claim still excludes runtime source, and roadmap §21.2 forbids widening
+  scope. The document self-heal cannot close H-01. No runtime edit or dispatcher mutation made.
+- Updated the report and README to identify the latest rejected revision, removed attribution
+  of earlier gate results to this rejection, and made the factory repair/validation handoff
+  concrete. No High waived; acceptance remains unmet.
+- Headroom and `/security-review` are not exposed in this session; the repository skill list
+  contains no security-review skill. No per-PR run, browser test, dependency audit, signature
+  verification, or repeat of the historical unit tests is claimed.
+- Journal retained and updated under the implementation brief's explicit instruction to keep it
+  current and roadmap §21.3's run-journal convention.
+- Validation: Prettier check passed for all three documents; `git diff --check` passed.

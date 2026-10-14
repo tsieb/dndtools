@@ -190,8 +190,8 @@ run in the app's storage origin when permitted by the hosted CSP. The private-st
 guarantees above therefore do not cover this execution path until it is isolated or disabled.
 The report also records broad same-origin PWA caching, an update-signature evidence gap, and
 outstanding per-PR `/security-review` runs. Passing protocol/unit tests do not close these gaps.
-Independent review rejected candidate `e7c7bdccf` with H-01 still open; its passing quality and
-formatting gates do not establish isolation. See the report's acceptance handoff for the runtime
+Independent review rejected candidate `f6d704839` with H-01 still open; documentation changes
+and historical unit-test results do not establish isolation. See the report's acceptance handoff for the runtime
 repair scope and outstanding review evidence.
 
 ## 6. Open by design
