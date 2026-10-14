@@ -143,6 +143,9 @@ items pending; neither an exit code nor a green path-filtered `ci-gate` substitu
 
 ## Beta program and feedback handoff
 
+This deliverable is **blocked**, not complete, until the feedback route below is implemented
+under an authorized ownership correction or companion task. Documentation alone does not satisfy it.
+
 Before inviting testers, verify a GitHub Discussions beta-feedback category and form are enabled,
 and that Help → **Send feedback** opens that form. These changes require ownership of
 `.github/DISCUSSION_TEMPLATE/` and the app help menu; this checklist does not claim they exist.
@@ -150,9 +153,37 @@ The form should ask for RC tag/version, platform, expected/actual behavior, repr
 severity, and optional redacted screenshots/logs. Never request vault exports, credentials or
 private campaign content by default.
 
+- [ ] Commit the Discussions form and record its path and the enabled category URL.
+- [ ] Wire the localized Help → **Send feedback** action to that category's form.
+- [ ] Verify the action opens the intended form on supported platforms, including keyboard
+      activation and external-open failure handling; record the test names and results.
+- [ ] Retain the required help-menu visual comparison and independent review evidence.
+
 Recruit testers across Windows, macOS, Linux and Android, including GM and player roles.
 Ask them to back up a vault, install/upgrade, run onboarding, play a short session, export/import,
 and use the feedback route. Link each report to its tag and a triaged issue; mark duplicates,
 record owner/severity, and rerun the affected checklist gates on any replacement RC commit.
 Stop rollout for data loss, privacy/security failures or blocked core workflows. Keep the draft
 unpublished until the exit audit, feedback route and required evidence above are complete.
+
+## Operator rehearsal evidence record
+
+RC-ENG-7.2 completes this record after the authorized tagged rehearsal. Keep each value PENDING
+until verified; local fixture runs and implementation wrapper gates do not fill these fields.
+Attach the completed checklist to the same release as the automated results.
+
+| Evidence                                                          | Verified value |
+| ----------------------------------------------------------------- | -------------- |
+| RC tag and full commit SHA                                        | PENDING        |
+| Hosted release workflow run URL and attempt                       | PENDING        |
+| Draft release URL                                                 | PENDING        |
+| Downloadable `RC_CHECKLIST_RESULTS.md` asset URL                  | PENDING        |
+| Downloadable `rc-checklist-results.tar.gz` asset URL              | PENDING        |
+| Downloaded report tag/SHA match and archive checksum verification | PENDING        |
+| Completed manual checklist attachment URL, reviewer and UTC date  | PENDING        |
+| Feedback form URL and help-menu verification evidence             | PENDING        |
+
+Record failed or skipped checks and their resolution against the exact RC SHA. A replacement
+commit requires a new tagged rehearsal and matching attachments; do not carry forward a previous
+commit's passing results. RC-ENG-7.1 acceptance remains outstanding until the end-to-end run and
+release attachments are verified.

@@ -50,3 +50,26 @@ launch prerequisite; it does not claim that a feedback route already exists.
 - Prettier check on all three changed files and `git diff --check` pass.
 - Structured performance and whole-app reports, when generated, are included in the evidence
   archive in addition to command logs. RC alone extends the release timeout to 360 minutes.
+
+## Review retry — 2026-10-14
+
+- Starting candidate: `5d4b0715b3243fd0dc9a931358aed16553001b53`; working tree was clean.
+- Reconfirmed the high-severity finding directly: `git ls-tree -r --name-only HEAD
+.github/DISCUSSION_TEMPLATE` returns no files; `apps/gm-react/src/app/help/HelpMenu.tsx`
+  renders getting started, guides, release notes and shortcuts, without a feedback action.
+- The retry still grants only the workflow and checklist. The review explicitly says not to
+  bypass that fence; `docs/planning/RC_ROADMAP.md` §21.2 requires the changed paths to be owned.
+  Requested authorization for `.github/DISCUSSION_TEMPLATE/beta-feedback.yml` and
+  `apps/gm-react/src/app/help/HelpMenu.tsx`, or a companion task. No ownership or dispatcher
+  control state was changed. Message catalogs and tests are documented companion paths.
+- Added explicit implementation/verification checkboxes for the beta route and an operator
+  evidence table to the checklist. These are tracking improvements, not a fix for the missing
+  functionality. The high-severity finding remains unresolved pending ownership correction.
+- Hosted acceptance remains outstanding: no RC tag pushed, workflow dispatched, or release
+  mutated. The evidence table requires the run URL/attempt, exact tag/SHA, downloadable report
+  and archive, checksum verification, and completed manual checklist on the same release.
+- Headroom tools are unavailable in this session; inspected native output directly.
+- Retry validation: `pnpm gates` exited 0 (six quality gates, 310 reachable docs, 445
+  resolved links; existing file-size warnings only). Read the complete original output at
+  `/tmp/rc-eng-7.1-retry-gates.log`. Initial formatting check flagged the new journal text;
+  applied Prettier before the final formatting and whitespace checks. No executable code changed.
