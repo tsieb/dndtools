@@ -9,13 +9,19 @@ function harness() {
 	const listeners = new Map<string, (event: unknown) => void>();
 	const entries = new Map<string, Response>();
 	const cache = {
+		addAll: vi.fn(async (_requests: Request[]) => {}),
 		match: vi.fn(async (request: Request) => entries.get(request.url)),
 		put: vi.fn(async (request: Request, response: Response) => entries.set(request.url, response)),
 		delete: vi.fn(async (request: Request) => entries.delete(request.url)),
 	};
 	const caches = {
 		open: vi.fn(async () => cache),
-		keys: vi.fn(async () => ['lamplight-dev', 'lamplight-old', 'unrelated']),
+		keys: vi.fn(async () => [
+			'lamplight-dev',
+			'lamplight-old',
+			'lamplight-private-v2-dev',
+			'unrelated',
+		]),
 		delete: vi.fn(async () => true),
 	};
 	const fetch = vi.fn();
@@ -23,7 +29,7 @@ function harness() {
 		self: {
 			registration: { scope: `${origin}/` },
 			location: { origin },
-			__LAMPLIGHT_PRECACHE__: ['/asset.js'],
+			__LAMPLIGHT_PRECACHE__: ['/asset.js', '/wikis/protected', '/api/private'],
 			clients: { claim: vi.fn() },
 			addEventListener: (name: string, callback: (event: unknown) => void) =>
 				listeners.set(name, callback),
@@ -61,6 +67,42 @@ describe('service worker cache confidentiality', () => {
 		expect(h.caches.open).not.toHaveBeenCalled();
 	});
 
+	it.each(['/wikis/protected', '/wikis/protected?format=json', '/wikis', '/api/private'])(
+		'never intercepts protected reads or credential-free offline fallback for %s',
+		async (path) => {
+			const h = harness();
+			const authorized = new Request(`${origin}${path}`, {
+				headers: { 'x-wiki-password': 'synthetic-password' },
+			});
+			// The browser performs this fetch when the worker does not call respondWith.
+			h.fetch.mockResolvedValueOnce(basicResponse(''));
+			expect(h.dispatch(authorized)).toBeUndefined();
+			await h.fetch(authorized);
+			expect(h.cache.put).not.toHaveBeenCalled();
+			const anonymous = new Request(authorized.url);
+			// Even an entry left in the current cache must not be replayed.
+			h.entries.set(anonymous.url, new Response('synthetic private wiki'));
+			h.fetch.mockRejectedValueOnce(new Error('offline'));
+			expect(h.dispatch(anonymous)).toBeUndefined();
+			await expect(h.fetch(anonymous)).rejects.toThrow('offline');
+			Object.defineProperty(anonymous, 'mode', { value: 'navigate' });
+			expect(h.dispatch(anonymous)).toBeUndefined();
+			expect(h.caches.open).not.toHaveBeenCalled();
+		},
+	);
+
+	it('bypasses password-bearing requests even for a precached asset', () => {
+		const h = harness();
+		expect(
+			h.dispatch(
+				new Request(`${origin}/asset.js`, {
+					headers: { 'x-wiki-password': 'synthetic-password' },
+				}),
+			),
+		).toBeUndefined();
+		expect(h.caches.open).not.toHaveBeenCalled();
+	});
+
 	it('bypasses navigation shell fallback for Authorization requests', () => {
 		const h = harness();
 		const request = new Request(`${origin}/account`, { headers: { Authorization: 'Bearer test' } });
@@ -93,6 +135,20 @@ describe('service worker cache confidentiality', () => {
 		expect(await (await h.dispatch(request))!.text()).toBe('public payload');
 	});
 
+	it('excludes API data from install-time precaching', async () => {
+		const h = harness();
+		let finished: Promise<void> | undefined;
+		h.listeners.get('install')!({
+			waitUntil: (value: Promise<void>) => {
+				finished = value;
+			},
+		});
+		await finished;
+		expect(h.cache.addAll.mock.calls[0][0].map((request) => request.url)).toEqual([
+			`${origin}/asset.js`,
+		]);
+	});
+
 	it('removes caches created under the former admission policy on activation', async () => {
 		const h = harness();
 		let finished: Promise<void> | undefined;
@@ -102,6 +158,10 @@ describe('service worker cache confidentiality', () => {
 			},
 		});
 		await finished;
-		expect(h.caches.delete.mock.calls).toEqual([['lamplight-dev'], ['lamplight-old']]);
+		expect(h.caches.delete.mock.calls).toEqual([
+			['lamplight-dev'],
+			['lamplight-old'],
+			['lamplight-private-v2-dev'],
+		]);
 	});
 });

@@ -187,3 +187,29 @@ claimed, and no dispatcher control state, runtime file, push, promotion, or extr
 - Documentation-only verification: Prettier and diff checks run during commit preparation.
   Prior runtime and wrapper test results are not re-executed or claimed as current runs.
 - No push, promotion, additional agent, loop, or dispatcher control-state edit.
+
+## Independent-review follow-up — 911d3ea9c
+
+- Starting HEAD `911d3ea9ce821a927ed13db8250078a6239f8f86`; working tree clean.
+- Confirmed the supplied Medium from source: web-hosting forwards `/wikis/*`, and
+  `readWiki` returns password-protected pages without private/no-store or Vary headers.
+  The earlier hypothetical residual-Low classification was incorrect; report and README corrected.
+- `apps/gm-react/src/sw/service-worker.js:32` now bypasses `/wikis` and `/api` roots and
+  descendants regardless of credentials, and bypasses `x-wiki-password` anywhere. The same
+  predicate filters precache admission and protects runtime admission. Fetch dispatch bypasses
+  navigation and precache fallback too. The v3 policy namespace retires affected v2 caches on
+  activation; existing waiting-worker acceptance behavior is unchanged.
+- Companion test allowance: roadmap §21.2. `tests/unit/service-worker-security.test.ts` covers
+  synthetic password read then offline anonymous access, seeded sensitive entries, navigation,
+  password-bearing precache requests, install admission, and old namespace deletion. No browser
+  or deployed exploitation is claimed. H-01's existing worker refusal is unchanged.
+- Verification: `pnpm exec vitest run tests/unit/service-worker-security.test.ts` passed all
+  14 tests. `pnpm exec eslint apps/gm-react/src/sw/service-worker.js
+tests/unit/service-worker-security.test.ts` exited 0. Native original output inspected;
+  no Headroom tools are exposed. Final Prettier and diff checks recorded during commit preparation.
+- Missing per-PR review evidence remains a blocker. Current tools, repository `.claude` skills,
+  local skill filename search, and executable lookup expose no `/security-review`. Requested
+  instructions and intended PR base/head inventory or existing reports from the task owner;
+  no reply or scope amendment received. Do not treat the previous discovery anchors or this
+  regression suite as per-PR reviews. No High waived and no task completion asserted.
+- No extra agent, push, promotion, additional loop, or dispatcher control-state edits.

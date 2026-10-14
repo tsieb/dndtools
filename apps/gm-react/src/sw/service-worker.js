@@ -23,11 +23,26 @@ const VERSION = self.__LAMPLIGHT_VERSION__ ?? 'dev';
 const SHELL = self.__LAMPLIGHT_SHELL__ ?? './';
 
 // Retire entries admitted before the confidentiality policy, including unversioned dev caches.
-const CACHE_NAME = `lamplight-private-v2-${VERSION}`;
+const CACHE_NAME = `lamplight-private-v3-${VERSION}`;
 const CACHE_PREFIX = 'lamplight-';
 
+// API data must never enter the offline asset cache, even without credentials or cache headers.
+// /wikis is currently forwarded to the API by the same-origin CloudFront distribution.
+function bypassCache(request) {
+	const path = new URL(request.url).pathname;
+	return (
+		request.headers.has('authorization') ||
+		request.headers.has('x-wiki-password') ||
+		/^\/(?:wikis|api)(?:\/|$)/i.test(path)
+	);
+}
+
 /** Absolute URLs of the precached assets, resolved against this worker's own scope. */
-const precachedUrls = new Set(PRECACHE.map((path) => new URL(path, self.registration.scope).href));
+const precachedUrls = new Set(
+	PRECACHE.map((path) => new URL(path, self.registration.scope).href).filter(
+		(url) => !bypassCache(new Request(url)),
+	),
+);
 const shellUrl = new URL(SHELL, self.registration.scope).href;
 
 self.addEventListener('install', (event) => {
@@ -66,7 +81,7 @@ self.addEventListener('message', (event) => {
  * served but never written, so it cannot be replayed offline to whoever signs in next.
  */
 function isCacheable(request, response) {
-	if (request.method !== 'GET' || request.headers.has('authorization')) return false;
+	if (request.method !== 'GET' || bypassCache(request)) return false;
 	if (!response || !response.ok || response.type !== 'basic' || response.status !== 200) {
 		return false;
 	}
@@ -131,7 +146,7 @@ self.addEventListener('fetch', (event) => {
 	// Cross-origin traffic (cloud sync, signalling, AI providers) is never cached or replayed.
 	if (url.origin !== self.location.origin) return;
 	// Bypass both cache reads and writes, including precache and navigation fallback.
-	if (request.headers.has('authorization')) return;
+	if (bypassCache(request)) return;
 
 	if (request.mode === 'navigate') {
 		event.respondWith(handleNavigation(request));

@@ -189,12 +189,15 @@ one High (H-01) is fixed. A custom widget declared `sandbox: 'worker'` would hav
 worker in the app's own origin, with direct IndexedDB (including the player-private store) and
 CacheStorage access that bypassed the host bridge. The app's worker factory now refuses before any
 blob URL or `Worker` exists, and such widgets show the "disabled, preserved" placeholder until a
-storage-isolated runtime exists. The service worker bypasses cache reads and writes for requests with `Authorization`,
-evicts earlier copies when responses become `no-store`/`private`, and retires caches created under
-the old policy. Cookie-authenticated routes without cache directives remain a residual risk. Still open: update-signature evidence and per-PR
-`/security-review` runs, so the report is not a release sign-off. The supplied independent review
-of `05c30a41d8` withheld approval for the missing per-PR evidence; the report's evidence-recovery
-section records the PR associations checked and the required task-owner handoff.
+storage-isolated runtime exists. The service worker bypasses cache reads and writes for `/wikis` and `/api` routes and requests
+with `Authorization` or `x-wiki-password`, evicts earlier copies when responses become
+`no-store`/`private`, and retires the previous cache policy on activation. This fixes the observed
+Medium disclosure of previously authorized wiki pages during credential-free offline reads;
+the earlier residual-Low assessment was incorrect. Unknown future authenticated routes still
+need explicit cache policy. Still open: update-signature evidence and mandatory per-PR
+`/security-review` reports. The supplied review of `911d3ea9c` withheld approval for the wiki
+exposure and missing reports; this follow-up fixes the exposure, while the report's evidence
+recovery section records the remaining task-owner handoff. This is not a release sign-off.
 
 ## 6. Open by design
 
