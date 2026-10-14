@@ -90,12 +90,14 @@ copy the artifact's `baseline.ci.json` over `tests/perf/baseline.ci.json` in the
 must still match. Moving `referenceCommit` puts the policy back into advisory mode until a new
 recording lands.
 
-**Current recording.** `tests/perf/baseline.ci.json` holds the baseline proposed by
-[run 36282128588](https://github.com/tsieb/dndtools/actions/runs/36282128588). That was a
-scheduled-mode `workflow_dispatch` of `5f93b617` against reference `48a82786` on
-`github-ubuntu-24.04` (4× AMD EPYC 7763). Its five paired runs agreed and all eleven budgets passed.
-The file came from that run's `perf-run` artifact with only Prettier's whitespace changes, so both
-modes now enforce on that runner class. `tests/perf/run-journal.md` has the provenance.
+**Current recording.** `tests/perf/baseline.ci.json` holds the 22-row baseline proposed by
+[run 38472401520](https://github.com/tsieb/dndtools/actions/runs/38472401520), one of five
+scheduled-mode dispatches of `fc2359ba` against reference `48a82786` on `github-ubuntu-24.04`
+(4× AMD EPYC 7763). All five runs agreed and passed on all 22 budgets (`compare.ts --agreement`
+over runs 38472401520, 38472404668, 38472408112, 38472411519 and 38472414941). The file came from
+the first run's `perf-run` artifact with only Prettier's whitespace changes, so both modes enforce
+on that runner class. It replaces the eleven-row recording from run 36282128588.
+`tests/perf/run-journal.md` has the provenance.
 
 **Five scheduled runs on one commit agree.** This is the RC-1 bar (`RC_ROADMAP.md` §2.2). Five
 weekly runs on an unchanged `main`, or five dispatches of one SHA, each produce a `policy.json`. Download

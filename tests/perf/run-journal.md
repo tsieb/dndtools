@@ -995,3 +995,41 @@ the local search:large / graph-indexing:large drift. This worker did not push,
 dispatch a workflow, launch a loop, spawn agents or edit dispatcher state. No
 Headroom tools were used; all output cited here is the original, uncompressed
 output.
+
+## 2026-10-14 — Operator completion: 22-row CI baseline from five agreeing runs
+
+RC-ENG-1.4, RC-ENG-3.2 and RC-ENG-3.3 were finished by the operator session rather than another
+dispatcher round, and landed together on `loop/rc`.
+
+**Policy.** `decidePolicy` now treats a confirmed target breach on a `provisional` budget (the eleven
+`:large` rows, review date 2026-12-31) as advisory on a pull request. Drift on the schedule still
+binds every row. `compare.ts --test-policy` covers it.
+
+**Harness.** The map pan steps one pointer move per animation frame; a fast runner had recorded only
+~60 frames per pan and flipped `map-pan-zoom-desktop`'s p5 between 60 and 30 fps. Every `search`
+sample starts from a query that matches nothing; clearing the box rendered the 2,000-note campaign
+between samples, and one run in 25 drifted +27.6% from that alone.
+
+**Hosted evidence.** Tags `perf-evidence-rc-perf-stack-d-run1..5` on `fc2359ba`, each dispatched as
+`perf.yml -f mode=scheduled` (one ref per run, since the concurrency group is keyed by ref):
+
+| Run         | Conclusion |
+| ----------- | ---------- |
+| 38472401520 | success    |
+| 38472404668 | success    |
+| 38472408112 | success    |
+| 38472411519 | success    |
+| 38472414941 | success    |
+
+`compare.ts --agreement` over the five `perf-run` artifacts: "5 scheduled runs of fc2359ba agree:
+PASSED on all 22 budgets." The proposed `baseline.ci.json` from run 38472401520 replaces the
+eleven-row block from run 36282128588 (Prettier whitespace only; the five proposals share every
+field outside `recorded`). Reference `48a82786`, runner `github-ubuntu-24.04`, 4× AMD EPYC 7763.
+
+Absolute targets across the 25 paired runs: every standard row passed in every run except one
+`scene-first-render` sample at 1,537 ms (median 1,394 ms against 1,500 ms; drift +2.8% to +6.3%).
+`widget-update:large` measured 208–233 ms against its provisional 100 ms target and −26% to −36%
+against the reference; it is advisory under the new policy.
+
+Earlier sets on the way: A (`341c013f`, five agreeing runs), B (`e70ab922`, two map-pan flips),
+C (`a603165e`, one search outlier).
