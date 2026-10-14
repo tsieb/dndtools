@@ -481,9 +481,10 @@ wait_for_ui_text_absent 'Skip setup' || fail 'Back did not dismiss first-run set
 wait_for_ui_text 'Open scene' || fail 'root destination did not render after first-run setup'
 
 # A fresh vault starts empty (RC-UX-3.6). Opening the Command Center scene creates the scene a
-# session can start on; Home then returns to the root destination for the checks below.
+# session can start on; Home then returns to the root destination for the checks below. On a fresh
+# vault the first-session guide (RC-UX-6.3) fills the phone screen above the CTA, so scroll to it.
 step 'fresh vault scene'
-tap_ui_button 'Open scene' || fail 'Open scene was not reachable on the fresh vault'
+tap_ui_button_scrolling 'Open scene' || fail 'Open scene was not reachable on the fresh vault'
 wait_for_ui_text 'New screen' || fail 'Open scene did not open the Screens library'
 tap_ui_button 'Home' || fail 'Home navigation control was not reachable from Screens'
 wait_for_root_destination || fail 'Home did not return to the root destination'
