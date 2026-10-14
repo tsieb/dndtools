@@ -6,6 +6,16 @@ v1 document-editor have been removed; that application's last state is preserved
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-10-14
+
+Same application as 0.4.1. 0.4.1's Windows and macOS installers could not be built, so it produced
+no installers and is superseded; the 0.4.1 and 0.4.0 notes below describe this release too.
+
+### For players and GMs
+
+- Windows and macOS installers build again. Two source files whose names differed only in
+  capitalization confused those systems' file names.
+
 ## [0.4.1] - 2026-10-14
 
 Same application as 0.4.0 with patched dependencies. 0.4.0's release build stopped at the
