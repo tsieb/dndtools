@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Character } from '@dndtools/core';
 import type { ImportPlan } from '../charImport/ddbJson';
-import { findRosterMatch, importDiff } from './importDiff';
+import { findRosterMatch, importDiff } from './importPlanDiff';
 
 const plan: ImportPlan = {
 	source: 'native',

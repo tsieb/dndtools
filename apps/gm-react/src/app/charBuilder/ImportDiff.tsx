@@ -11,7 +11,7 @@ import {
 	importDiff,
 	type ImportDiffField,
 	type ImportDiffRow,
-} from './importDiff';
+} from './importPlanDiff';
 import type { ImportPlan } from '../charImport/ddbJson';
 import { useI18n, type MessageKey } from '../../i18n';
 
