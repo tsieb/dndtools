@@ -214,3 +214,33 @@ play-polish.spec.ts golden-routes.spec.ts --project=visual-rail --project=visual
   `pnpm format:check:changed`: exit 0, all four changed text files pass
   (`/tmp/rc-eng-7.1-readiness-format.log`). `git diff --check` passes.
 - No publication, promotion, tag, workflow dispatch or dispatcher-control changes occurred.
+
+## Self-heal round 2 — base-first graph diagnosis, 2026-10-14
+
+- Starting candidate: `d9ba81e7992fbdd4e4a48c170e30c3246f76221e`; clean worktree.
+- Read original wrapper log
+  `/home/trinkle/Programming/agent-dispatcher/.state/attempts/0666fd90-efaf-477e-b14e-82fa6bf9fc9c/output.log`:
+  **587 passed, 1 failed**. Desktop tavern Graph exhausted the five-second page-screenshot
+  timeout after fonts loaded. There was no pixel-difference diagnostic. All previously repaired
+  Help, Settings, scene, shell and play cases passed in that full wrapper run.
+- As requested, ran the failing check on the task base first, before editing anything. Temporarily
+  checked out `81b6b34c85f88c9855c7e0ca5aab7f69b1bafdc2` detached in the clean worktree, retaining
+  its installed dependencies and pinned container, then restored the task branch at the exact
+  candidate SHA. No dependency installation, source edit or baseline update occurred between runs.
+- Command on both commits: `bash apps/gm-react/tests/visual/run-in-container.sh graph-polish.spec.ts
+--project=visual-desktop -g 'graph polish — tavern' --repeat-each=10 --update-snapshots=none`.
+- Base: exit 0, **10 passed (24.9s)**. Read original `/tmp/rc-eng-7.1-graph-base.log`.
+- The graph spec, graph screen and Playwright configuration have no diff between base and
+  candidate. This alone is not proof of inherited failure: shared application changes can affect
+  tests, and the wrapper's long-run timing conditions differ from a focused run.
+- Headroom unavailable; used native original output. No dispatcher controls, publication,
+  promotion, tag or hosted workflow changed. Existing feedback-route and release-evidence blockers
+  remain; these diagnostics do not satisfy end-to-end RC acceptance.
+- Candidate: exit 0, **10 passed (23.2s)**. Read original
+  `/tmp/rc-eng-7.1-graph-candidate.log`. The failure is **unreproduced on both base and candidate**;
+  inheritance is unproven, and no task-caused Graph regression was demonstrated. Do not describe
+  this as an inherited failure, a fixed failure, or a green full-suite result. No graph source,
+  tests, timeout or baseline changes are justified by this comparison, so none were made.
+- `pnpm gates`: exit 0, six quality gates and docs checks pass with existing size warnings
+  (`/tmp/rc-eng-7.1-graph-diagnosis-gates.log`). This commit records evidence only; the last full
+  wrapper result remains 587 passes and one timeout, pending operator disposition.
