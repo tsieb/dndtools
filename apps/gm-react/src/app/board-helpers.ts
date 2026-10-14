@@ -131,6 +131,16 @@ export const TIER_LABEL: Record<WidgetTier, string> = {
 	ai: 'AI',
 };
 
+/** RC-POL-1.2 — the tier word as a catalog key, for the canvas's selection chip. "System · locked
+ *  content" said nothing a GM could act on; a built-in tile is simply built in. (`TIER_LABEL` stays
+ *  for the scene editor's Inspector until it moves to these keys.) */
+export const TIER_KEY = {
+	system: 'boardCanvas.tier.system',
+	template: 'boardCanvas.tier.template',
+	custom: 'boardCanvas.tier.custom',
+	ai: 'boardCanvas.tier.ai',
+} as const satisfies Record<WidgetTier, string>;
+
 function statusNoteFor(payload: WidgetBindingPayload | undefined): string | null {
 	// No payload: the actor read did not deliver this instance (see `boardWidgetsOf`).
 	if (!payload) return 'Hidden from this viewer';

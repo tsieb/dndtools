@@ -15,6 +15,8 @@ import { Button, Callout, Dialog, Field, Input, Select, Textarea, Toaster } from
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { FieldControl } from '../../screens/sceneEditor/fields';
 import type { BoardWidget } from '../board-helpers';
+import { useI18n } from '../../i18n';
+import { englishCopy, type Translate } from './canvasCopy';
 
 /**
  * RC-CAN-2.4 — the two tile-menu items that need more room than a menu row: Bind… (which entity the
@@ -22,41 +24,6 @@ import type { BoardWidget } from '../board-helpers';
  * editor opens its Inspector instead). Both write `scene.configure-widget`, the command the Map tile's
  * own picker and the Inspector already use, so the core stays the one judge of who may bind what.
  */
-
-/** Tile-dialog copy — English-only for now, like the tile menu's. */
-const TEXT = {
-	bindTitle: (title: string) => `Bind ${title}`,
-	bindHelp: (noun: string) => `Choose the ${noun} this tile shows.`,
-	nothing: (noun: string) => `There is no ${noun} you can bind yet.`,
-	bound: (title: string, name: string) => `Bound ${title} to ${name}`,
-	unbound: (title: string) => `${title} is no longer bound`,
-	none: 'Nothing',
-	bind: 'Bind',
-	cancel: 'Cancel',
-	configureTitle: (title: string) => `Configure ${title}`,
-	save: 'Save',
-	saved: (title: string) => `Saved ${title} settings`,
-	keepEditing: 'Keep editing',
-	discard: 'Discard changes',
-	unsavedTitle: 'You have unsaved changes',
-	unsavedBody: (labels: string[]) =>
-		`${labels.join(', ')} changed. Discard the changes, or keep editing to save them.`,
-	diceExample: 'Separate formulas with commas, for example 1d20+5, 2d6. Empty rolls a d20.',
-	notAFormula: (formula: string) =>
-		`“${formula}” is not a dice formula. Write dice like 1d20+5 or 2d6.`,
-	titleExample: (title: string) =>
-		`A short name, for example “${title} (boss room)”. Empty shows “${title}”.`,
-	headingExample: 'One line shown at the top of the tile.',
-	bodyExample: 'Plain text. Ctrl+Enter saves.',
-	textExample: 'One line of text.',
-	numberExample: (range: string, def: unknown) =>
-		def === undefined ? `A number ${range}.` : `A number ${range}, for example ${String(def)}.`,
-	tooLong: (max: number, length: number) => `Keep it to ${max} characters (now ${length}).`,
-	notANumber: 'Enter a number.',
-	outOfRange: (range: string) => `Enter a number ${range}.`,
-	wholeNumber: 'Enter a whole number.',
-	offStep: (step: number) => `Use steps of ${step}.`,
-};
 
 export function sceneInstance(state: CoreStateSlice, widgetId: string) {
 	for (const scene of Object.values(state.scenes.scenes)) {
@@ -102,6 +69,7 @@ const NONE = '';
 
 export function TileBindDialog({ w, onClose }: { w: BoardWidget; onClose: () => void }) {
 	const runtime = useRuntime();
+	const { t } = useI18n();
 	const actorId = runtime.defaultActorId;
 	const found = bindingSlot(runtime.state.widgets, w.type);
 	const types = found?.slot.entityTypes ?? [];
@@ -148,12 +116,16 @@ export function TileBindDialog({ w, onClose }: { w: BoardWidget; onClose: () => 
 			Toaster.error(result.rejection.message);
 			return;
 		}
-		Toaster.success(picked ? TEXT.bound(w.title, picked.label) : TEXT.unbound(w.title));
+		Toaster.success(
+			picked
+				? t('boardCanvas.dialog.bound', { title: w.title, name: picked.label })
+				: t('boardCanvas.dialog.unbound', { title: w.title }),
+		);
 		onClose();
 	}
 
 	const options = [
-		...(optional ? [{ value: NONE, label: TEXT.none }] : []),
+		...(optional ? [{ value: NONE, label: t('boardCanvas.dialog.none') }] : []),
 		...candidates.map((c, i) => ({
 			value: String(i),
 			label: types.length > 1 ? `${c.label} · ${c.entityType}` : c.label,
@@ -163,14 +135,14 @@ export function TileBindDialog({ w, onClose }: { w: BoardWidget; onClose: () => 
 		<Dialog
 			open
 			onClose={onClose}
-			title={TEXT.bindTitle(w.title)}
-			description={TEXT.bindHelp(noun)}
+			title={t('boardCanvas.dialog.bindTitle', { title: w.title })}
+			description={t('boardCanvas.dialog.bindHelp', { noun })}
 			size="sm"
 			data-testid="tile-bind-dialog"
 			footer={
 				<>
 					<Button variant="secondary" size="sm" onClick={onClose}>
-						{TEXT.cancel}
+						{t('common.action.cancel')}
 					</Button>
 					<Button
 						variant="primary"
@@ -179,13 +151,15 @@ export function TileBindDialog({ w, onClose }: { w: BoardWidget; onClose: () => 
 						disabled={busy || (!picked && !optional)}
 						onClick={() => void bind()}
 					>
-						{TEXT.bind}
+						{t('boardCanvas.dialog.bind')}
 					</Button>
 				</>
 			}
 		>
 			{options.length === 0 ? (
-				<div style={{ color: 'var(--color-text-secondary)' }}>{TEXT.nothing(noun)}</div>
+				<div style={{ color: 'var(--color-text-secondary)' }}>
+					{t('boardCanvas.dialog.nothing', { noun })}
+				</div>
 			) : (
 				<Field label={slot.label}>
 					<Select
@@ -213,69 +187,88 @@ export const DICE_EXAMPLE = '1d20+5, 2d6';
 
 /** Dice's quick-roll field: comma-separated formulas the core dice parser accepts. Empty pieces are
  *  skipped, as the tile skips them, and an empty field is fine: the tile then rolls a d20. */
-export function validateDiceFormulas(raw: string): string | null {
+export function validateDiceFormulas(raw: string, t: Translate = englishCopy): string | null {
 	for (const formula of raw.split(',').map((piece) => piece.trim())) {
 		if (!formula) continue;
 		const parsed = parseDiceExpression(formula);
 		if (parsed.ok) continue;
 		return parsed.error.code === 'syntax' || parsed.error.code === 'empty'
-			? TEXT.notAFormula(formula)
+			? t('boardCanvas.dialog.notAFormula', { formula })
 			: `“${formula}”: ${parsed.error.message}`;
 	}
 	return null;
 }
 
-const maxLength = (max: number) => (raw: string) =>
-	raw.length > max ? TEXT.tooLong(max, raw.length) : null;
+const maxLength = (max: number, t: Translate) => (raw: string) =>
+	raw.length > max ? t('boardCanvas.dialog.tooLong', { max, length: raw.length }) : null;
 
 /** A number field's check against its declared bounds and step. */
 export function validateNumberField(
 	field: Pick<WidgetConfigField, 'min' | 'max' | 'step'>,
 	raw: string,
+	t: Translate = englishCopy,
 ): string | null {
 	const n = raw.trim() === '' ? Number.NaN : Number(raw);
 	const { min, max, step } = field;
-	if (!Number.isFinite(n)) return TEXT.notANumber;
+	if (!Number.isFinite(n)) return t('boardCanvas.dialog.notANumber');
 	if ((min !== undefined && n < min) || (max !== undefined && n > max)) {
-		return TEXT.outOfRange(rangeText(field));
+		return t('boardCanvas.dialog.outOfRange', { range: rangeText(field, t) ?? '' });
 	}
 	if (step) {
 		const steps = (n - (min ?? 0)) / step;
 		if (Math.abs(steps - Math.round(steps)) > 1e-9) {
-			return step === 1 ? TEXT.wholeNumber : TEXT.offStep(step);
+			return step === 1
+				? t('boardCanvas.dialog.wholeNumber')
+				: t('boardCanvas.dialog.offStep', { step });
 		}
 	}
 	return null;
 }
 
-function rangeText({ min, max }: Pick<WidgetConfigField, 'min' | 'max'>): string {
-	if (min !== undefined && max !== undefined) return `from ${min} to ${max}`;
-	if (min !== undefined) return `${min} or more`;
-	if (max !== undefined) return `up to ${max}`;
-	return 'any number';
+/** The declared bounds in words, or null when the field declares none. */
+function rangeText({ min, max }: Pick<WidgetConfigField, 'min' | 'max'>, t: Translate) {
+	if (min !== undefined && max !== undefined)
+		return t('boardCanvas.dialog.rangeBoth', { min, max });
+	if (min !== undefined) return t('boardCanvas.dialog.rangeMin', { min });
+	if (max !== undefined) return t('boardCanvas.dialog.rangeMax', { max });
+	return null;
+}
+
+/** "A number from 1 to 10, for example 4." — or "Any number." when the field declares no bounds
+ *  (it read "A number any number." before RC-POL-1.2). */
+function numberExample(field: WidgetConfigField, t: Translate) {
+	const range = rangeText(field, t);
+	const value = field.default === undefined ? undefined : String(field.default);
+	if (range === null)
+		return value === undefined
+			? t('boardCanvas.dialog.anyNumber')
+			: t('boardCanvas.dialog.anyNumberDefault', { value });
+	return value === undefined
+		? t('boardCanvas.dialog.numberExample', { range })
+		: t('boardCanvas.dialog.numberExampleDefault', { range, value });
 }
 
 /** Copy for the system widgets' known fields; anything else falls back on its control type. */
-const KNOWN: Record<string, (defaultTitle: string) => FieldGuide> = {
-	'dice.formulas': () => ({
+const KNOWN: Record<string, (defaultTitle: string, t: Translate) => FieldGuide> = {
+	'dice.formulas': (_, t) => ({
 		placeholder: DICE_EXAMPLE,
-		example: TEXT.diceExample,
-		validate: validateDiceFormulas,
+		example: t('boardCanvas.dialog.diceExample'),
+		validate: (raw) => validateDiceFormulas(raw, t),
 	}),
-	'*.title': (defaultTitle) => ({
+	'*.title': (defaultTitle, t) => ({
 		placeholder: defaultTitle,
-		example: TEXT.titleExample(defaultTitle),
-		validate: maxLength(TITLE_MAX),
+		example: t('boardCanvas.dialog.titleExample', { title: defaultTitle }),
+		validate: maxLength(TITLE_MAX, t),
 	}),
-	'*.heading': () => ({
-		placeholder: 'Tonight at the inn',
-		example: TEXT.headingExample,
-		validate: maxLength(TEXT_MAX),
+	'*.heading': (_, t) => ({
+		placeholder: t('boardCanvas.dialog.headingPlaceholder'),
+		example: t('boardCanvas.dialog.headingExample'),
+		validate: maxLength(TEXT_MAX, t),
 	}),
-	'*.body': () => ({
-		placeholder: 'What the table should read',
-		example: TEXT.bodyExample,
-		validate: maxLength(BODY_MAX),
+	'*.body': (_, t) => ({
+		placeholder: t('boardCanvas.dialog.bodyPlaceholder'),
+		example: t('boardCanvas.dialog.bodyExample'),
+		validate: maxLength(BODY_MAX, t),
 	}),
 };
 
@@ -283,21 +276,28 @@ export function fieldGuide(
 	type: string,
 	field: WidgetConfigField,
 	defaultTitle: string,
+	t: Translate = englishCopy,
 ): FieldGuide {
 	const known = KNOWN[`${type}.${field.key}`] ?? KNOWN[`*.${field.key}`];
-	if (known) return known(defaultTitle);
+	if (known) return known(defaultTitle, t);
 	if (field.control === 'number') {
 		return {
 			placeholder: field.default === undefined ? undefined : String(field.default),
-			example: TEXT.numberExample(rangeText(field), field.default),
-			validate: (raw) => validateNumberField(field, raw),
+			example: numberExample(field, t),
+			validate: (raw) => validateNumberField(field, raw, t),
 		};
 	}
 	if (field.control === 'text' || field.control === 'textarea') {
 		return {
 			placeholder: field.placeholder ?? field.label,
-			example: field.help ?? (field.control === 'textarea' ? TEXT.bodyExample : TEXT.textExample),
-			validate: maxLength(field.control === 'textarea' ? BODY_MAX : TEXT_MAX),
+			example:
+				field.help ??
+				t(
+					field.control === 'textarea'
+						? 'boardCanvas.dialog.bodyExample'
+						: 'boardCanvas.dialog.textExample',
+				),
+			validate: maxLength(field.control === 'textarea' ? BODY_MAX : TEXT_MAX, t),
 		};
 	}
 	return {};
@@ -311,6 +311,7 @@ const isEntry = (field: WidgetConfigField) =>
  *  them in one `scene.configure-widget`; Cancel or Escape asks first when something changed. */
 export function TileConfigureDialog({ w, onClose }: { w: BoardWidget; onClose: () => void }) {
 	const runtime = useRuntime();
+	const { t } = useI18n();
 	const fields = settingsFields(w);
 	const defaultTitle = findWidgetDefinition(runtime.state.widgets, w.type)?.displayName ?? w.title;
 	// Entry fields hold their text as typed so a half-written number can be checked and shown back.
@@ -327,7 +328,7 @@ export function TileConfigureDialog({ w, onClose }: { w: BoardWidget; onClose: (
 	const bodyRef = useRef<HTMLDivElement>(null);
 
 	const guides = Object.fromEntries(
-		fields.map((f) => [f.key, fieldGuide(w.type, f, defaultTitle)]),
+		fields.map((f) => [f.key, fieldGuide(w.type, f, defaultTitle, t)]),
 	);
 	const errors = Object.fromEntries(
 		fields.map((f) => [
@@ -365,7 +366,7 @@ export function TileConfigureDialog({ w, onClose }: { w: BoardWidget; onClose: (
 			Toaster.error(result.rejection.message);
 			return;
 		}
-		Toaster.success(TEXT.saved(w.title));
+		Toaster.success(t('boardCanvas.dialog.saved', { title: w.title }));
 		onClose();
 	}
 
@@ -380,26 +381,26 @@ export function TileConfigureDialog({ w, onClose }: { w: BoardWidget; onClose: (
 		<Dialog
 			open
 			onClose={cancel}
-			title={TEXT.configureTitle(w.title)}
+			title={t('boardCanvas.dialog.configureTitle', { title: w.title })}
 			size="sm"
 			data-testid="tile-configure-dialog"
 			footer={
 				confirming ? (
 					<>
 						<Button variant="secondary" size="sm" autoFocus onClick={() => setConfirming(false)}>
-							{TEXT.keepEditing}
+							{t('boardCanvas.dialog.keepEditing')}
 						</Button>
 						<Button variant="danger" size="sm" onClick={onClose}>
-							{TEXT.discard}
+							{t('boardCanvas.dialog.discard')}
 						</Button>
 					</>
 				) : (
 					<>
 						<Button variant="secondary" size="sm" onClick={cancel}>
-							{TEXT.cancel}
+							{t('common.action.cancel')}
 						</Button>
 						<Button variant="primary" size="sm" disabled={busy} onClick={() => void save()}>
-							{TEXT.save}
+							{t('common.action.save')}
 						</Button>
 					</>
 				)
@@ -422,10 +423,12 @@ export function TileConfigureDialog({ w, onClose }: { w: BoardWidget; onClose: (
 					<Callout
 						tone="warning"
 						role="alert"
-						title={TEXT.unsavedTitle}
+						title={t('boardCanvas.dialog.unsavedTitle')}
 						data-testid="tile-configure-unsaved"
 					>
-						{TEXT.unsavedBody(changed.map((f) => f.label))}
+						{t('boardCanvas.dialog.unsavedBody', {
+							fields: changed.map((f) => f.label).join(', '),
+						})}
 					</Callout>
 				)}
 				{fields.map((field) =>

@@ -1,12 +1,10 @@
 import { useState, type CSSProperties } from 'react';
 import { Icon } from '../../ds';
 import { useI18n } from '../../i18n';
+import { asPhrase } from './canvasCopy';
 import type { LayoutHistory } from './useLayoutHistory';
 
 type Translate = ReturnType<typeof useI18n>['t'];
-
-/** "Moved Timer" → "moved Timer": a step label read inside a sentence. */
-export const asPhrase = (label: string) => label.charAt(0).toLowerCase() + label.slice(1);
 
 /** The Undo button's name: what the next Ctrl+Z reverses, when there is something to reverse. */
 export const undoLabel = (t: Translate, history: LayoutHistory) =>

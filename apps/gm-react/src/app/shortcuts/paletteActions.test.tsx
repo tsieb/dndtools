@@ -11,6 +11,7 @@ import {
 } from '@dndtools/core';
 import { DM_ACTOR, PLAYER_ACTOR, buildInitialState, makeEnvironment } from '@dndtools/core/testing';
 import { useLayoutHistory, type LayoutHistory } from '../canvas/useLayoutHistory';
+import { I18nProvider } from '../../i18n';
 import { paletteActions, type PaletteContext } from './paletteActions';
 import { registerCanvasSurface } from './registry';
 
@@ -82,7 +83,13 @@ function board() {
 		});
 		return null;
 	}
-	act(() => root.render(<Probe />));
+	act(() =>
+		root.render(
+			<I18nProvider>
+				<Probe />
+			</I18nProvider>,
+		),
+	);
 	const history = () => api!;
 	// What `/board` lends the palette while it is mounted.
 	unregister = registerCanvasSurface({

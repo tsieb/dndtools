@@ -12,3 +12,6 @@ export type Translate = (key: MessageKey, values?: MessageValues) => string;
  */
 export const englishCopy: Translate = (key, values) =>
 	translate('en', key, withVocabulary(DEFAULT_WORDS, values));
+
+/** "Moved Timer" → "moved Timer": a step label read inside a sentence ("Undone: moved Timer"). */
+export const asPhrase = (label: string) => label.charAt(0).toLowerCase() + label.slice(1);

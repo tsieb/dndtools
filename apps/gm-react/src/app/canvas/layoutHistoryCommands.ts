@@ -6,6 +6,8 @@ import {
 	type SyncOperation,
 } from '@dndtools/core';
 
+import { englishCopy, type Translate } from './canvasCopy';
+
 // RC-POL-1.2 — the undo stack's pure command helpers, out of `useLayoutHistory.ts`.
 
 /**
@@ -101,12 +103,13 @@ export function placementStep(
 	sceneId: string,
 	seen: CoreStateSlice,
 	after: CoreStateSlice,
+	t: Translate = englishCopy,
 ): { command: CoreCommand; inverse: CoreCommand[]; label: string } | null {
 	if (op.entityType !== 'scene' || op.entityId !== sceneId) return null;
 	const now = after.scenes.scenes[sceneId];
 	if (!now) return null;
 	let placed: string[] = [];
-	let label = 'Applied template';
+	let label = t('boardCanvas.step.appliedTemplate');
 	if (op.opType === 'scene.add-widget' || op.opType === 'scene.duplicate-widget') {
 		const widget = op.value as {
 			id?: unknown;
@@ -120,8 +123,8 @@ export function placementStep(
 				? widget.configuration.title
 				: typeof widget.type === 'string'
 					? (findWidgetDefinition(after.widgets, widget.type)?.displayName ?? widget.type)
-					: 'tile';
-		label = `Added ${title}`;
+					: t('boardCanvas.step.tile');
+		label = t('boardCanvas.step.added', { title });
 	} else if (op.opType === 'scene.apply-template') {
 		const count = (op.value as { appliedWidgetCount?: unknown } | null)?.appliedWidgetCount;
 		if (typeof count !== 'number' || count < 1) return null;

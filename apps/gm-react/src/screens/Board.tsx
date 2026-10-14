@@ -1,35 +1,21 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import {
 	findWidgetDefinition,
 	getSceneForActor,
 	screenLayoutPolicy,
-	type WidgetLibraryEntry,
 	type WidgetPackageDefinition,
 } from '@dndtools/core';
-import { Button, Icon, Callout, EmptyState, Toaster } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
-import { widgetRejectionMessage } from '../app/widget-rejection';
-import { SceneBoardCanvas, type ZoomPreset } from '../app/SceneBoardCanvas';
+import type { ZoomPreset } from '../app/SceneBoardCanvas';
 import { BoardLayoutsPanel } from './BoardLayoutsPanel';
-import {
-	addTileCommand,
-	boardLayoutIssues,
-	boardWidgetsOf,
-	clampToColumns,
-	clampWidthToColumns,
-	payloadIndex,
-	repackBoardColumns,
-	type BoardWidget,
-} from '../app/board-helpers';
+import { boardWidgetsOf, payloadIndex, type BoardWidget } from '../app/board-helpers';
 import { useViewport } from '../app/useViewport';
 import { usePanelFocusReturn } from '../app/usePanelFocusReturn';
-import { useLayoutHistory } from '../app/canvas/useLayoutHistory';
 import { registerCanvasSurface } from '../app/shortcuts/registry';
-import { StackedBoard, useStackedPosture } from '../app/canvas/StackedBoard';
+import { useStackedPosture } from '../app/canvas/StackedBoard';
 import { SessionActionBar } from '../app/canvas/SessionActionBar';
 import * as Phone from '../app/canvas/PhoneNavigator';
-import { Page, srOnly } from '../app/screen-kit';
 import { useI18n } from '../i18n';
 import {
 	BoardEmptyState,
@@ -37,12 +23,16 @@ import {
 	BoardPlayerNotice,
 } from './board/BoardPlayerNotice';
 import { useBoardLayouts } from './board/useBoardLayouts';
+import { useBoardActions } from './board/useBoardActions';
+import { BoardSurface } from './board/BoardSurface';
+import { BoardStatus } from './board/BoardStatus';
+import { BoardDialogs } from './board/BoardDialogs';
+import { GmScreenUnavailable } from './board/GmScreenUnavailable';
+import { useAddWidgetIntent } from './board/useAddWidgetIntent';
+import { boardRootStyle } from './board/boardRootStyle';
 import { AddWidgetGallery } from '../app/canvas/AddWidgetGallery';
-import { FlowBoard } from '../app/canvas/FlowBoard';
 import { BoardLayoutBanner } from './board/BoardLayoutBanner';
-import { TemplatePicker, TemplateStartEntry } from '../app/canvas/TemplatePicker';
-import { GenerateDialog } from '../app/widgetBuilder/GenerateDialog';
-import { WidgetBuilder } from './extensions/WidgetBuilder';
+import { TemplateStartEntry } from '../app/canvas/TemplatePicker';
 import {
 	ScreenEditClip,
 	ScreenInspector,
@@ -77,15 +67,7 @@ import { readPlayerPreview } from './sceneEditor/playerPreview';
  * `scroll-pan`) for the one gesture a real scroll container doesn't grant for free — and never
  * pinch-zoom. A PHONE defaults to `StackedBoard`'s panel list (RC-CAN-5.1, List); its Layout view
  * is `PhoneNavigator` around the canvas (RC-CAN-5.4), and it never paints text under 12px.
- */
-// `SceneRuntime.dispatchNow` RETHROWS after a failed `persistFullState`, and every caller here is
-// fire-and-forget (`void onMove(...)`, `onClick={savePreset}`), so an IndexedDB quota or
-// private-mode failure produced an unhandled rejection, no message at all, and the optimistic
-// draft was dropped — the widget silently snapped back to where it had been.
-const PERSIST_FAILED =
-	"That change couldn't be saved to this device. Check storage space and try again.";
-
-/**
+ *
  * RC-CAN-7.3 — the screen a `/screen/:id` route hands the board engine: which scene to render, what
  * to call it, and the header actions (the switcher, the pin) that sit beside its name.
  */
@@ -99,55 +81,6 @@ export interface BoardScreen {
 
 export function Board({ screen }: { screen?: BoardScreen } = {}) {
 	return screen ? <ScreenBoard screen={screen} /> : <GmScreenUnavailable />;
-}
-
-/**
- * RC-CAN-7.9 — what `/board` draws when it cannot resolve to the GM screen, in place of the bespoke
- * board page. A non-GM gets the player notice (the GM screen is GM-only). For the GM it means the
- * provisioning write failed to persist, so it says so honestly and Retry asks again, as `/` and
- * `/session` do; once the write lands, `ScreenRouteAliases` takes `/board` to the screen.
- */
-function GmScreenUnavailable() {
-	const runtime = useRuntime();
-	const { t } = useI18n();
-	const actorId = runtime.defaultActorId;
-	const isDm = runtime.state.permissions.actors[actorId]?.role === 'dm';
-	const [phase, setPhase] = useState<'failed' | 'asking' | 'done'>('failed');
-	if (!isDm) return <BoardPlayerNotice />;
-	if (phase === 'done') return null;
-	const retry = () => {
-		setPhase('asking');
-		// `dispatch` rethrows a persist failure; a rejection is reported in its result.
-		void Promise.resolve(
-			runtime.dispatch({
-				type: 'command-center.ensure-home',
-				actorId,
-				payload: {},
-			}),
-		)
-			.then((result) => setPhase(result.status === 'accepted' ? 'done' : 'failed'))
-			.catch(() => setPhase('failed'));
-	};
-	return (
-		<Page>
-			<EmptyState
-				icon="widget"
-				title={t('board.setupFailed')}
-				description={t('home.setupFailedHint')}
-				action={
-					<Button
-						variant="secondary"
-						size="sm"
-						icon="refresh"
-						disabled={phase === 'asking'}
-						onClick={retry}
-					>
-						{t('common.action.retry')}
-					</Button>
-				}
-			/>
-		</Page>
-	);
 }
 
 function ScreenBoard({ screen }: { screen: BoardScreen }) {
@@ -215,30 +148,17 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 	// covered all but ~97px of the board and could not be dismissed without leaving edit mode.
 	// It is now a peer of the Add panel: a toolbar toggle, a Close button and Escape.
 	const [layoutsOpen, setLayoutsOpen] = useState(false);
-	const [status, setStatus] = useState<string | null>(null);
-	const [error, setError] = useState<string | null>(null);
 
 	// A successful Add, or a saved layout preset, unmounts the panel with focus still inside it — the
 	// browser then resets focus to <body> and Tab restarts at the skip link. See usePanelFocusReturn.
 	usePanelFocusReturn(addOpen || (editing && layoutsOpen));
 
 	// Create-intent handoff from "New widget" launchers (home hub): arrive in edit mode with the
-	// Add-widget panel already open. Consumed once, then cleared.
-	const navigate = useNavigate();
-	const location = useLocation();
-	useEffect(() => {
-		const intent = (location.state ?? null) as { addWidget?: boolean } | null;
-		if (intent?.addWidget) {
-			setAddOpen(true);
-			setMetaOpen(false);
-			const search = new URLSearchParams(location.search);
-			search.set('edit', '1');
-			navigate(
-				{ pathname: location.pathname, search: `?${search}` },
-				{ replace: true, state: null },
-			);
-		}
-	}, [location.state, location.pathname, location.search, navigate]);
+	// Add-widget panel already open.
+	const location = useAddWidgetIntent(() => {
+		setAddOpen(true);
+		setMetaOpen(false);
+	});
 
 	// Presets and safe points are `command-center.*` commands on the HOME board, so only it offers them.
 	const isHomeBoard = sceneId === runtime.state.commandCenter.homeSceneId;
@@ -272,39 +192,31 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 		);
 	}, [ready, boardScene, runtime.state.widgets, summary, isDm, editing, preview, previewBlocked]);
 
-	const presets = Object.values(runtime.state.commandCenter.presets).sort((a, b) =>
-		a.name.localeCompare(b.name),
-	);
-	async function dispatch(command: Parameters<typeof runtime.dispatch>[0]): Promise<boolean> {
-		// Clear before the attempt, not only after it. `error` renders inside a `role="alert"`, which
-		// announces on INSERTION — and setting the identical string again is an `Object.is` bail-out,
-		// so React never re-renders and a REPEATED identical failure (press save, it fails, press save,
-		// it fails again) was announced exactly once. Clearing first guarantees the region is removed
-		// and re-inserted, and the await below always puts the two updates in separate ticks.
-		setError(null);
-		let result;
-		try {
-			result = await runtime.dispatch(command);
-		} catch {
-			setStatus(null);
-			setError(PERSIST_FAILED);
-			return false;
-		}
-		if (result.status === 'rejected') {
-			// A rejection is NOT a confirmation: routing both into `status` rendered "that change
-			// couldn't be applied" in the same neutral grey, with the same info icon, as "Layout saved".
-			setStatus(null);
-			setError(widgetRejectionMessage(result.rejection));
-			return false;
-		}
-		setError(null);
-		// A confirmation describes ONE action. `status` was only ever cleared on rejection, so a
-		// "Layout 'Combat night' saved." (or the restore-a-safe-point offer) survived every later move,
-		// resize, add and preset apply — the live region kept asserting something that was no longer
-		// true. Callers that want a message set it immediately after their own dispatch resolves.
-		setStatus(null);
-		return true;
-	}
+	const {
+		status,
+		setStatus,
+		error,
+		dispatch,
+		history,
+		historyRef,
+		titleOf,
+		move,
+		resize,
+		layoutIssues,
+		fixLayout,
+		remove,
+		operateWidget,
+		addWidget,
+	} = useBoardActions({
+		runtime,
+		sceneId,
+		sceneRevision,
+		widgets,
+		flow,
+		editing,
+		setEditing,
+		setSelectedId,
+	});
 
 	const {
 		presetName,
@@ -314,65 +226,10 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 		applyPreset,
 		restoreSafePoint,
 	} = useBoardLayouts({ runtime, actorId, dispatch, setStatus });
+	const presets = Object.values(runtime.state.commandCenter.presets).sort((a, b) =>
+		a.name.localeCompare(b.name),
+	);
 
-	const history = useLayoutHistory({ sceneId, runtime, dispatch });
-	// A stable callback for the Undo toast: the toast store lives outside React, so the closure it
-	// keeps must not capture a particular render's stack.
-	const historyRef = useRef(history);
-	historyRef.current = history;
-	const undoRemoval = () => {
-		void historyRef.current.undo();
-	};
-
-	// RC-CAN-1.3: every layout write goes through the local undo stack, so `Ctrl+Z` and the canvas's
-	// Undo button reverse it by dispatching the core-built inverse — an ordinary durable command.
-	const titleOf = (widgetInstanceId: string) =>
-		widgets.find((w) => w.id === widgetInstanceId)?.title ?? 'widget';
-
-	// RC-CAN-3.3: the bounded board has no free horizontal scroll (SceneBoardCanvas fit-scales its
-	// whole extent to the pane), so a drag or arrow-nudge past the board's own right edge either
-	// dragged that scale down for every widget or landed invisibly on another one. Every move/resize
-	// is clamped to the board's columns here, at the one place both the pointer and keyboard paths
-	// (SceneBoardCanvas's `onMove`/`onResize`) commit through — the drop is "snapped back" onto the
-	// grid instead of silently growing the board.
-	function move(widgetInstanceId: string, x: number, y: number) {
-		const widget = widgets.find((w) => w.id === widgetInstanceId);
-		// Flow uses x/y as order keys, including negative y when moving before the first tile.
-		const clampedX = widget && !flow ? clampToColumns(x, widget.w) : x;
-		return history.run(
-			{
-				type: 'scene.move-widget',
-				actorId,
-				payload: { sceneId, widgetInstanceId, x: clampedX, y: flow ? y : Math.max(0, y) },
-			},
-			`Moved ${titleOf(widgetInstanceId)}`,
-		);
-	}
-	function resize(widgetInstanceId: string, w: number, h: number) {
-		const widget = widgets.find((wid) => wid.id === widgetInstanceId);
-		const clampedW = widget && !flow ? clampWidthToColumns(widget.x, w) : w;
-		return history.run(
-			{
-				type: 'scene.resize-widget',
-				actorId,
-				payload: { sceneId, widgetInstanceId, w: clampedW, h },
-			},
-			`Resized ${titleOf(widgetInstanceId)}`,
-		);
-	}
-	// The banner's fix: a deterministic greedy repack of every widget back into the board's columns,
-	// each changed position committed as its own `scene.move-widget` (the same undoable path a drag
-	// takes), so "Fix layout" is a real durable action rather than a client-only visual snap.
-	const layoutIssues = flow ? [] : boardLayoutIssues(widgets);
-	async function fixLayout() {
-		const next = repackBoardColumns(widgets);
-		for (const widget of widgets) {
-			const pos = next.get(widget.id);
-			if (!pos || (pos.x === widget.x && pos.y === widget.y)) continue;
-			await move(widget.id, pos.x, pos.y);
-		}
-		setStatus(t('board.layoutFixed'));
-	}
 	// RC-CAN-3.4 — "Select" on a listed issue puts the offender under the SAME selection state a
 	// pointer click on the canvas sets (`SceneBoardCanvas` only paints the selected outline in edit
 	// mode), so it has to also enter edit mode rather than selecting a widget the canvas can't show
@@ -381,62 +238,6 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 		pick(widgetId);
 		if (!editing) setEditing(true);
 	}
-	// Delete/Backspace and the inspector share the same recoverable removal.
-	// RC-CAN-1.2 gave the core `scene.restore-widget`, so removal happens immediately and
-	// offers Undo in a toast — the toast holds open until it is taken or dismissed (Toast.jsx pins any
-	// toast carrying an action), and the same reversal is on `Ctrl+Z`.
-	async function remove(widgetInstanceId: string) {
-		const title = titleOf(widgetInstanceId);
-		setSelectedId((cur) => (cur === widgetInstanceId ? null : cur));
-		const ok = await history.run(
-			{
-				type: 'scene.destroy-widget',
-				actorId,
-				payload: { sceneId, widgetInstanceId },
-			},
-			`Removed ${title}`,
-		);
-		if (ok) Toaster.show({ message: `Removed ${title}`, action: 'Undo', onAction: undoRemoval });
-	}
-	// VIEW-mode widget operation (SES-005/SES-003): a widget-DECLARED durable command through the one
-	// envelope the core accepts — fresh idempotencyKey per press + the scene's current revision.
-	async function operateWidget(
-		widgetInstanceId: string,
-		commandType: string,
-		payload: Record<string, unknown>,
-	) {
-		const ok = await history.run(
-			{
-				type: 'widget.dispatch-command',
-				actorId,
-				idempotencyKey: crypto.randomUUID(),
-				payload: {
-					sceneId,
-					widgetInstanceId,
-					commandType,
-					payload,
-					expectedRevision: sceneRevision,
-				},
-			},
-			`Changed ${titleOf(widgetInstanceId)}`,
-		);
-		if (ok) setStatus(null);
-	}
-	// RC-CAN-4.1: the gallery chooses the slot and focuses the placed tile. RC-CAN-8.1: sized from
-	// the one default-size table, and an undo step like every other edit. RC-CAN-8.5: the slot comes
-	// from the shared `placeNewTile` (the first free one in view, at the size the table gives), so
-	// the board takes it as given, and the gallery hands the new tile back to be selected.
-	async function addWidget(entry: WidgetLibraryEntry, position: { x: number; y: number }) {
-		const command = addTileCommand(entry, sceneId, position, flow ? 'flow' : 'bounded');
-		if (!command) return false;
-		const ok = await history.run(
-			{ type: command.type, actorId, payload: command.payload },
-			`Added ${entry.displayName}`,
-		);
-		if (ok && !editing) setEditing(true);
-		return ok;
-	}
-
 	// The Edit-layout / Done button's handler, shared with the command palette's Toggle edit row.
 	function enterEditing(next: boolean) {
 		if (next && isHomeBoard) void snapshotSafePoint();
@@ -466,33 +267,7 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 	if (!isDm && !preview) return <BoardPlayerNotice />;
 
 	return (
-		<div
-			className="scene-editor"
-			style={{
-				display: 'flex',
-				flexDirection: 'column',
-				gap: 'var(--space-3)',
-				// `<main>` is ALREADY the bounded pane: `flex:1; min-height:0; overflow-y:auto`
-				// (AppShell.tsx), i.e. the viewport minus the top bar and, on a phone, minus the tab
-				// bar. Sizing off `--app-viewport-height` measured from the WHOLE window instead, so a
-				// constant allowance could only ever be right at one window size — desktop overflowed
-				// `<main>` by ~43px (a second, nested scrollbar) while a phone left space unused.
-				// `100%` tracks the pane exactly at every size. Locked by responsive.spec.ts.
-				height: '100%',
-				minHeight: posture.stacked ? 0 : 360,
-				// `/board` and `/scene/:id` are the only two screens that bypass `<Page>`, so without
-				// this they rendered flush against the pane edges — heading, toolbar and the canvas's
-				// own rounded border all touching, so the border read as a crop. `border-box` keeps
-				// `height:'100%'` exact.
-				// NOT on phone: the bounded canvas derives its fit scale from the AVAILABLE WIDTH
-				// (SceneBoardCanvas `boundedScale`), which on a 375px handset is already ~0.45 and too
-				// small to read. A gutter there would shrink it further to buy whitespace it cannot
-				// afford — and it measurably tipped the phone board out of its own scroll range.
-				boxSizing: 'border-box',
-				padding: phone ? 'var(--space-0)' : 'var(--space-4) var(--space-6)',
-				...(phone && Phone.PHONE_TEXT_FLOOR),
-			}}
-		>
+		<div className="scene-editor" style={boardRootStyle(phone, posture.stacked)}>
 			<ScreenToolbar
 				screen={screen}
 				chromeHidden={chromeHidden}
@@ -537,46 +312,7 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 			/>
 
 			{editing && <ScreenEditClip />}
-			{/* Every board write's confirmation surfaces here, so it has to be a live region (WCAG
-			    4.1.3) — but a polite region must ALREADY be in the DOM for a content change to be
-			    announced. Mounting `<div role="status">Layout saved.</div>` inserts the host and its
-			    text in one mutation, which screen readers routinely drop. So the host is permanent and
-			    only its contents change.
-			    ⚠️ It used to collapse with `display:'none'`, which takes the node out of the
-			    ACCESSIBILITY TREE — so flipping to `inline-flex` WITH content was the exact
-			    insert-region-and-text-together mutation the comment above warns about, and every board
-			    confirmation ("Layout saved.", "Layout applied.", "Previous layout restored.") was
-			    silent. It now collapses with `srOnly` instead: absolutely positioned, so it is not a
-			    flex item and contributes no box and no parent `gap`, but it stays in the a11y tree. */}
-			<div
-				role="status"
-				aria-live="polite"
-				data-testid="board-status"
-				style={
-					status
-						? {
-								display: 'inline-flex',
-								alignItems: 'center',
-								gap: 'var(--space-1-5)',
-								font: 'var(--text-xs) var(--font-sans)',
-								color: 'var(--color-text-secondary)',
-								flex: '0 0 auto',
-							}
-						: srOnly
-				}
-			>
-				{status && (
-					<>
-						<Icon name="info" size="sm" /> {status}
-					</>
-				)}
-			</div>
-
-			{error && (
-				<Callout tone="error" role="alert">
-					{error}
-				</Callout>
-			)}
+			<BoardStatus status={status} error={error} />
 
 			{layoutIssues.length > 0 && !chromeHidden && !preview && (
 				<BoardLayoutBanner
@@ -613,62 +349,29 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 					<div
 						style={{ flex: 1, minWidth: 0, minHeight: 0, position: 'relative', display: 'flex' }}
 					>
-						{posture.stacked ? (
-							<StackedBoard
-								history={history}
-								sceneId={sceneId}
-								widgets={widgets}
-								onWidgetCommand={operateWidget}
-								emptyHint={ready ? '' : t('board.preparingHint')}
-								emptyTitle={ready ? '' : t('board.preparingTitle')}
-								onMaximizedChange={posture.onMaximizedChange}
-							/>
-						) : flow ? (
-							<FlowBoard
-								widgets={widgets}
-								tier={viewport}
-								editing={editing && !preview}
-								selectedId={selectedId}
-								onSelect={pick}
-								onMove={move}
-								onResize={resize}
-								onRemove={remove}
-								onWidgetCommand={operateWidget}
-								history={history}
-								emptyTitle=""
-								emptyHint=""
-							/>
-						) : (
-							<Phone.PhoneNavigator
-								active={phone}
-								editing={editing && !preview}
-								widgets={widgets}
-								zoom={zoom}
-								onZoom={setZoom}
-								onWidgetCommand={operateWidget}
-								onFullScreenChange={setLayoutFull}
-							>
-								<SceneBoardCanvas
-									widgets={widgets}
-									policy="bounded"
-									editing={editing && !preview}
-									snap={snap}
-									selectedId={selectedId}
-									onSelect={pick}
-									onMove={move}
-									onResize={resize}
-									focusOrder={focusOrder}
-									onRemove={remove}
-									onWidgetCommand={operateWidget}
-									emptyHint={ready ? '' : t('board.preparingHint')}
-									// The illustrated overlay owns the ready-empty copy; keep the canvas mounted for shortcuts.
-									emptyTitle={ready ? '' : t('board.preparingTitle')}
-									history={history}
-									zoomPreset={steps.canvas}
-									onZoomPresetChange={setZoom}
-								/>
-							</Phone.PhoneNavigator>
-						)}
+						<BoardSurface
+							posture={posture}
+							flow={flow}
+							phone={phone}
+							viewport={viewport}
+							editing={editing && !preview}
+							ready={ready}
+							sceneId={sceneId}
+							widgets={widgets}
+							history={history}
+							selectedId={selectedId}
+							onSelect={pick}
+							onMove={move}
+							onResize={resize}
+							onRemove={remove}
+							onWidgetCommand={operateWidget}
+							snap={snap}
+							focusOrder={focusOrder}
+							zoom={zoom}
+							onZoom={setZoom}
+							canvasZoom={steps.canvas}
+							onFullScreenChange={setLayoutFull}
+						/>
 						{ready && widgets.length === 0 && (
 							<BoardEmptyState
 								title={t('board.emptyTitle')}
@@ -769,32 +472,22 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 			</div>
 			{/* RC-CAN-5.2 — the phone's live-session bar; renders nothing unless the session is live. */}
 			{viewport === 'phone' && !editing && !preview && <SessionActionBar />}
-			<TemplatePicker
-				open={templatesOpen}
-				onClose={() => setTemplatesOpen(false)}
+			<BoardDialogs
 				viewport={viewport}
 				sceneId={ready ? sceneId : null}
+				templatesOpen={templatesOpen}
+				onTemplatesClose={() => setTemplatesOpen(false)}
 				// The applied layout is a good checkpoint to fall back to, and the DM picked it to adjust it.
-				onApplied={() => {
+				onTemplateApplied={() => {
 					if (isHomeBoard) void snapshotSafePoint();
 					setEditing(true);
 				}}
+				generateOpen={generateOpen}
+				onGenerateClose={() => setGenerateOpen(false)}
+				builder={builder}
+				onBuilder={setBuilder}
+				onBuilt={setBuilt}
 			/>
-			<GenerateDialog
-				open={generateOpen}
-				onClose={() => setGenerateOpen(false)}
-				onGenerated={(pkg) => {
-					setGenerateOpen(false);
-					setBuilder({ pkg });
-				}}
-			/>
-			{builder && (
-				<WidgetBuilder
-					generatedPackage={builder.pkg}
-					onClose={() => setBuilder(null)}
-					onInstalled={setBuilt}
-				/>
-			)}
 		</div>
 	);
 }

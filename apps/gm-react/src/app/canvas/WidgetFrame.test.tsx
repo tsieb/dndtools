@@ -1,20 +1,24 @@
 // @vitest-environment jsdom
 
-import { readFileSync } from 'node:fs';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-	createSystemWidgetPackages,
-	dispatchCommand,
-	type CoreCommand,
-	type CoreStateSlice,
-	type WidgetDefinition,
-} from '@dndtools/core';
-import { DM_ACTOR, PLAYER_ACTOR, buildInitialState, makeEnvironment } from '@dndtools/core/testing';
+import { type CoreStateSlice } from '@dndtools/core';
+import { DM_ACTOR, PLAYER_ACTOR, buildInitialState } from '@dndtools/core/testing';
 import { frameName, type BoardWidget } from '../board-helpers';
 import { I18nProvider, LOCALE_STORAGE_KEY, loadCatalog } from '../../i18n';
 import { PREFERENCE_KEYS, removePreference, writePreference } from '../../platform/preferences';
+import {
+	THEMES,
+	type Theme,
+	TILE_TOKENS,
+	SYSTEM_DEFINITIONS,
+	FRAMED_DEFINITIONS,
+	CAMPAIGN,
+	boardWidget,
+	sharedBindingFor,
+	noop,
+} from './widgetFrameFixtures';
 
 /**
  * RC-CAN-2.2 — the tile header, per system widget type, in every theme.
@@ -68,134 +72,6 @@ afterEach(() => {
 	act(() => root.unmount());
 	container.remove();
 });
-
-/** The three shipped themes. `tavern` is the dark one. */
-const THEMES = ['parchment', 'tavern', 'high-contrast'] as const;
-type Theme = (typeof THEMES)[number];
-
-/** `--color-tile-*` values per theme, merged across every `[data-theme='x']` block that sets them. */
-const TILE_TOKENS: ReadonlyMap<string, Readonly<Record<string, string>>> = (() => {
-	// jsdom's `import.meta.url` is not a file: URL; the app suite runs from the repo root.
-	const css = readFileSync(`${process.cwd()}/apps/gm-react/src/styles/tokens/colors.css`, 'utf8');
-	const byTheme = new Map<string, Record<string, string>>();
-	for (const block of css.matchAll(/\[data-theme='([^']+)'\]\s*\{([^}]*)\}/g)) {
-		const tokens = byTheme.get(block[1]!) ?? {};
-		for (const decl of block[2]!.matchAll(/(--color-tile-[a-z]+)\s*:\s*([^;]+);/g)) {
-			tokens[decl[1]!] = decl[2]!.trim();
-		}
-		byTheme.set(block[1]!, tokens);
-	}
-	return byTheme;
-})();
-
-const SYSTEM_DEFINITIONS: WidgetDefinition[] = Object.values(
-	createSystemWidgetPackages().packages,
-).flatMap((record) => record.package.widgets);
-/** The ones that draw a header in view mode. RC-CAN-7.6's home parts default to bare: no header. */
-const FRAMED_DEFINITIONS = SYSTEM_DEFINITIONS.filter(
-	(definition) =>
-		definition.configFields?.find((field) => field.key === 'presentation')?.default !== 'bare',
-);
-
-interface Campaign {
-	state: CoreStateSlice;
-	sharedMapId: string;
-	hiddenMapId: string;
-	sharedCharacterId: string;
-	hiddenCharacterId: string;
-}
-
-/** A player-visible map and sidekick, plus a map and a character only the DM may see. */
-function campaign(): Campaign {
-	const env = makeEnvironment();
-	let state = buildInitialState(DM_ACTOR, PLAYER_ACTOR);
-	const run = (command: CoreCommand) => {
-		const result = dispatchCommand(state, env, command);
-		if (result.status !== 'accepted') {
-			throw new Error(`command rejected: ${JSON.stringify(result.rejection)}`);
-		}
-		state = result.nextState;
-	};
-	run({
-		type: 'map.create',
-		actorId: DM_ACTOR.id,
-		payload: { name: 'Old mill', visibility: 'player-visible' },
-	});
-	run({
-		type: 'map.create',
-		actorId: DM_ACTOR.id,
-		payload: { name: 'The vault below', visibility: 'dm-only' },
-	});
-	for (const [name, visibility] of [
-		['Brannor', 'player-visible'],
-		['Masked stranger', 'dm-only'],
-	] as const) {
-		run({
-			type: 'character.quick-create',
-			actorId: DM_ACTOR.id,
-			payload: { kind: 'sidekick', name, visibility, combat: { hp: 18, maxHp: 24, ac: 16 } },
-		});
-	}
-	const mapId = (name: string) =>
-		(Object.values(state.maps.maps) as Array<{ id: string; name: string }>).find(
-			(map) => map.name === name,
-		)!.id;
-	const characterId = (name: string) =>
-		(Object.values(state.characters.characters) as Array<{ id: string; name: string }>).find(
-			(character) => character.name === name,
-		)!.id;
-	return {
-		state,
-		sharedMapId: mapId('Old mill'),
-		hiddenMapId: mapId('The vault below'),
-		sharedCharacterId: characterId('Brannor'),
-		hiddenCharacterId: characterId('Masked stranger'),
-	};
-}
-
-const CAMPAIGN = campaign();
-
-/**
- * A placed instance of one definition, shaped the way `boardWidgetsOf` shapes it: the caption is
- * the definition's CATEGORY (falling back to its display name), which is what the tile identity is
- * resolved from on the real board.
- */
-function boardWidget(
-	definition: WidgetDefinition,
-	bindingRef: BoardWidget['bindingRef'] = null,
-): BoardWidget {
-	return {
-		id: `widget-${definition.type}`,
-		type: definition.type,
-		title: definition.displayName,
-		typeLabel: definition.category ?? definition.displayName,
-		icon: definition.icon ?? 'widget',
-		tier: 'system',
-		description: definition.description ?? '',
-		visibility: 'dm-only',
-		x: 0,
-		y: 0,
-		w: 4,
-		h: 3,
-		status: 'available',
-		statusNote: null,
-		configuration: {},
-		configFields: definition.configFields ?? [],
-		requiresBinding: (definition.requiredBindings ?? []).length > 0,
-		commands: (definition.commands ?? []).map((command) => command.type),
-		bindingRef,
-	};
-}
-
-/** The binding a DM would give a required-binding widget in this campaign: the shared entity. */
-function sharedBindingFor(definition: WidgetDefinition): BoardWidget['bindingRef'] {
-	const entityType = definition.requiredBindings?.[0]?.entityTypes[0];
-	if (entityType === 'map') return { entityType, entityId: CAMPAIGN.sharedMapId };
-	if (entityType === 'character') return { entityType, entityId: CAMPAIGN.sharedCharacterId };
-	return null;
-}
-
-const noop = () => {};
 
 function renderFrame(
 	widget: BoardWidget,
@@ -439,152 +315,5 @@ describe('frame accessible name (RC-CAN-8.1)', () => {
 			'widget, selected, position 24, 392, size 240 by 160',
 		);
 		expect(frameName(tile, { editing: false })).toBe('Dice, Dice widget');
-	});
-});
-
-describe('direct manipulation cues (RC-CAN-8.3)', () => {
-	const dice = SYSTEM_DEFINITIONS.find((d) => d.type === 'dice')!;
-	// jsdom lays nothing out, so its viewport is 0×0 and the menu would clamp to the 8px margin.
-	beforeEach(() => {
-		for (const [key, value] of [
-			['clientWidth', 1024],
-			['clientHeight', 768],
-		] as const)
-			Object.defineProperty(document.documentElement, key, { configurable: true, value });
-	});
-	afterEach(() => {
-		delete (document.documentElement as { clientWidth?: number }).clientWidth;
-		delete (document.documentElement as { clientHeight?: number }).clientHeight;
-	});
-
-	function renderEditing(onStartMove: (e: React.PointerEvent) => void = noop, selected = false) {
-		runtimeRef.state = CAMPAIGN.state;
-		runtimeRef.defaultActorId = DM_ACTOR.id;
-		const widget = boardWidget(dice);
-		act(() =>
-			root.render(
-				<I18nProvider>
-					<WidgetFrame
-						w={widget}
-						x={0}
-						y={0}
-						width={320}
-						height={240}
-						editing
-						selected={selected}
-						scale={0.5}
-						resizable={false}
-						tabbable
-						ariaLabel="Dice, Dice widget"
-						onKeyDown={noop}
-						onFocusIn={noop}
-						registerRef={noop}
-						onStartMove={onStartMove}
-						onStartResize={noop}
-					/>
-				</I18nProvider>,
-			),
-		);
-		const frame = container.querySelector<HTMLElement>(`[data-testid="widget-${widget.id}"]`)!;
-		const surface = frame.querySelector<HTMLElement>('[data-testid="tile-drag-surface"]')!;
-		return { frame, surface };
-	}
-
-	/** A pointer event of the given type; jsdom has no PointerEvent, so `pointerType` is grafted on. */
-	function pointer(
-		target: EventTarget,
-		type: string,
-		{ pointerType = 'mouse', button = 0, x = 0, y = 0 } = {},
-	) {
-		const event = new MouseEvent(type, {
-			bubbles: true,
-			cancelable: true,
-			button,
-			clientX: x,
-			clientY: y,
-		});
-		Object.defineProperty(event, 'pointerType', { value: pointerType });
-		act(() => {
-			target.dispatchEvent(event);
-		});
-		return event;
-	}
-
-	const menu = () => document.querySelector<HTMLElement>('[data-testid="tile-actions-menu"]');
-
-	it('puts a grip in the title bar, on the drag surface, that a finger can drag by', () => {
-		const { surface } = renderEditing();
-		const grip = surface.querySelector<HTMLElement>('[data-testid="tile-grip"]')!;
-		expect(grip.getAttribute('aria-hidden')).toBe('true');
-		expect(grip.style.touchAction).toBe('none');
-	});
-
-	it('lifts under a mouse, not under a finger, and drops back on leave', () => {
-		const { frame, surface } = renderEditing();
-		expect(frame.style.boxShadow).toBe('');
-		pointer(surface, 'pointerover', { pointerType: 'touch' });
-		expect(frame.style.boxShadow).toBe('');
-		pointer(surface, 'pointerover');
-		expect(frame.style.boxShadow).toBe('var(--shadow-md)');
-		expect(frame.style.outline).toBe('2px solid var(--color-accent-border)');
-		// Eased on the motion tokens, and never moved: a transform scrolled the canvas under the menu.
-		expect(frame.style.transition).toContain('var(--duration-fast)');
-		expect(frame.style.transform).toBe('');
-		pointer(frame, 'pointerout');
-		expect(frame.style.boxShadow).toBe('');
-	});
-
-	it('opens the tile menu at the pointer on a right-click, without starting a move', () => {
-		const onStartMove = vi.fn();
-		const { surface } = renderEditing(onStartMove);
-		pointer(surface, 'pointerdown', { button: 2, x: 140, y: 90 });
-		expect(onStartMove).not.toHaveBeenCalled();
-		const event = pointer(surface, 'contextmenu', { button: 2, x: 140, y: 90 });
-		expect(event.defaultPrevented).toBe(true);
-		expect(menu()).not.toBeNull();
-		expect(menu()!.style.left).toBe('140px');
-		expect(menu()!.style.top).toBe('94px');
-	});
-
-	it('opens the tile menu at the finger after a long-press, and abandons the drag', () => {
-		vi.useFakeTimers();
-		try {
-			const onStartMove = vi.fn();
-			const cancelled = vi.fn();
-			window.addEventListener('pointercancel', cancelled);
-			const { surface } = renderEditing(onStartMove);
-			pointer(surface, 'pointerdown', { pointerType: 'touch', x: 60, y: 70 });
-			expect(onStartMove).toHaveBeenCalledTimes(1);
-			act(() => vi.advanceTimersByTime(499));
-			expect(menu()).toBeNull();
-			act(() => vi.advanceTimersByTime(1));
-			expect(cancelled).toHaveBeenCalledTimes(1);
-			expect(menu()!.style.left).toBe('60px');
-			window.removeEventListener('pointercancel', cancelled);
-		} finally {
-			vi.useRealTimers();
-		}
-	});
-
-	it('does not open the menu when the finger moves off before the press fires', () => {
-		vi.useFakeTimers();
-		try {
-			const { surface } = renderEditing();
-			pointer(surface, 'pointerdown', { pointerType: 'touch', x: 60, y: 70 });
-			pointer(surface, 'pointermove', { pointerType: 'touch', x: 60, y: 90 });
-			act(() => vi.advanceTimersByTime(800));
-			expect(menu()).toBeNull();
-		} finally {
-			vi.useRealTimers();
-		}
-	});
-
-	it('draws the selection chip inside the frame, capped to its width at screen size', () => {
-		const { frame } = renderEditing(noop, true);
-		const chip = frame.querySelector<HTMLElement>('[data-testid="tile-selection-chip"]')!;
-		expect(chip.style.top).toBe('');
-		expect(chip.style.bottom).toBe('var(--space-2)');
-		// (320 - 16) board px at scale 0.5 is 152 screen px.
-		expect(chip.style.maxWidth).toBe('152px');
 	});
 });

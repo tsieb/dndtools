@@ -6015,6 +6015,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'boardCanvas.step.added': 'Añadir {title}',
 	'boardCanvas.step.duplicated': 'Duplicar {title}',
 	'boardCanvas.step.arranged': 'Ordenar widgets',
+	'boardCanvas.step.appliedTemplate': 'Aplicar plantilla',
+	'boardCanvas.step.tile': 'widget',
 	'boardCanvas.step.untitled': 'widget',
 	'boardCanvas.removedToast': 'Se quitó {title}',
 	'boardCanvas.duplicatedToast': 'Se duplicó {title}',

@@ -12,6 +12,7 @@ import {
 } from '@dndtools/core';
 import { DM_ACTOR, buildInitialState, makeEnvironment } from '@dndtools/core/testing';
 import { boardWidgetsOf, type BoardWidget } from '../board-helpers';
+import { I18nProvider } from '../../i18n';
 
 /**
  * RC-CAN-8.8 — Configure dialogs carry a placeholder, an example and a validation message per entry
@@ -123,7 +124,13 @@ describe('TileConfigureDialog', () => {
 		host = document.createElement('div');
 		document.body.appendChild(host);
 		root = createRoot(host);
-		act(() => root.render(<TileConfigureDialog w={dice} onClose={onClose} />));
+		act(() =>
+			root.render(
+				<I18nProvider>
+					<TileConfigureDialog w={dice} onClose={onClose} />
+				</I18nProvider>,
+			),
+		);
 	});
 
 	afterEach(() => {
@@ -195,7 +202,13 @@ describe('TileConfigureDialog', () => {
 		expect(configureCalls()).toHaveLength(0);
 
 		// A fresh dialog nobody touched closes on the first Escape.
-		act(() => root.render(<TileConfigureDialog key="again" w={dice} onClose={onClose} />));
+		act(() =>
+			root.render(
+				<I18nProvider key="again">
+					<TileConfigureDialog w={dice} onClose={onClose} />
+				</I18nProvider>,
+			),
+		);
 		press(document, 'Escape');
 		expect(onClose).toHaveBeenCalledTimes(2);
 	});

@@ -6,7 +6,7 @@ import { useI18n, type MessageKey } from '../../i18n';
 import { noteDepth, type NoteDepth } from '../widgets/builtin/Note';
 import { NoteFrameContext } from '../widgets/builtin/NoteBody';
 import { useRuntime } from '../../runtime/RuntimeContext';
-import { TIER_LABEL, type BoardWidget } from '../board-helpers';
+import { TIER_KEY, type BoardWidget } from '../board-helpers';
 import {
 	safeBoundEntityName,
 	tileBindingState,
@@ -165,8 +165,12 @@ export function WidgetFrame({
 			aria-label={ariaLabel}
 			aria-description={
 				editing
-					? `Enter opens tile content. Space selects move mode; Shift with Space adds the tile to the selection. Arrows navigate between tiles or move the selected tiles; ${resizable ? 'Shift with arrows resizes.' : `${w.title} declares a fixed size.`} Alt with A, H, D, W, V or S aligns the selection. Escape leaves move mode. A opens Add. Delete removes; Control or Command with Z undoes.`
-					: 'Arrows navigate to the nearest tile. Enter opens tile content. Escape returns to the tile.'
+					? t('boardCanvas.frame.helpEditing', {
+							resize: resizable
+								? t('boardCanvas.frame.helpResize')
+								: t('boardCanvas.frame.helpFixed', { title: w.title }),
+						})
+					: t('boardCanvas.frame.helpView')
 			}
 			tabIndex={tabbable ? 0 : -1}
 			onKeyDown={(e) => {
@@ -411,7 +415,7 @@ export function WidgetFrame({
 					>
 						<Icon name={resizable ? 'move' : 'lock'} size={11} />
 						{w.title}
-						<span style={{ opacity: 0.85, fontWeight: 500 }}>· {TIER_LABEL[w.tier]}</span>
+						<span style={{ opacity: 0.85, fontWeight: 500 }}>· {t(TIER_KEY[w.tier])}</span>
 					</div>
 					{resizable && (
 						<button

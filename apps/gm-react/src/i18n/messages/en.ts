@@ -5973,6 +5973,8 @@ export const en = {
 	'boardCanvas.step.added': 'Added {title}',
 	'boardCanvas.step.duplicated': 'Duplicated {title}',
 	'boardCanvas.step.arranged': 'Arranged tiles',
+	'boardCanvas.step.appliedTemplate': 'Applied template',
+	'boardCanvas.step.tile': 'tile',
 	'boardCanvas.step.untitled': 'widget',
 	'boardCanvas.removedToast': 'Removed {title}',
 	'boardCanvas.duplicatedToast': 'Duplicated {title}',

@@ -8,6 +8,7 @@ import {
 	type SyncOperation,
 } from '@dndtools/core';
 import { DM_ACTOR, PLAYER_ACTOR, buildInitialState, makeEnvironment } from '@dndtools/core/testing';
+import { I18nProvider } from '../../i18n';
 import { useLayoutHistory, type LayoutHistory } from './useLayoutHistory';
 
 // RC-POL-1.2 — the shared harness for the two `useLayoutHistory` test files.
@@ -124,7 +125,13 @@ export function harness(options: { persist?: () => Promise<void> } = {}) {
 	}
 	let swap: ((next: string | null) => void) | null = null;
 
-	act(() => root.render(<Host />));
+	act(() =>
+		root.render(
+			<I18nProvider>
+				<Host />
+			</I18nProvider>,
+		),
+	);
 	return {
 		holder,
 		/** Dispatch past the stack, as the palette and the template picker do, and let it settle. */

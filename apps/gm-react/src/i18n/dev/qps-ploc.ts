@@ -6191,6 +6191,8 @@ export default {
 	'boardCanvas.step.added': '[Áďďéď ~~~{title}]',
 	'boardCanvas.step.duplicated': '[Ďúƥľíçáţéď ~~~~ {title}]',
 	'boardCanvas.step.arranged': '[Áŕŕáñğéď ţíľéš~~~~ ~]',
+	'boardCanvas.step.appliedTemplate': '[Áƥƥľíéď ţéḿƥľáţé~~~~ ~~]',
+	'boardCanvas.step.tile': '[ţíľé~~]',
 	'boardCanvas.step.untitled': '[ŵíďğéţ~~~]',
 	'boardCanvas.removedToast': '[Ŕéḿóṽéď ~~~~{title}]',
 	'boardCanvas.duplicatedToast': '[Ďúƥľíçáţéď ~~~~ {title}]',

@@ -13,6 +13,8 @@ import {
 	type LayoutHistoryEntry,
 } from './layoutHistoryCommands';
 export { inverseCommands } from './layoutHistoryCommands';
+import { useI18n } from '../../i18n';
+import { asPhrase } from './canvasCopy';
 
 /**
  * RC-CAN-1.3 / ADR-029 §2 — the SCENE CANVAS UNDO STACK, and it lives here on purpose.
@@ -59,10 +61,6 @@ export interface LayoutHistory {
 	announcement: LayoutAnnouncement | null;
 }
 
-/** "Moved Timer" → "moved Timer", so the announcement reads "Undone: moved Timer". */
-function asPhrase(label: string): string {
-	return label.charAt(0).toLowerCase() + label.slice(1);
-}
 
 export function useLayoutHistory(options: {
 	/** The scene the stack belongs to. A change clears it. `null` disables recording. */
@@ -84,6 +82,10 @@ export function useLayoutHistory(options: {
 	dispatch: (command: CoreCommand) => Promise<boolean>;
 }): LayoutHistory {
 	const { sceneId, dispatch, runtime } = options;
+	// Read at call time inside the stack's async callbacks, so a locale switch needs no re-subscribe.
+	const { t } = useI18n();
+	const tRef = useRef(t);
+	tRef.current = t;
 	const newId = useCallback(() => runtime.newId?.() ?? nextReplayKey(), [runtime]);
 	const [past, setPast] = useState<LayoutHistoryEntry[]>([]);
 	const [future, setFuture] = useState<LayoutHistoryEntry[]>([]);
@@ -231,7 +233,7 @@ export function useLayoutHistory(options: {
 				// An undo/redo replay is not a new action; nor is a co-DM's or the assistant's.
 				const foreign = !!runtime.defaultActorId && op.actorId !== runtime.defaultActorId;
 				if (claim ? claim.label === null : foreign) continue;
-				const step = placementStep(op, sceneId, seenRef.current, next);
+				const step = placementStep(op, sceneId, seenRef.current, next, tRef.current);
 				if (step)
 					remember(
 						claim?.command ?? step.command,
@@ -290,7 +292,7 @@ export function useLayoutHistory(options: {
 					{ forward: redone ?? entry.forward, inverse: entry.inverse, label: entry.label },
 				].slice(-MAX_LAYOUT_HISTORY),
 			);
-		announce(`Undone: ${asPhrase(entry.label)}`);
+		announce(tRef.current('boardCanvas.history.undone', { step: asPhrase(entry.label) }));
 		return true;
 	}, [announce, commitFuture, commitPast, replay]);
 
@@ -306,7 +308,7 @@ export function useLayoutHistory(options: {
 				{ forward: entry.forward, inverse: inverse ?? entry.inverse, label: entry.label },
 			].slice(-MAX_LAYOUT_HISTORY),
 		);
-		announce(`Redone: ${asPhrase(entry.label)}`);
+		announce(tRef.current('boardCanvas.history.redone', { step: asPhrase(entry.label) }));
 		return true;
 	}, [announce, commitFuture, commitPast, replay]);
 
