@@ -321,6 +321,7 @@ export function WidgetRegion({
 }: TileFitProps & { label: string; children: ReactNode }) {
 	const scrollRef = useRef<HTMLElement>(null);
 	const contentRef = useRef<HTMLDivElement>(null);
+	const footerRef = useRef<HTMLDivElement>(null);
 	const [fit, setFit] = useState<RegionFit>(NO_OVERFLOW);
 	// Grow re-measures after the tile resizes: text re-wraps and a centred 100%-height body moves
 	// with the tile, so one measured delta is not always the last. Bounded, so it cannot loop.
@@ -336,18 +337,36 @@ export function WidgetRegion({
 		const content = contentRef.current;
 		if (!node || !content || typeof ResizeObserver === 'undefined') return;
 		let raf = 0;
-		const measure = () => {
+		let checkUnobstructed = false;
+		const measure = (layoutChanged = true) => {
+			checkUnobstructed ||= layoutChanged;
 			cancelAnimationFrame(raf);
 			raf = requestAnimationFrame(() => {
 				// RC-ENG-3.2 — a region with nothing to scroll hides nothing: every rect the walk could
 				// find ends inside its scroll height. Only a grown tile's footer and a Grow pass need
 				// the line positions, so a fitting tile skips the walk (a board mounts fifty at once).
-				const next =
+				let next =
 					growPasses.current === 0 &&
 					!restoring.current &&
 					node.scrollHeight - node.clientHeight <= 1
 						? { ...NO_OVERFLOW, top: node.scrollTop, view: node.clientHeight }
 						: regionFit(node, content);
+				// The footer must not sustain its own overflow after a resize/Undo. Measure the
+				// full body with it out of flow (still focusable), then restore it before paint.
+				// Scroll-only updates use the
+				// reserved region above; probing there would repeatedly clamp the scroll offset.
+				const footer = footerRef.current;
+				if (checkUnobstructed && footer && !restoring.current && growPasses.current === 0) {
+					const top = node.scrollTop;
+					const left = node.scrollLeft;
+					footer.style.position = 'absolute';
+					const full = regionFit(node, content);
+					footer.style.position = 'relative';
+					node.scrollTop = top;
+					node.scrollLeft = left;
+					if (!full.hidden) next = full;
+				}
+				checkUnobstructed = false;
 				const short = Math.ceil(next.extent + FOOTER_CLEARANCE - next.view);
 				if (growPasses.current > 0 && short > 1 && grow.current) {
 					growPasses.current -= 1;
@@ -356,7 +375,7 @@ export function WidgetRegion({
 				setFit((old) => (sameFit(old, next) ? old : next));
 			});
 		};
-		const resize = new ResizeObserver(measure);
+		const resize = new ResizeObserver(() => measure());
 		const refresh = () => {
 			resize.disconnect();
 			for (const box of [node, content, ...content.children]) resize.observe(box);
@@ -369,13 +388,14 @@ export function WidgetRegion({
 			characterData: true,
 			attributes: true,
 		});
-		node.addEventListener('scroll', measure);
+		const onScroll = () => measure(false);
+		node.addEventListener('scroll', onScroll);
 		refresh();
 		return () => {
 			cancelAnimationFrame(raf);
 			resize.disconnect();
 			mutation.disconnect();
-			node.removeEventListener('scroll', measure);
+			node.removeEventListener('scroll', onScroll);
 		};
 	}, []);
 	// A separate row keeps controls clear of the footer, including after scrolling to the end.
@@ -384,7 +404,15 @@ export function WidgetRegion({
 	const below = fit.lines.filter((line) => line > shownTo + 1).length;
 	const remaining = fit.extent > shownTo + 1;
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+		<div
+			style={{
+				position: 'relative',
+				display: 'flex',
+				flexDirection: 'column',
+				height: '100%',
+				minHeight: 0,
+			}}
+		>
 			<section
 				ref={scrollRef}
 				aria-label={label}
@@ -410,6 +438,7 @@ export function WidgetRegion({
 			</section>
 			{footer && (
 				<div
+					ref={footerRef}
 					style={{
 						position: 'relative',
 						flex: '0 0 auto',

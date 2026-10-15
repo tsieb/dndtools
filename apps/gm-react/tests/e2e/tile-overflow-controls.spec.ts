@@ -88,3 +88,36 @@ for (const width of [1440, 834, 390]) {
 		}
 	});
 }
+
+test('restoring a tile size removes overflow caused only by its footer', async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 1112 });
+	await markOnboarded(page);
+	await preferPhoneCanvas(page);
+	await gotoRoute(page, '/board');
+	await expect(page.locator('[data-widget-region]').first()).toBeVisible();
+	const original = await page.evaluate(() => {
+		const rt = window.__rt!;
+		const sceneId = rt.state.commandCenter.homeSceneId!;
+		const timer = rt.state.scenes.scenes[sceneId].widgets.find((w) => w.type === 'timer')!;
+		return { sceneId, widgetInstanceId: timer.id, w: timer.layout.w, h: timer.layout.h };
+	});
+	const tile = page.getByTestId(`widget-${original.widgetInstanceId}`);
+	const grow = tile.getByRole('button', { name: /^Grow .* to fit content$/ });
+	await expect(grow).toHaveCount(0);
+	for (const size of [{ ...original, w: 160, h: 110 }, original]) {
+		const status = await page.evaluate(async (payload) => {
+			const rt = window.__rt!;
+			return (
+				await rt.dispatch({
+					type: 'scene.resize-widget',
+					actorId: rt.defaultActorId,
+					payload,
+				})
+			).status;
+		}, size);
+		expect(status).toBe('accepted');
+		if (size === original) await expect(grow).toHaveCount(0);
+		else await expect(grow).toBeVisible();
+	}
+	await expect(tile.locator('[data-widget-region]')).not.toHaveAttribute('tabindex');
+});
