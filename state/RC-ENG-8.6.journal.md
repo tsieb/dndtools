@@ -76,3 +76,20 @@ Repair validation (original logs read before recording):
   owns .snap serialization; a direct Prettier invocation without that flag has no .snap parser).
   `git diff --check` clean. No screenshot baselines changed; the central pinned visual gate on
   the preceding candidate passed, and this repair preserves the intended header text.
+
+## Claim feedback: required parity declaration
+
+Retain `apps/gm-react/src/app/widgets/parity.ts` for operator claim review. Its entire change from
+base 91621bae32d16be59793eef584507e477456d690 is the session widget's `player-view-controller`
+query declaration. The acceptance criterion requires the header to identify the table projection,
+which is distinct from the active session scene. SessionConsole uses the public actor-scoped
+getPlayerViewController query for that purpose. The parity contract must declare this dependency;
+raw tableView access instead already failed the private-read gate in the preceding repair.
+
+Verified the necessity by temporarily restoring only parity.ts to the specified base and running
+its existing tests: exit 1, 8 failed / 43 passed. Read the original probe log at
+`/tmp/rc-eng-8.6-claim-parity-probe.log`; every failure adds the same unledgered session read of
+getPlayerViewController. Restored the candidate file exactly afterward (`git diff --exit-code`
+was clean). The prior full-suite pass remains evidence for the unchanged candidate implementation.
+No assertions or gate enforcement have been weakened. Claim widening is not automatic and no
+dispatcher state was edited: the operator must decide whether to include this required file.
