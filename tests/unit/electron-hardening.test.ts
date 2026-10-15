@@ -156,7 +156,9 @@ describe('packaged Electron hardening policy', () => {
 		expect(source).toContain('event.senderFrame === event.sender.mainFrame');
 		expect(source).toContain('isTrustedDisplayUrl(url)');
 		expect(source).toContain("child.webContents.on('did-navigate-in-page'");
-		expect(source).not.toMatch(/\bshell\s*\.\s*openExternal\s*\(/);
+		expect(source.match(/\bshell\s*\.\s*openExternal\s*\([^)]*\)/g)).toEqual([
+			'shell.openExternal(BETA_FEEDBACK_URL)',
+		]);
 		expect(source).toContain('installAppProtocol(protocol, net, RENDERER_ROOT)');
 		expect(source).toContain('await runStorageOriginMigration({');
 		expect(source).toContain('win.loadURL(APP_ENTRY_URL)');

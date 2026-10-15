@@ -1,3 +1,4 @@
+import { openDesktopFeedback } from './desktopFeedback';
 import { App, type AppState, type BackButtonListenerEvent } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 import {
@@ -535,7 +536,7 @@ export function createPlatformNotificationAdapter(
 
 export const platformNotifications = createPlatformNotificationAdapter(platformCapabilities);
 
-/** Open a trusted external HTTPS URL outside the embedded Android WebView. */
+/** Open HTTPS externally; Electron admits only its fixed feedback destination. */
 export async function openExternalUrl(url: string): Promise<boolean> {
 	let parsed: URL;
 	try {
@@ -544,6 +545,7 @@ export async function openExternalUrl(url: string): Promise<boolean> {
 		return false;
 	}
 	if (parsed.protocol !== 'https:') return false;
+	if (platformCapabilities.runtimeKind === 'electron') return openDesktopFeedback(url);
 	if (
 		platformCapabilities.runtimeKind === 'android' &&
 		platformCapabilities.nativeBridgeAvailable

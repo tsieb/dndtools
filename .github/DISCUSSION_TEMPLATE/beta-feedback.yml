@@ -1,0 +1,67 @@
+title: '[Beta feedback] '
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for testing Lamplight! Feedback is public. Never include credentials,
+        vault exports or private campaign content. Redact optional screenshots and logs.
+  - type: input
+    id: version
+    attributes:
+      label: RC tag or version
+      description: Include the exact RC tag or app version you tested.
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Windows desktop
+        - macOS desktop
+        - Linux desktop
+        - Android
+        - Web browser
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: OS and browser versions
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - Data loss or privacy/security concern
+        - Core workflow blocked
+        - Bug with a workaround
+        - Usability or suggestion
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Use a minimal example without private campaign data.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Optional redacted screenshots or logs
+      description: Check all attachments for private content before posting.

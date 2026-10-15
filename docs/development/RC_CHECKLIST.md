@@ -154,34 +154,27 @@ The Help topics list now includes localized **Send feedback**, targeting
 external-browser adapter. It warns that feedback is public and must exclude private campaign
 content, credentials and vault exports. A rejected or blocked browser open shows a copyable URL.
 
-The beta route remains **blocked**, not complete: the Discussions form is not committed and
-its category has not been verified. The Electron shell currently blocks external browser opens;
-its narrow, user-confirmed external-link bridge also needs an ownership correction. The copyable
-URL fallback is not evidence that the form opens on desktop.
+The committed category form is `.github/DISCUSSION_TEMPLATE/beta-feedback.yml`. Its filename
+matches the `beta-feedback` slug in the Help action. Creating the repository category and
+verifying GitHub renders this form remain operator checks after integration.
 
-- [ ] Authorize and commit `.github/DISCUSSION_TEMPLATE/beta-feedback.yml`; enable the matching
-      `beta-feedback` category and verify the URL above opens its form. Ask for RC tag/version,
-      platform, expected/actual behavior, reproduction steps, severity and optional redacted
-      screenshots/logs. Never request vault exports, credentials or private campaign content.
+- [x] Commit the form asking for RC tag/version, platform, expected/actual behavior,
+      reproduction steps, severity and optional redacted screenshots/logs.
 - [x] Add the Help topics action with English/Spanish catalog strings and external-open fallback.
-- [ ] Authorize the Electron main/preload bridge and renderer typings needed for a fixed,
-      user-confirmed feedback destination; preserve the existing arbitrary-URL restriction.
+- [x] Add a fixed-destination Electron main/preload bridge with native confirmation,
+      primary-window/frame/document validation and cancellation/failure handling. Arbitrary
+      destinations remain denied; no campaign data is passed to the bridge.
+- [x] Exercise the real main/preload handlers and renderer adapter in focused tests, including
+      rejected callers, cancellation, browser failure and navigation during confirmation.
+- [ ] Enable the matching `beta-feedback` repository category and verify the URL opens its form.
 - [ ] Verify the action opens the intended form on supported platforms, including keyboard
-      activation and external-open failure handling; record the test names and results.
+      activation and external-open failure handling; record native-runtime evidence.
 - [ ] Retain the required help-menu visual comparison and independent review evidence.
 
-The current claim includes only this checklist, `release.yml` and `HelpMenu.tsx`.
-Before retrying implementation, grant `.github/DISCUSSION_TEMPLATE/beta-feedback.yml`,
-`apps/gm-react/electron/main.cjs`, `apps/gm-react/electron/preload.cjs`, and
-`apps/gm-react/src/platform/capabilities.ts` for the typed renderer bridge/adapter used by the
-action. None of these four paths is covered by the current companion-path grants. Focused
-`*.test.ts` / `*.test.tsx` tests are granted companion paths under §21.2.
-The desktop bridge must accept no caller-supplied destination, validate the calling window/frame,
-ask for native confirmation and open only the fixed feedback URL. Verify cancellation, rejected
-callers, browser-open failure and successful opening through the real main/preload handlers;
-a mocked renderer adapter alone does not verify this integration. Keep arbitrary external URLs
-denied. Verify the matching Discussions category and rendered form after the template lands;
-committing a category form does not create the repository category.
+Focused tests are `tests/unit/electron-feedback.test.ts`,
+`tests/unit/electron-hardening.test.ts`, and
+`apps/gm-react/src/platform/desktopFeedback.test.ts`. They exercise production code with
+substituted OS services; they do not establish a hosted form or native browser launch.
 
 Recruit testers across Windows, macOS, Linux and Android, including GM and player roles.
 Ask them to back up a vault, install/upgrade, run onboarding, play a short session, export/import,

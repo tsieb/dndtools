@@ -1,4 +1,6 @@
 import { IMPORT_HUB_EVENT } from '../importHub/registry';
+import { BETA_FEEDBACK_URL } from '../../platform/desktopFeedback';
+export { BETA_FEEDBACK_URL } from '../../platform/desktopFeedback';
 import {
 	lazy,
 	Suspense,
@@ -139,10 +141,6 @@ export function HelpTrigger({
 	);
 }
 
-// Fixed destination: never put campaign data or credentials in a feedback URL.
-export const BETA_FEEDBACK_URL =
-	'https://github.com/tsieb/dndtools/discussions/new?category=beta-feedback';
-
 export function BetaFeedbackAction() {
 	const { t } = useI18n();
 	const [fallback, setFallback] = useState(false);
@@ -168,4 +166,3 @@ export function BetaFeedbackAction() {
 		</section>
 	);
 }
-

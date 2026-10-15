@@ -135,3 +135,8 @@ const applyJoin = (hash) => {
 };
 ipcRenderer.on('desktop:join', (_event, hash) => applyJoin(hash));
 window.addEventListener('DOMContentLoaded', () => ipcRenderer.send('desktop:ready'));
+
+// Fixed destination only; main validates the caller and obtains native confirmation.
+contextBridge.exposeInMainWorld('dndtoolsFeedback', {
+	open: () => ipcRenderer.invoke('feedback:open'),
+});

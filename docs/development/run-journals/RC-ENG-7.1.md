@@ -328,3 +328,31 @@ play-polish.spec.ts golden-routes.spec.ts --project=visual-rail --project=visual
   resolved links; existing size warnings). Read the complete original log at
   `/tmp/rc-eng-7.1-review-scope-gates.log`. Targeted Prettier and `git diff --check`
   pass. No application, browser, desktop or hosted release test was rerun.
+
+## 2026-10-15 authorized feedback repair
+
+- Operator widened the claim to the Discussions template, Electron main/preload and platform
+  adapter. No applicable AGENTS.md or Headroom tools were found; native output is used.
+- Added the beta-feedback category form and fixed-destination desktop IPC. Main validates the
+  real primary window/frame/document, rejects arguments, requires native confirmation,
+  revalidates after confirmation and handles cancellation/browser failure. Concurrent prompts
+  are rejected. The renderer permits only the exact feedback URL on Electron.
+- Added tests executing the full production main/preload modules with substituted Electron OS
+  services and the real caller validation; added real renderer adapter tests. Updated the
+  hardening assertion to permit only the constant-destination shell call.
+- Hosted category/form rendering and RC-tag release attachments remain post-integration checks.
+  No push, promotion, tag/release creation, additional agents or dispatcher state changes.
+- Validation (original native outputs inspected):
+  - `pnpm exec vitest run tests/unit/electron-feedback.test.ts tests/unit/electron-hardening.test.ts tests/unit/release-verify.test.ts tests/unit/ci-guardrails.test.ts`:
+    4 files / 43 tests passed.
+  - `pnpm exec vitest run --config vitest.app.config.ts apps/gm-react/src/platform/desktopFeedback.test.ts apps/gm-react/src/platform/capabilities.test.ts apps/gm-react/src/app/help/HelpMenu.test.tsx`:
+    3 files / 26 tests passed. The new adapter suite initially ran without a browser window;
+    adding its jsdom environment corrected the test setup and all cases passed.
+  - `pnpm gates`: passed, six gates, 310 reachable documents and 445 links. Existing size
+    warnings only. Original log: `/tmp/rc-eng-7.1-repair-gates.log`.
+  - `pnpm --filter @dndtools/gm-react typecheck`: passed. Original log:
+    `/tmp/rc-eng-7.1-repair-types.log`.
+  - Targeted ESLint on changed TS/TSX implementation/tests, Prettier on all changed paths,
+    `node --check` on both Electron files and `git diff --check`: passed.
+- Full browser/visual gates and independent review remain the central operator's next steps.
+  No existing rendered Help layout or copy changed in this repair.

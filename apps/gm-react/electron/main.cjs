@@ -24,6 +24,7 @@ const {
 	session,
 	safeStorage,
 	screen,
+	shell,
 } = require('electron');
 const { joinHash, readWindowState, persistWindow, installMenu } = require('./parity.cjs');
 const path = require('node:path');
@@ -666,7 +667,7 @@ function createWindow() {
 	// Never navigate a managed window to a remote origin. Do not silently delegate an arbitrary
 	// renderer-provided URL to the OS browser either: a compromised renderer could encode secrets in
 	// that URL and bypass the packaged request allowlist through `shell.openExternal`. The app has no
-	// external-link UI today; any future external-link feature needs its own narrow, user-confirmed IPC.
+	// generic external-link permission; beta feedback uses its own fixed, user-confirmed IPC.
 	win.webContents.setWindowOpenHandler(({ url }) => {
 		if (isTrustedDisplayUrl(url)) {
 			const displayTheme = WINDOW_THEMES[currentWindowTheme] ?? WINDOW_THEMES.tavern;
@@ -729,7 +730,36 @@ function createWindow() {
 	return win;
 }
 
+const BETA_FEEDBACK_URL =
+	'https://github.com/tsieb/dndtools/discussions/new?category=beta-feedback';
+let feedbackPromptPending = false;
+
 function setupWindowIpc() {
+	ipcMain.handle('feedback:open', async (event, ...args) => {
+		if (args.length || !isPrimarySender(event) || feedbackPromptPending) return false;
+		feedbackPromptPending = true;
+		try {
+			const choice = await dialog.showMessageBox(mainWindow, {
+				type: 'question',
+				title: 'Send beta feedback',
+				message: 'Open GitHub beta feedback in your browser?',
+				detail:
+					'Feedback is public. Do not include private campaign content, credentials or vault exports. No campaign data is sent automatically.',
+				buttons: ['Cancel', 'Open feedback'],
+				defaultId: 0,
+				cancelId: 0,
+				noLink: true,
+			});
+			// The caller may navigate or close while the native confirmation is open.
+			if (choice.response !== 1 || !isPrimarySender(event)) return false;
+			await shell.openExternal(BETA_FEEDBACK_URL);
+			return true;
+		} catch {
+			return false;
+		} finally {
+			feedbackPromptPending = false;
+		}
+	});
 	installMenu(Menu, [], () => {});
 	ipcMain.on('desktop:ready', (event) => {
 		if (!isPrimarySender(event)) return null;
