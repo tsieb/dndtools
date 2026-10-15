@@ -80,3 +80,4 @@
   `charBuilder/data.ts:53,59` ancestry `sub` strings are display text only; `charBuilder/index.tsx:225`
   `effScores` and `coreAbilities` add no bonus; `create.ts:209` dispatches them as-is; the core draft
   flow has no ancestry concept. Copy `en.ts:5252,5283` promises the bonuses. Confirmed.
+- 11:19Z: EARLY_ACCESS.md drafted (gates, DEBT, FEATURE-GAPS, verdict fail); review A/B sections and stories pending.
