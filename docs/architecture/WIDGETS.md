@@ -48,17 +48,20 @@ checked against `now`.
 A command writes to the campaign. An **intent** writes nothing: it takes the viewer somewhere
 (RC-WID-5.1). `WidgetDefinition.intents` is optional and is a closed union on `kind`:
 
-| `kind`          | Target                                                                       | Destination                                                                                                                                                                                 |
-| --------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `open-screen`   | `targetId` (a scene; ADR-041)                                                | `/scene/:id`                                                                                                                                                                                |
-| `open-entity`   | `entityKind` (`character` \| `map` \| `note` \| `quest`) and `targetId`      | `/characters/:id`, `/atlas?map=`, `/knowledge/:id`, `/campaign` with `openQuestId`                                                                                                          |
-| `open-route`    | `route`, one of `WIDGET_INTENT_ROUTES` (section roots only)                  | that path                                                                                                                                                                                   |
-| `create`        | `target` (`scene` \| `screen` \| `character` \| `map` \| `note` \| `widget`) | the existing creation flow: `/scenes` with `{ createScreen: true }` for scene/screen, or `/characters`, `/atlas`, `/knowledge` with `{ create: true }`, `/board` with `{ addWidget: true }` |
-| `open-settings` | `tab`, one of `WIDGET_INTENT_SETTINGS_TABS`                                  | `/settings?tab=`                                                                                                                                                                            |
+| `kind`                | Target                                                                       | Destination                                                                                                                                                                                 |
+| --------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `open-screen`         | `targetId` (a scene; ADR-041)                                                | `/scene/:id`                                                                                                                                                                                |
+| `open-entity`         | `entityKind` (`character` \| `map` \| `note` \| `quest`) and `targetId`      | `/characters/:id`, `/atlas?map=`, `/knowledge/:id`, `/campaign` with `openQuestId`                                                                                                          |
+| `open-route`          | `route`, one of `WIDGET_INTENT_ROUTES` (section roots only)                  | that path                                                                                                                                                                                   |
+| `create`              | `target` (`scene` \| `screen` \| `character` \| `map` \| `note` \| `widget`) | the existing creation flow: `/scenes` with `{ createScreen: true }` for scene/screen, or `/characters`, `/atlas`, `/knowledge` with `{ create: true }`, `/board` with `{ addWidget: true }` |
+| `open-settings`       | `tab`, one of `WIDGET_INTENT_SETTINGS_TABS`                                  | `/settings?tab=`                                                                                                                                                                            |
+| `preview-participant` | `targetId` (a player or observer seat; RC-SES-7.3)                           | `/play` previewed as that seat (RC-CHR-6.5), returning to the page it was opened from                                                                                                       |
 
 Every variant is a strict schema, so no descriptor has a field a URL could hide in. Intent ids are
-unique within a definition. An open intent may fix its `targetId`; a custom widget may leave it out
-and supply one when it asks, but a fixed target is never replaced by the requested one.
+unique within a definition. An open or preview intent may fix its `targetId`; a custom widget may
+leave it out and supply one when it asks, but a fixed target is never replaced by the requested
+one. A hub template (`card-grid`, `link-list`) binds an untargeted open or preview intent to each
+query row and supplies the row's id.
 
 On `/campaign`, `openQuestId` opens the quest editor for an author. A reader who cannot author
 the quest has no editor, so the page scrolls to that quest's card, focuses it and marks it
@@ -75,13 +78,21 @@ the quest has no editor, so the page scrolls to that quest's card, focuses it an
    `getContentItemDetailForActor`, `resolveSectionRouteAccess`). A hidden target and a missing one
    both return `not-visible`, so a widget cannot probe for ids. Creation flows require authoring
    authority. The Settings tabs `players`, `permissions`, `plugins` and `systems` require DM
-   authority (`not-authorized`).
-4. Only then is an in-app destination built.
+   authority (`not-authorized`). A `preview-participant` intent resolves only for the vault's DM,
+   the one role `SceneRuntime.enterPreview` admits (a co-DM, a participant, or a DM already
+   previewing gets `not-authorized`), and only for a registered player or observer seat. The DM,
+   a co-DM, the generic preview actors and unknown ids are all `not-visible`. A `custom-html-js`
+   widget never resolves one, even with `navigate` approved.
+4. Only then is an in-app destination built. A preview destination also carries the typed
+   `preview` selection (`{ role, playerActorId }` for the target seat, player or observer), so
+   the preview shows the stage and deliveries that seat's row reports.
 
 Each outcome carries a non-leaking audit record naming the declared intent, never the requested
 target. The action-panel template renders one button per intent after its commands. On a live
 surface it omits any intent the viewer could not follow, resolves again on press, and reports a
-refusal. While the layout is being edited, the buttons are inert.
+refusal. While the layout is being edited, the buttons are inert. The template executors follow a
+resolved destination through `useFollowIntent` (`templates/HubIntent.tsx`): a preview destination
+enters the preview first, then opens `/play` with the current page as the companion's return.
 
 ### 2.2 Commands and executors
 
@@ -107,6 +118,18 @@ The system Timer's `timer.*`, the Dice widget's `dice.roll`, and `content.update
 executors and are still run by name (`CORE_NAMED_WIDGET_COMMANDS`). `content.update-item` (the Loot
 Ledger starter's write) is pinned to the widget's bound note: a payload naming any other item is
 refused. Anything else is refused.
+
+RC-WID-5.7 added the GM board's writes to that list, with their descriptors in
+`BOARD_COMMAND_DESCRIPTORS`: `combat.advance-turn` (operate), `combat.apply-resource`,
+`combat.set-combatant-visibility`, `session.set-active-map`, `session.project-active-map` and
+`scene.configure-widget` (manager: on the board tile these are the DM's). After the widget's own operate/configure check, the dispatcher
+runs the core command of the same name under the presser's authority, so a press never does more
+than the presser could do directly: an operator on the initiative tile still meets the combat
+command's own rules, and a player managing the map tile still meets the session commands' DM check.
+`scene.configure-widget` has its scene and instance pinned to the widget that dispatched it, whatever
+the payload names. Each press is recorded with the envelope's idempotency key, so a retry does not
+apply twice. The builder's Commands step offers all six as "the table's own commands", under their
+core names. `packages/core/tests/widget-command-board-tools.test.ts` covers the gates.
 
 **Install refuses what nothing can run.** `widget.package.install` and `widget.package.upgrade`
 reject a `template` widget that declares a command with no executor
@@ -140,10 +163,25 @@ revision and idempotency key for each replay; the core still authorizes every re
 surface. `resolveRenderer()` picks `builtin` | `template` | `custom` | `placeholder` and never
 throws; a failing renderer yields `WidgetPlaceholder.tsx` with the diagnostic and
 `coreStateAvailable: true`. Template renderers (`app/widgets/templates/`: data table, status list,
-tracker, action panel, scene message, chart, stat block, form panel) read `dataQueries` through
-`dataEnvironment.ts`, which resolves every query source (§3.2) against actor-filtered core reads
-and honours `audience`. Built-in bodies (`app/widgets/builtin/`) cover the system widgets: Map, Audio,
-combat, notes, atlas, search, session, tools, player views, and the rest.
+tracker, action panel, scene message, chart, stat block, form panel, the four hub kinds) read
+`dataQueries` through `dataEnvironment.ts`, which resolves every query source (§3.2) against
+actor-filtered core reads and honours `audience`.
+
+RC-WID-5.7 made the GM board's seven tools template kinds (`templates/board/`): `map-view` (Map),
+`initiative` (Initiative Tracker), `dice-roller` (Dice), `countdown` (Timer), `now-playing` (Audio)
+and `item-list` (Quick Reference and Prep). The system definitions keep their types and settings, so
+every board already holding one draws it the same way, and the tiles look and read as the builtin
+bodies did (the body snapshots in `builtin/builtin-bodies.test.tsx` did not change). Each draws from
+its declared query (`widget-timer`, `session-audio`, `bound-map`, `current-combatants`,
+`dice-history`, `notes` / `content-objects`) and acts only through its declared commands and
+intents: Timer and Dice through the board's `onCommand`, Map and Initiative by sending the same
+`widget.dispatch-command` envelope themselves (`useWidgetCommandRunner`) so they can announce the
+core's answer, as the HP keypad and "Map projected" always did. The Session screen's dice tray
+(RC-CAN-7.8) is the `dice-roller` template's `tray` view: the same `dice-history` rows and the
+declared `dice.roll`, with an expression and a label. Host size bounds stay as they were
+(`BUILTIN_SIZE_BOUNDS`). Built-in bodies (`app/widgets/builtin/`) remain for the note and handout,
+the character and the legacy Command Center widgets (session, getting started, tools, data hub,
+atlas, characters, player views, combat, notes, search), each reading through public sources.
 
 ### 3.1 Accessibility contract
 
@@ -233,7 +271,7 @@ sources the SCREENS_PARITY gap register (§4.1 G-02) lists.
 | `continuity-digest`   | `getPrepRecapDigest`                                            | Nothing (DM-only read)                                                  |
 | `rest-log`            | ledger of characters `listCharactersForActor` returned          | Rests of characters they may see                                        |
 | `presence`            | `projectSessionPresence` with scene-hint stripping              | Participants; a hint naming a hidden screen is removed                  |
-| `player-projections`  | `session.playerViewAssignments` (DM) / `getPlayerViewForActor`  | Their own row only                                                      |
+| `player-projections`  | `getPlayerViewSummary` (RC-SES-7.3), resolved as each seat      | Their own row only                                                      |
 | `initiative-call`     | `getCombatTrackerForActor` log                                  | Awaiting / rolled / adjusted for visible combatants                     |
 | `combatant-status`    | `getCombatTrackerForActor`                                      | Conditions, concentration, death saves only where vitals are exposed    |
 | `capture-candidates`  | `listCharactersForActor` + `getContentItemsForActor`            | References to what they may list                                        |
@@ -256,11 +294,35 @@ the builder's previews pass it today. The template slot (`templates/index.tsx`) 
 host still call the resolver without one, so a placed widget reads the live-table sources as "not
 available here" until RC-WID-5.3 wires it into the template slot.
 
+RC-WID-5.7 appended the board sources (`ALL_WIDGET_BOARD_QUERY_SOURCES`): what the GM board's
+tools and the legacy Command Center bodies used to read privately.
+
+| Source                   | Core read                                                                  | A player receives                                                            |
+| ------------------------ | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `widget-timer`           | the instance's own session timer, gated by `widgetInstanceReachesActor`    | The timer of a widget they receive (visible screen or projection), else none |
+| `session-audio`          | `getSessionAudioView`; titles from the DM's library                        | The player-safe track as "Session audio": no title, no ambience              |
+| `bound-map`              | `getMapViewForActor` (deliveries, combat only with the overlay on), layers | The bound map as they may see it, fogged; no map choices, no projection list |
+| `bound-character`        | `getCharacterForActor` with the active system                              | The bound character only if they may see it                                  |
+| `session-status`         | `getSessionStatusStrip`                                                    | Phase, turn and audio; never the roster cell                                 |
+| `onboarding`             | `resolveOnboarding`                                                        | Nothing (setup is the DM's)                                                  |
+| `command-center`         | the GM screen's widget count, saved layouts and safe point                 | Nothing (DM-only)                                                            |
+| `map-projection`         | `getActiveMapProjectionSummary`                                            | Nothing (DM-only read)                                                       |
+| `player-view-controller` | `getPlayerViewController`                                                  | Nothing (DM-only read)                                                       |
+| `encounters`             | `listEncountersForActor`                                                   | The encounters they may list                                                 |
+| `saved-searches`         | `getSavedSearchesForActor`, pinned first                                   | The saved searches delivered to them                                         |
+
+A result may also carry a structured `detail` (`WidgetQueryDetail`) where rows cannot hold what a
+board tool draws: the timer record, the audio readout, the bound map's view, layers and DM controls,
+the combat tracker with the active system's turn model (`current-combatants`), and the viewer's roll
+history (`dice-history`). It is built by the same actor-scoped read as the rows and is never set on a
+withheld query.
+
 The builder's Data step previews every source live (`DataStepBindings.tsx`). Each query card
 shows its reading for the author and for the reserved preview player. "Every source" lists the
-whole catalogue the same way. Isolation tests: `app/widgets/dataEnvironment.hub.test.ts` (one case
-per source, for a player, an observer and the preview player). Browser:
-`tests/e2e/widget-query-sources.spec.ts`.
+whole catalogue the same way; a `bound-map` or `bound-character` query with no binding of that
+entity type says so on its card. Isolation tests: `app/widgets/dataEnvironment.hub.test.ts` and
+`app/widgets/dataEnvironment.board.test.ts` (one case per source, for a player, an observer and the
+preview player, details included). Browser: `tests/e2e/widget-query-sources.spec.ts`.
 
 ### 3.3 Query options
 
@@ -442,7 +504,9 @@ names only the source and, optionally, the copy's slug ids and display name. The
 type and id (`widgetPackageForkIdentity`: `user.<type>` / `<type>-copy`, numbered from `-2`),
 version 1.0.0 and no migrations, then goes through the install schema, validation and commit path.
 A widget with a `builtin` renderer cannot be copied, because that renderer is keyed by its own type. Nor can a system widget (`author: 'system'`, locked content): most
-draw through a hand-written body keyed by their type, which a copy would lose (Dice, the timer).
+draw through a hand-written body keyed by their type, which a copy would lose. The exceptions
+(`isCopyableSystemWidget`) are the Command Center's parts and, since RC-WID-5.7, the GM board's seven
+tools: they draw only through their template, queries, commands and intents, which a fork copies.
 
 The copy's trust is decided afresh by `evaluateWidgetPackageForkTrust`. The RC-WID-6.2 rule runs on
 the copy, and two source states keep it on the review path whatever it contains: a source the DM
@@ -558,18 +622,25 @@ a builtin on the fresh GM board.
 Negative regression fixtures inject their own defects; only the exact ledger comparison requires
 current production debt to reproduce, so repaying that debt does not break unrelated assertions.
 
-The remaining ledger after RC-WID-5.6 (2026-10-08):
-
-| Repaid by  | Findings                                                                                                                                                                                                                                                                                                           |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| RC-WID-5.7 | 7: the fresh GM board provisions builtin bodies for `map`, `initiative-tracker`, `dice`, `timer`, `audio`, `quick-reference` and `prep`.                                                                                                                                                                           |
-| RC-WID-5.7 | 41: private builtin uses in `timer`, `audio`, `initiative-tracker`, `character`, `map`, `session`, `getting-started`, `tools`, `atlas`, `player-views`, `combat` and `search` (session timers, audio playback, map views and projection, combat writes, other actors' roles, presets, encounters, saved searches). |
+RC-WID-5.6 and RC-WID-5.7 left nothing on the ledger. What it holds now is the Session screen's
+(RC-CAN-7.8): the `session` and `combat` views' private uses and their builtin bodies on that
+screen, owed by RC-WID-5.13. A new finding fails the gate.
 
 RC-WID-5.6 repaid the five home-definition findings: shipped definitions include empty
 computed fields and query arrays, token-derived CSS variables and declared configuration schema properties,
 matching the builder’s first save. The first-trip byte comparison remains unnormalised;
-existing customised boards and instance settings are not rewritten. RC-WID-5.7
-(RC_ROADMAP.md, Epic WID-5) repays the remaining ledger.
+existing customised boards and instance settings are not rewritten.
+
+RC-WID-5.7 repaid the other 48. The seven board tools on the fresh GM board (`ensureHomeBoard`) are
+copyable template definitions in the builder's shape (`asBuilderSaves`), each round-tripping byte
+for byte; the parity test runs the round trip for all seven. With no hand-written body left for
+them, their 28 private uses (session timers, audio playback, map views and projection, combat
+writes, other actors' roles) went with the bodies, and what the templates need is public: the board
+sources (§3.2) and the board commands (§2.2). The legacy Command Center bodies declare the sources
+that now cover their remaining 13 (`bound-character`, `session-status`, `onboarding`,
+`command-center`, `map-projection`, `player-view-controller`, `encounters`, `saved-searches`). The
+exposure scan reads a bracketed member as the body scan names it (`state.session.timers[id]` is
+`session.timers.<dynamic>`, `stateChains`). Existing boards keep their instances and settings.
 
 ## 7. Canvas and layout history
 
@@ -605,6 +676,7 @@ instances, the same render resolver and the same core mutation path; flow ships 
 | Design-system kit for custom widgets     | `apps/gm-react/public/widget-kit.css`, `apps/gm-react/src/app/widgets/widgetKit.test.ts`                                                                                                                                                                                      |
 | Builder                                  | `apps/gm-react/src/app/widgetBuilder/`, `screens/extensions/WidgetBuilder.tsx`                                                                                                                                                                                                |
 | Builder parity gate (§6.1)               | `apps/gm-react/src/app/widgets/parity.ts`, `parity.test.ts`                                                                                                                                                                                                                   |
+| GM board tools as templates (RC-WID-5.7) | `apps/gm-react/src/app/widgets/templates/board/`, the board sources in `dataEnvironment.ts`                                                                                                                                                                                   |
 | E2E                                      | `custom-widgets.spec.ts`, `widget-builder.spec.ts`, `widget-trust-review.spec.ts`, `widget-generate.spec.ts`, `starter-widgets.spec.ts`, `widget-kit.spec.ts`, `widget-intents.spec.ts`, `widget-commands.spec.ts`, `widget-author-trust.spec.ts`, `widget-edit-fork.spec.ts` |
 
 ## 9. Widget gallery
@@ -1081,3 +1153,42 @@ controls use `fitWidgetSize`. S is the minimum, M the definition default and L 1
 of that default, fitted to the declared limits. The corner handle appears on
 selection or hover in edit mode; the tile menu's Resize enters keyboard move mode,
 where Shift+Arrow resizes. View-mode content recovery remains available separately.
+
+### What players see (RC-SES-7.3)
+
+`getPlayerViewSummary(state, actorId)` (`queries/player-view-control.ts`) returns the registered
+player and observer rows for a DM or co-DM, and only the requesting seat for a player or observer.
+Unknown actors, including the generic preview actors, are denied. Each row holds the seat's
+ephemeral connection status, the scene on its stage, its projected map, the number of handouts its
+companion lists and the PCs whose full sheet it holds. Every field is resolved as that participant
+with the companion's own reads, even for a DM caller: the stage is `getPlayerViewForActor`, the map
+follows `resolveProjectedMapForViewer`'s selection, the handouts are `getContentItemsForActor` (the
+companion's Handouts page) and the sheets are `listCharactersForActor` PCs. A missing or withheld
+resource has no row value, so an authoring name never stands in for something the seat cannot open.
+
+The public `player-projections` query source serves the same read. `primary` is the name and
+`secondary` one line: role, connection, `Stage:`, `Map:` when one is projected, `Handouts:` and the
+full-sheet PC names (or "No full sheets"). `meta` is the connection status, `value` the handout count
+and `active` whether anything is on the stage.
+
+The `player-views` widget is a system TEMPLATE widget with no hand-written body: the `link-list`
+template over `player-projections`, plus one untargeted `preview-participant` intent, `preview`
+("Preview"). Like the Command Center's parts, it is built by `homePart` to match the builder's first
+save, and `isCopyableSystemWidget` admits it. "Edit widget" therefore forks it into the builder, and
+the copy exports byte-identical. The template draws one row per participant and binds the intent to
+each row, so the whole row is the Preview control and names its action. The host gate leaves a row
+inert for a viewer who cannot preview: a participant reading their own row, a co-DM, or a DM already
+previewing. Preview enters the RC-CHR-6.5 preview for that seat and opens `/play`, whose exit banner
+returns to the Session screen. The WID-5.5 parity gate reports no finding for `player-views`, and the
+test asserts that on the unfiltered findings.
+
+A freshly provisioned Session screen places it under the Table roster, bare, with the heading "What
+players see": `withPlayerSummaryOnNewSessionScreen` (`queries/player-view-control.ts`, applied to
+`command-center.ensure-home` in `commands/dispatch.ts`) inserts the part into the screen and its
+`scene.create` operation, moving the parts after the roster down one row. `SESSION_SCREEN_PARTS` is
+unchanged, so the unsaved copy a participant's device or a GM preview draws has no such row. Screens
+provisioned earlier keep their layout.
+
+Session handouts pushed from the Session screen's Handouts panel (`session.deliver-handout`) do not
+reach the companion today; the companion's Handouts page lists revealed notes and objects. The row
+counts what the companion lists, so a pushed handout does not change it.

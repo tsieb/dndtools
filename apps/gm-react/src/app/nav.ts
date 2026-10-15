@@ -142,6 +142,9 @@ export const SETTINGS_SECTION: NavSection = {
 
 const ALL = [...RUN, ...LIBRARY, ...PLATFORM, PLAYER_SECTION, SETTINGS_SECTION];
 
+/** RC-CAN-8.7 — the scene cards' own page, linked from the Screens library's player section. */
+export const SCENE_CARDS_PATH = '/scene-cards';
+
 /** Per-section [title key, subtitle key] for the top bar — mirrors the prototype's SECTION_TITLES.
  * Keys, not text: the top bar renders them with `t`, so both the locale and the system package's
  * vocabulary reach the largest words on the screen. */
@@ -155,6 +158,7 @@ export const SECTION_TITLES: Record<string, [MessageKey, MessageKey]> = {
 	knowledge: ['nav.notes', 'section.sub.knowledge'],
 	scenes: ['nav.scenes', 'section.sub.scenes'],
 	screens: ['nav.screens', 'section.sub.screens'],
+	sceneCards: ['sceneCards.title', 'section.sub.sceneCards'],
 	graph: ['nav.graph', 'section.sub.graph'],
 	audio: ['section.audio', 'section.sub.audio'],
 	extensibility: ['section.extensibility', 'section.sub.extensibility'],
@@ -173,6 +177,8 @@ export function activeSectionId(pathname: string): string {
 	// RC-CAN-7.3 — the Screens library and every screen (ADR-041). A screen is user content, not a
 	// global destination, so no nav row claims it; the screen names itself in its own header.
 	if (pathname === '/screens' || pathname.startsWith('/screen/')) return 'screens';
+	// RC-CAN-8.7 — the scene cards' own page, titled for itself rather than claimed by a nav row.
+	if (pathname === SCENE_CARDS_PATH) return 'sceneCards';
 	let best: NavSection | null = null;
 	for (const section of ALL) {
 		if (section.path === '/') {

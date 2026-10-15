@@ -30,8 +30,10 @@ pair. Report `n` counts batches, not individual frames. The legacy workstation
 baseline remains usable for old captures; refresh it before comparing new
 aggregation locally.
 
-CI gates regression against the measured CI baseline with 20% tolerance. Absolute
-reference-device targets remain visible diagnostics. Missing/incompatible baseline,
+Each run grades regression against the measured CI baseline with 20% tolerance.
+Absolute reference-device targets remain visible diagnostics. Which of those can
+fail the job, and when, is the RC-ENG-1.4 policy step (`compare.ts --policy`,
+`docs/development/PERFORMANCE.md` §2.1); a pull request runs two paired runs, not five. Missing/incompatible baseline,
 missing budgets, fewer than seven batches, or missing provenance fail closed.
 Five consecutive paired runs of the unchanged candidate must agree on **every CI
 gate verdict**, with numeric drift for all budgets. Agreement alone does not make
@@ -75,3 +77,100 @@ full commit SHA:
 `gh workflow run perf.yml --ref main -f ref=<branch-or-sha>`. The job checks that
 ref out and runs _its_ `ci.sh` and capture harness, so the ref must already contain
 this pipeline. The SHA it measured is the `commit` in every `current-N.json`.
+
+### Policy regression checks
+
+Run `pnpm exec tsx scripts/perf/compare.ts --test-policy` alongside the perf Vitest
+configuration. The Performance workflow runs both before capture. The synthetic
+checks exercise advisory/enforcing decisions, two-repeat target confirmation,
+scheduled drift, missing data, runner-class matching, baseline recording and
+five-job agreement. They live in the owned comparison script and never read or
+write timing artifacts; passing them is not hosted acceptance evidence.
+
+## Large-vault row (RC-ENG-3.3)
+
+Every capture now records 22 entries: the eleven standard budget IDs and their
+`:large` counterparts. Each large browser context receives the same deterministic
+5,000-note / 200-map / 60-tile / 40-character snapshot via the app's validated
+storage restore, before the measured navigation. Notes have two resolvable links
+each; the compacted snapshot has a real delta of 100 note edits. One of the 200
+maps is built by the standard map scenario's commands (4 layers / 100 POIs), and
+the large map rows pan it instead of creating another. Construction is checked
+against a ten-second ceiling. The snapshot is built and serialized once per
+capture; each restore parses its own copy in the page. Setup, restore and initial
+hydration are outside the measured workflow; subsequent opens read the actual
+durable vault. Repeated opens use a new page in the same browser context,
+preserving IndexedDB and cache while releasing Chromium module-loader resources
+from the previous page. Page creation and close are outside the navigation-based
+sample. Widget moves and indexed notes run on top of this background fixture.
+
+Every accepted command sends the whole durable state through
+`storage.persistFullState`, which rejects payloads over 5 MiB. The pinned
+reference sends the previous _and_ next state, so it pays twice the vault's
+size. Ids and note bodies are therefore short. `large-vault.test.ts` replays each
+`:large` scenario's commits and fails unless both boundary shapes stay at least
+384 KiB under the cap. A new `:large` scenario must declare its commits there.
+
+Smoke CI never opens a vault. `smoke-ci:large` records the seven `smoke-ci`
+batches measured in the same capture, and its fixture says so. It runs on its own
+only when `smoke-ci` is not part of the capture.
+
+`search:large`, `graph-indexing:large`, `vault-open:large`, and
+`scene-first-render:large` have provisional targets of 500 ms, 1,000 ms,
+5,000 ms, and 2,500 ms respectively. The other large rows retain the workflow's
+existing target. Every large row is provisional until its 2026-12-31 review, so
+the pull-request policy reports a large row's target breach as advisory; drift
+on the schedule still binds. The baseline writer and five-run CI stability check require all
+22 IDs, so neither row can silently disappear. `--only search` selects both
+sizes; `--only search:large` selects just the large row. Missing samples make
+capture exit nonzero as well as making comparison fail closed.
+
+The historical `baseline.json` has explicit null large entries because that
+workstation run did not measure them. They are not CI evidence. Hosted CI writes
+fresh numeric values for both rows into every `tmp/perf/baseline-N.json` and
+uploads the paired raw captures. No hosted result is implied by this configuration.
+
+## Standard-row datasets (RC-ENG-3.2)
+
+The standard row measures each budget's declared dataset where the harness can build it
+honestly through real commands:
+
+- `scene-first-render` prepares one durable campaign per revision whose home scene holds
+  50 widgets, 10 of them map tiles bound to maps (`scene-fixture.ts`). Every sample opens
+  that campaign in a cold browser context, and the sample only ends once all 50 widgets
+  and all 10 map tiles have painted.
+- `search` and `graph-indexing` restore a 2,000-note campaign, seeded once per revision
+  through `content.create-item` (with its full command log), into a fresh context for
+  every batch. A rejected fixture note fails the capture.
+- The map pan/zoom map carries `world.continent` output (seed `runtime-recovery`) under the
+  4 layers / 100 POIs.
+
+The large row keeps its own snapshot (above). Every run file records the commit and
+source tree it measured, and a checkout that changes during a capture fails it.
+
+## Supplemental large-scene measurement
+
+With isolated reference and candidate dev servers already running:
+
+```sh
+node scripts/perf/scene-stress.mjs http://localhost:16373 http://localhost:16273 tmp/perf/scene-stress.json
+```
+
+Record the two server revisions with the output; the script cannot authenticate
+an arbitrary already-running server's revision. It creates 50 widgets through real
+commands: ten map tiles bound to an existing map, and forty non-map demo tiles.
+After reloading, it requires all fifty widget frames and exactly ten map bodies.
+Seven alternating pairs follow one warmup per revision, at 2x CPU throttle. Raw
+samples and medians are retained. This is a persisted-vault reload through two
+paint frames, not the cold-context demo-first-render scenario, and does not replace
+the standard budget comparison or the hosted stability workflow.
+
+## Graph readiness before graph-indexing
+
+`gotoRoute` resolves once the runtime has loaded and the shell's main landmark exists. `/graph` is a
+lazy route, so at that point the Graph screen may not have fetched or rendered yet. `search` already
+waited for the graph's search box before its first query; since RC-ENG-3.2 `graph-indexing` waits
+for the same box before its first timed note. Before that, whichever part of the screen's first mount
+overlapped the first sample was timed as that note's update, and because the budget grades each
+batch's slowest sample, a race decided the batch. The five timed notes, the 10-second render
+deadline and the 500 ms target are unchanged, and both revisions run the candidate's harness.

@@ -31,7 +31,15 @@ export type WidgetTemplateKind =
 	| 'hero'
 	| 'card-grid'
 	| 'launcher'
-	| 'link-list';
+	| 'link-list'
+	// RC-WID-5.7 — the GM board's tools as templates: each draws one tile's interface from its
+	// declared query and commands, so a copy the GM opens in the builder works like the original.
+	| 'map-view'
+	| 'initiative'
+	| 'dice-roller'
+	| 'countdown'
+	| 'now-playing'
+	| 'item-list';
 export type WidgetRuntimeKind = 'template' | 'builtin' | 'custom-html-js';
 export type WidgetRuntimeSandbox = 'iframe' | 'worker';
 export type WidgetStyleIsolation = 'host-scoped' | 'iframe-document' | 'shadow-root';
@@ -82,7 +90,20 @@ export type WidgetDataQuerySource =
 	// sections with their live counts. Each is projected from existing actor-scoped reads.
 	| 'resume'
 	| 'table-scenes'
-	| 'library-sections';
+	| 'library-sections'
+	// RC-WID-5.7 — what the GM board's tools and the legacy hub bodies read, made public. Each is an
+	// actor-scoped core read; the three `widget-`/`bound-` ones describe only the placed instance.
+	| 'widget-timer'
+	| 'session-audio'
+	| 'bound-map'
+	| 'bound-character'
+	| 'session-status'
+	| 'onboarding'
+	| 'command-center'
+	| 'map-projection'
+	| 'player-view-controller'
+	| 'encounters'
+	| 'saved-searches';
 export type WidgetOutputDestinationClass =
 	| 'scene'
 	| 'session'
@@ -228,6 +249,12 @@ export const WIDGET_COUNTER_EXECUTORS: readonly WidgetCommandExecutor[] = Object
  * `timer.*`, the Dice widget's `dice.roll`, and `content.update-item` (a write to the widget's
  * BOUND note, and only that note — the Loot Ledger starter's). A descriptor carrying one of these
  * needs no executor.
+ *
+ * RC-WID-5.7 added the writes the GM board's map and initiative tiles make: advancing the order,
+ * applying hit points and hiding a combatant, staging and projecting a map, and reconfiguring the
+ * widget itself. Each runs the core command of the same name under the presser's own authority, after
+ * the widget's operate/configure check; `scene.configure-widget` can only reach the instance that
+ * dispatched it.
  */
 export const CORE_NAMED_WIDGET_COMMANDS: readonly string[] = Object.freeze([
 	'timer.start',
@@ -238,7 +265,77 @@ export const CORE_NAMED_WIDGET_COMMANDS: readonly string[] = Object.freeze([
 	'timer.set-duration',
 	'dice.roll',
 	'content.update-item',
+	'combat.advance-turn',
+	'combat.apply-resource',
+	'combat.set-combatant-visibility',
+	'session.set-active-map',
+	'session.project-active-map',
+	'scene.configure-widget',
 ]);
+
+/** RC-WID-5.7 — a core command's own payload passes through; its handler validates it strictly. */
+function corePayload(required: string[] = []): WidgetDataSchema {
+	return {
+		type: 'object',
+		...(required.length > 0 ? { required } : {}),
+		additionalProperties: true,
+	};
+}
+
+/**
+ * RC-WID-5.7 — the descriptors for the core commands a widget runs by name beyond the timer, dice
+ * and bound-note ones: what the GM board's map and initiative tiles declare, and what the builder's
+ * Commands step offers any widget. Advancing the order is an operate action (the core then decides
+ * whether the presser may: the DM). Adjusting hit points, hiding a combatant, staging and projecting
+ * a map and reconfiguring the widget are the table runner's (`manager`): on the board tile they are
+ * the DM's, and a participant adjusts their own hit points on their sheet as before.
+ */
+export const BOARD_COMMAND_DESCRIPTORS: Readonly<Record<string, WidgetCommandDescriptor>> =
+	Object.freeze({
+		'combat.advance-turn': {
+			type: 'combat.advance-turn',
+			displayName: 'Next turn',
+			requiredCapability: 'operator',
+			payloadSchema: corePayload(),
+			writesTo: 'session',
+		},
+		'combat.apply-resource': {
+			type: 'combat.apply-resource',
+			displayName: 'Adjust hit points',
+			requiredCapability: 'manager',
+			payloadSchema: corePayload(['combatantId', 'kind']),
+			writesTo: 'session',
+		},
+		'combat.set-combatant-visibility': {
+			type: 'combat.set-combatant-visibility',
+			displayName: 'Hide or reveal a combatant',
+			requiredCapability: 'manager',
+			payloadSchema: corePayload(['combatantId', 'hidden']),
+			writesTo: 'session',
+		},
+		'session.set-active-map': {
+			type: 'session.set-active-map',
+			displayName: 'Stage this map',
+			requiredCapability: 'manager',
+			payloadSchema: corePayload(['mapId']),
+			writesTo: 'session',
+		},
+		'session.project-active-map': {
+			type: 'session.project-active-map',
+			displayName: 'Project to players',
+			requiredCapability: 'manager',
+			payloadSchema: corePayload(['playerActorIds']),
+			writesTo: 'session',
+			destinationClass: 'player-visible-state',
+		},
+		'scene.configure-widget': {
+			type: 'scene.configure-widget',
+			displayName: 'Change this widget',
+			requiredCapability: 'manager',
+			payloadSchema: corePayload(),
+			writesTo: 'scene',
+		},
+	});
 
 /**
  * The core-reserved command type that puts a widget's counter back to a given value — the inverse
@@ -363,7 +460,8 @@ export function readWidgetShownMessage(
  * RC-WID-5.1 — an INTENT: a place a widget can take its viewer, declared beside its commands.
  *
  * A command writes to the campaign; an intent writes nothing. It asks the host to open a screen, an
- * entity, an in-app page, a creation flow or a Settings tab. The set is closed on purpose: every
+ * entity, an in-app page, a creation flow, a Settings tab or (RC-SES-7.3) the companion previewed as
+ * one participant. The set is closed on purpose: every
  * target is an enum or an id the host checks against the viewer's read gate
  * (`resolveWidgetIntent`), and no variant has anywhere to put a URL. A template widget's intents are
  * data rendered by first-party code; a custom widget can follow one only with the `navigate` host
@@ -374,7 +472,8 @@ export type WidgetIntentKind =
 	| 'open-entity'
 	| 'open-route'
 	| 'create'
-	| 'open-settings';
+	| 'open-settings'
+	| 'preview-participant';
 export type WidgetIntentEntityKind = 'character' | 'map' | 'note' | 'quest';
 export type WidgetIntentCreateTarget = 'scene' | 'screen' | 'character' | 'map' | 'note' | 'widget';
 
@@ -393,6 +492,8 @@ export const WIDGET_INTENT_ROUTES = [
 	'/graph',
 	'/audio',
 	'/extensions',
+	// RC-CAN-8.7 — the atmosphere scene cards' own page; DM only (see DM_INTENT_ROUTES).
+	'/scene-cards',
 ] as const;
 export type WidgetIntentRoute = (typeof WIDGET_INTENT_ROUTES)[number];
 
@@ -467,7 +568,17 @@ export type WidgetIntentDescriptor =
 	  })
 	| (WidgetIntentBase & { kind: 'open-route'; route: WidgetIntentRoute })
 	| (WidgetIntentBase & { kind: 'create'; target: WidgetIntentCreateTarget })
-	| (WidgetIntentBase & { kind: 'open-settings'; tab: WidgetIntentSettingsTab });
+	| (WidgetIntentBase & { kind: 'open-settings'; tab: WidgetIntentSettingsTab })
+	| (WidgetIntentBase & {
+			/**
+			 * RC-SES-7.3 — open the companion (`/play`) previewed as one registered player or observer,
+			 * the RC-CHR-6.5 preview. Only the vault's DM may follow it, and the target must be a
+			 * participant seat; a custom widget never can.
+			 */
+			kind: 'preview-participant';
+			/** A fixed participant. Absent: the row the template draws supplies the actor id. */
+			targetId?: string;
+	  });
 
 export interface WidgetEventDescriptor {
 	type: string;
@@ -664,6 +775,9 @@ export const WIDGET_TEMPLATE_KINDS_READING_QUERIES = [
 	'stat-block',
 	'hero',
 	'card-grid',
+	// RC-WID-5.7 — the board's reference and prep lists. The other board kinds draw their own empty
+	// state (no map bound, nothing playing, no fight) rather than a missing-source line.
+	'item-list',
 ] as const satisfies readonly WidgetTemplateKind[];
 
 export function widgetTemplateReadsQueries(kind: WidgetTemplateKind): boolean {
@@ -903,6 +1017,27 @@ export const ALL_WIDGET_TEMPLATE_KINDS = [
 ] as const satisfies readonly WidgetTemplateKind[];
 
 /**
+ * RC-WID-5.7 — the GM board's tools as template kinds: the map, the initiative order, quick rolls,
+ * the countdown, what is playing and a short list of vault items. Kept apart from
+ * {@link ALL_WIDGET_TEMPLATE_KINDS}, which the `widget.package.propose` tool teaches, exactly as the
+ * hub query sources are; {@link WIDGET_TEMPLATE_KINDS} is every kind a definition may declare.
+ */
+export const BOARD_WIDGET_TEMPLATE_KINDS = [
+	'map-view',
+	'initiative',
+	'dice-roller',
+	'countdown',
+	'now-playing',
+	'item-list',
+] as const satisfies readonly WidgetTemplateKind[];
+
+/** Every template kind a definition may declare: the persisted schema's enum. */
+export const WIDGET_TEMPLATE_KINDS = [
+	...ALL_WIDGET_TEMPLATE_KINDS,
+	...BOARD_WIDGET_TEMPLATE_KINDS,
+] as const satisfies readonly WidgetTemplateKind[];
+
+/**
  * The original data-query sources (RC-WID-1.2), in a stable order. Each resolves against an
  * ACTOR-FILTERED core read, so a declared query can never widen what its viewer may see. This is also
  * the set the `widget.package.propose` tool teaches and accepts; the hub sources below are not offered
@@ -953,10 +1088,32 @@ export const ALL_WIDGET_HUB_QUERY_SOURCES = [
 	'library-sections',
 ] as const satisfies readonly WidgetDataQuerySource[];
 
+/**
+ * RC-WID-5.7 — the reads the GM board's tools and the legacy Command Center bodies made privately,
+ * now public. Each resolves through an actor-scoped core read: `widget-timer`, `bound-map` and
+ * `bound-character` describe only the placed widget (its own timer, the map or character it is bound
+ * to); `command-center` and `player-view-controller` are DM material the core already refuses
+ * anyone else. Not offered to the model, like the hub sources.
+ */
+export const ALL_WIDGET_BOARD_QUERY_SOURCES = [
+	'widget-timer',
+	'session-audio',
+	'bound-map',
+	'bound-character',
+	'session-status',
+	'onboarding',
+	'command-center',
+	'map-projection',
+	'player-view-controller',
+	'encounters',
+	'saved-searches',
+] as const satisfies readonly WidgetDataQuerySource[];
+
 /** Every source a definition may declare: the persisted schema's enum and the builder's catalogue. */
 export const WIDGET_DATA_QUERY_SOURCES = [
 	...ALL_WIDGET_DATA_QUERY_SOURCES,
 	...ALL_WIDGET_HUB_QUERY_SOURCES,
+	...ALL_WIDGET_BOARD_QUERY_SOURCES,
 ] as const satisfies readonly WidgetDataQuerySource[];
 
 export const EMPTY_WIDGET_PACKAGE_STATE: WidgetPackageState = Object.freeze({
@@ -1176,11 +1333,28 @@ export const HOME_WIDGET_TYPES = [
 export type HomeWidgetType = (typeof HOME_WIDGET_TYPES)[number];
 
 /**
+ * RC-WID-5.7 — the GM board's tools, in the fresh board's order (`DEFAULT_COMMAND_CENTER_TOOLS`).
+ * Each is a template definition: what it draws comes from a board template kind, its declared query
+ * and its declared commands, so a fork draws and works like the original.
+ */
+export const BOARD_TOOL_WIDGET_TYPES = [
+	'map',
+	'initiative-tracker',
+	'dice',
+	'timer',
+	'audio',
+	'quick-reference',
+	'prep',
+] as const;
+export type BoardToolWidgetType = (typeof BOARD_TOOL_WIDGET_TYPES)[number];
+
+/**
  * The system widgets a GM may copy into the widget builder (`widget.package.fork`, "Edit widget").
  * Other system widgets stay locked because the app draws most of them with a hand-written body keyed
- * by their type, which a copy under a new type would lose. The Command Center's parts have no such
- * body: everything they draw comes from their template, declared queries, intents and settings, all
- * of which a fork copies, so the copy looks and works the same.
+ * by their type, which a copy under a new type would lose. The Command Center's parts and the GM
+ * board's tools (RC-WID-5.7) have no such body: everything they draw comes from their template,
+ * declared queries, commands, intents and settings, all of which a fork copies, so the copy looks and
+ * works the same.
  */
 export function isCopyableSystemWidget(
 	widget: Pick<WidgetDefinition, 'type' | 'author' | 'renderEntrypoint'>,
@@ -1188,9 +1362,17 @@ export function isCopyableSystemWidget(
 	return (
 		widget.author === 'system' &&
 		widget.renderEntrypoint?.runtime === 'template' &&
-		(HOME_WIDGET_TYPES as readonly string[]).includes(widget.type)
+		((COPYABLE_SYSTEM_TEMPLATE_TYPES as readonly string[]).includes(widget.type) ||
+			(BOARD_TOOL_WIDGET_TYPES as readonly string[]).includes(widget.type))
 	);
 }
+
+/**
+ * The system widgets that draw only through their template, so a GM can copy one into the builder:
+ * the Command Center's parts and (RC-SES-7.3) the Session screen's "What players see" list. The GM
+ * board's tools (BOARD_TOOL_WIDGET_TYPES) are copyable too.
+ */
+const COPYABLE_SYSTEM_TEMPLATE_TYPES = [...HOME_WIDGET_TYPES, 'player-views'] as const;
 
 /** Placeable on any screen, but not offered in the add gallery: the home screen places them. */
 const HOME_PLACEMENT: WidgetPlacement = { surfaces: ['scene'], libraryListed: false };
@@ -1217,7 +1399,7 @@ function textDefaultField(key: string, label: string, value: string): WidgetConf
 }
 
 function homePart(input: {
-	type: HomeWidgetType;
+	type: (typeof COPYABLE_SYSTEM_TEMPLATE_TYPES)[number];
 	displayName: string;
 	icon: string;
 	description: string;
@@ -1228,22 +1410,39 @@ function homePart(input: {
 	intents: WidgetIntentDescriptor[];
 }): WidgetDefinition {
 	const configFields = [titleField(), barePresentationField(), ...input.configFields];
-	const style = defaultWidgetStyle();
 	return {
-		...systemWidget({
-			type: input.type,
-			displayName: input.displayName,
-			category: 'Command Center',
-			description: input.description,
-			icon: input.icon,
-			defaultSize: input.size,
-			minSize: { width: 240, height: 96 },
-			placement: HOME_PLACEMENT,
-			renderEntrypoint: templateEntrypoint(input.template),
-			configFields,
-			dataQueries: input.dataQueries ?? [],
-		}),
-		// Match the builder's first save, without rewriting any persisted board or instance.
+		...asBuilderSaves(
+			systemWidget({
+				type: input.type,
+				displayName: input.displayName,
+				category: 'Command Center',
+				description: input.description,
+				icon: input.icon,
+				defaultSize: input.size,
+				minSize: { width: 240, height: 96 },
+				placement: HOME_PLACEMENT,
+				renderEntrypoint: templateEntrypoint(input.template),
+				configFields,
+				dataQueries: input.dataQueries ?? [],
+			}),
+		),
+		intents: input.intents,
+	};
+}
+
+/**
+ * A system template definition in the shape the widget builder's first save writes, so a GM's copy
+ * exports the same bytes before and after one trip through the builder (RC-WID-5.6): empty computed
+ * fields and queries are explicit, the style tokens are also declared as CSS variables, every config
+ * field is a typed configuration-schema property and no events are declared. Only the definition
+ * changes; no persisted board or instance is rewritten.
+ */
+function asBuilderSaves(definition: WidgetDefinition): WidgetDefinition {
+	const style = definition.style ?? defaultWidgetStyle();
+	const configFields = definition.configFields ?? [];
+	return {
+		...definition,
+		dataQueries: definition.dataQueries ?? [],
 		computedFields: [],
 		style: {
 			...style,
@@ -1268,7 +1467,7 @@ function homePart(input: {
 			),
 			additionalProperties: true,
 		},
-		intents: input.intents,
+		events: [],
 	};
 }
 
@@ -1562,7 +1761,9 @@ export function createSystemWidgetPackages(now = '2026-06-03T00:00:00.000Z'): Wi
 		properties: { expression: { type: 'string' } },
 		additionalProperties: true,
 	};
-	const timerWidget: WidgetDefinition = {
+	// RC-WID-5.7 — the seven GM board tools are copyable template definitions (`asBuilderSaves`): a
+	// board template kind draws each from its declared query and runs only its declared commands.
+	const timerWidget: WidgetDefinition = asBuilderSaves({
 		...systemWidget({
 			type: 'timer',
 			displayName: 'Timer',
@@ -1571,10 +1772,11 @@ export function createSystemWidgetPackages(now = '2026-06-03T00:00:00.000Z'): Wi
 			icon: 'recent',
 			defaultSize: { width: 220, height: 150 },
 			minSize: { width: 160, height: 110 },
-			renderEntrypoint: templateEntrypoint('tracker'),
+			renderEntrypoint: templateEntrypoint('countdown'),
 			configFields: [
 				numberField('durationSeconds', 'Default duration (seconds)', 60, { min: 1, step: 1 }),
 			],
+			dataQueries: [dataQuery('timer', 'This timer', 'widget-timer')],
 		}),
 		commands: [
 			{
@@ -1622,9 +1824,8 @@ export function createSystemWidgetPackages(now = '2026-06-03T00:00:00.000Z'): Wi
 				writesTo: 'scene',
 			},
 		],
-		events: [{ type: 'timer.started', category: 'session.changed' }],
-	};
-	const diceWidget: WidgetDefinition = {
+	});
+	const diceWidget: WidgetDefinition = asBuilderSaves({
 		...systemWidget({
 			type: 'dice',
 			displayName: 'Dice',
@@ -1633,7 +1834,7 @@ export function createSystemWidgetPackages(now = '2026-06-03T00:00:00.000Z'): Wi
 			icon: 'dice',
 			defaultSize: { width: 220, height: 160 },
 			minSize: { width: 160, height: 120 },
-			renderEntrypoint: templateEntrypoint('action-panel'),
+			renderEntrypoint: templateEntrypoint('dice-roller'),
 			configFields: [
 				textField('formulas', 'Quick-roll formulas (comma separated)'),
 				// RC-CAN-7.8 — the Session screen's dice tray (expression, label, history); the quick
@@ -1649,6 +1850,8 @@ export function createSystemWidgetPackages(now = '2026-06-03T00:00:00.000Z'): Wi
 					'display',
 				),
 			],
+			// The quick rolls' last result and the tray's history: the rolls this viewer may see.
+			dataQueries: [dataQuery('rolls', 'Session rolls', 'dice-history')],
 		}),
 		commands: [
 			{
@@ -1659,7 +1862,69 @@ export function createSystemWidgetPackages(now = '2026-06-03T00:00:00.000Z'): Wi
 				writesTo: 'session',
 			},
 		],
-	};
+	});
+	const board = (type: string, displayName?: string): WidgetCommandDescriptor => ({
+		...BOARD_COMMAND_DESCRIPTORS[type]!,
+		...(displayName ? { displayName } : {}),
+	});
+	const mapWidget: WidgetDefinition = asBuilderSaves({
+		...systemWidget({
+			type: 'map',
+			displayName: 'Map',
+			category: 'Maps',
+			description: 'A bound map with its visible layers.',
+			icon: 'atlas-map',
+			defaultSize: { width: 360, height: 280 },
+			minSize: { width: 200, height: 160 },
+			renderEntrypoint: templateEntrypoint('map-view'),
+			requiredBindings: [readBinding('map', 'Map', 'map')],
+			dataQueries: [dataQuery('map', 'Bound map', 'bound-map')],
+			// RC-CAN-4.5 — the map tile draws the real, pannable map, so it needs the three knobs a
+			// canvas tile has that a full-screen editor does not: how close it starts, whether the
+			// running fight is drawn on it, and whether the view chases the party as they move.
+			configFields: [
+				numberField('initialZoom', 'Initial zoom', 1, { min: 1, max: 4, step: 0.25 }, 'display'),
+				toggleField('combatOverlay', 'Combat overlay', true),
+				toggleField('followParty', 'Follow the party', false),
+			],
+		}),
+		// Choosing another map and turning the overlay off reconfigure this widget; staging the map and
+		// projecting it are the session's. All three are the DM's (a manager on the widget, and the
+		// core's own DM check on the session commands).
+		commands: [
+			board('scene.configure-widget', 'Change map or overlay'),
+			board('session.set-active-map'),
+			board('session.project-active-map'),
+		],
+		intents: [
+			{
+				id: 'open-map',
+				displayName: 'Open in map editor',
+				kind: 'open-entity',
+				entityKind: 'map',
+			},
+		],
+	});
+	const initiativeWidget: WidgetDefinition = asBuilderSaves({
+		...systemWidget({
+			type: 'initiative-tracker',
+			displayName: 'Initiative Tracker',
+			category: 'Combat',
+			description: 'The live turn order with round and active turn.',
+			icon: 'sword',
+			defaultSize: { width: 280, height: 220 },
+			minSize: { width: 200, height: 150 },
+			renderEntrypoint: templateEntrypoint('initiative'),
+			// Shared: the tracker read itself redacts what a player may not see.
+			dataQueries: [dataQuery('combatants', 'Current combatants', 'current-combatants')],
+			configFields: [toggleField('showHp', 'HP column', true)],
+		}),
+		commands: [
+			board('combat.advance-turn'),
+			board('combat.apply-resource'),
+			board('combat.set-combatant-visibility'),
+		],
+	});
 	const sceneWidgets: WidgetDefinition[] = [
 		// `note` stays binding-free: a note widget may render an ad-hoc/quick note,
 		// and only binds a stored note on demand.
@@ -1690,26 +1955,7 @@ export function createSystemWidgetPackages(now = '2026-06-03T00:00:00.000Z'): Wi
 				),
 			],
 		}),
-		systemWidget({
-			type: 'map',
-			displayName: 'Map',
-			category: 'Maps',
-			description: 'A bound map with its visible layers.',
-			icon: 'atlas-map',
-			defaultSize: { width: 360, height: 280 },
-			minSize: { width: 200, height: 160 },
-			renderEntrypoint: builtinEntrypoint('map'),
-			requiredBindings: [readBinding('map', 'Map', 'map')],
-			dataQueries: [dataQuery('map', 'Bound map', 'binding')],
-			// RC-CAN-4.5 — the map tile draws the real, pannable map, so it needs the three knobs a
-			// canvas tile has that a full-screen editor does not: how close it starts, whether the
-			// running fight is drawn on it, and whether the view chases the party as they move.
-			configFields: [
-				numberField('initialZoom', 'Initial zoom', 1, { min: 1, max: 4, step: 0.25 }, 'display'),
-				toggleField('combatOverlay', 'Combat overlay', true),
-				toggleField('followParty', 'Follow the party', false),
-			],
-		}),
+		mapWidget,
 		systemWidget({
 			type: 'character',
 			displayName: 'Character',
@@ -1724,29 +1970,32 @@ export function createSystemWidgetPackages(now = '2026-06-03T00:00:00.000Z'): Wi
 			configFields: [toggleField('showAbilities', 'Ability scores', true)],
 		}),
 		diceWidget,
-		systemWidget({
-			type: 'initiative-tracker',
-			displayName: 'Initiative Tracker',
-			category: 'Combat',
-			description: 'The live turn order with round and active turn.',
-			icon: 'sword',
-			defaultSize: { width: 280, height: 220 },
-			minSize: { width: 200, height: 150 },
-			renderEntrypoint: templateEntrypoint('status-list'),
-			dataQueries: [dataQuery('combatants', 'Current combatants', 'current-combatants', 'dm')],
-			configFields: [toggleField('showHp', 'HP column', true)],
-		}),
+		initiativeWidget,
 		timerWidget,
-		systemWidget({
-			type: 'audio',
-			displayName: 'Audio',
-			category: 'Atmosphere',
-			description: 'Ambient audio playback controls.',
-			icon: 'audio',
-			defaultSize: { width: 240, height: 150 },
-			minSize: { width: 180, height: 120 },
-			renderEntrypoint: builtinEntrypoint('audio'),
-			configFields: [toggleField('loop', 'Loop playback', true)],
+		asBuilderSaves({
+			...systemWidget({
+				type: 'audio',
+				displayName: 'Audio',
+				category: 'Atmosphere',
+				description: 'Ambient audio playback controls.',
+				icon: 'audio',
+				defaultSize: { width: 240, height: 150 },
+				minSize: { width: 180, height: 120 },
+				renderEntrypoint: templateEntrypoint('now-playing'),
+				configFields: [toggleField('loop', 'Loop playback', true)],
+				// Shared: a player's read is the player-safe track, without titles or the ambience mix.
+				dataQueries: [dataQuery('audio', 'What is playing', 'session-audio')],
+			}),
+			// RC-CAN-8.7 — the atmosphere widget links to the scene cards; the host refuses it to a player.
+			intents: [
+				{
+					id: 'scene-cards',
+					displayName: i18n('sceneCards.title'),
+					kind: 'open-route',
+					route: '/scene-cards',
+					icon: 'scene',
+				},
+			],
 		}),
 		// SES-004 — a handout is delivered as a Scene widget. It references the handout BY ID through
 		// its configuration (never a content clone — Contract 4 embed/projection). Binding-free; the
@@ -1762,30 +2011,35 @@ export function createSystemWidgetPackages(now = '2026-06-03T00:00:00.000Z'): Wi
 			renderEntrypoint: templateEntrypoint('scene-message'),
 			configFields: [textField('heading', 'Heading'), textareaField('body', 'Body')],
 		}),
-		systemWidget({
-			type: 'quick-reference',
-			displayName: 'Quick Reference',
-			category: 'Reference',
-			description: 'A compact table of reference content.',
-			icon: 'book',
-			defaultSize: { width: 280, height: 220 },
-			minSize: { width: 180, height: 140 },
-			renderEntrypoint: templateEntrypoint('data-table'),
-			dataQueries: [dataQuery('content', 'Reference content', 'content-objects', 'dm')],
-			configFields: [numberField('count', 'Rows shown', 8, { min: 1, max: 50, step: 1 })],
-		}),
-		systemWidget({
-			type: 'prep',
-			displayName: 'Prep',
-			category: 'Reference',
-			description: 'A checklist of prep notes for the session.',
-			icon: 'folder',
-			defaultSize: { width: 260, height: 200 },
-			minSize: { width: 180, height: 140 },
-			renderEntrypoint: templateEntrypoint('status-list'),
-			dataQueries: [dataQuery('notes', 'Prep notes', 'notes', 'dm')],
-			configFields: [numberField('count', 'Items shown', 5, { min: 1, max: 30, step: 1 })],
-		}),
+		// Both lists are shared: the content read already leaves out what a viewer may not see.
+		asBuilderSaves(
+			systemWidget({
+				type: 'quick-reference',
+				displayName: 'Quick Reference',
+				category: 'Reference',
+				description: 'A compact table of reference content.',
+				icon: 'book',
+				defaultSize: { width: 280, height: 220 },
+				minSize: { width: 180, height: 140 },
+				renderEntrypoint: templateEntrypoint('item-list'),
+				dataQueries: [dataQuery('content', 'Reference content', 'content-objects')],
+				configFields: [numberField('count', 'Rows shown', 8, { min: 1, max: 50, step: 1 })],
+			}),
+		),
+		asBuilderSaves(
+			systemWidget({
+				type: 'prep',
+				displayName: 'Prep',
+				category: 'Reference',
+				description: 'A checklist of prep notes for the session.',
+				icon: 'folder',
+				defaultSize: { width: 260, height: 200 },
+				minSize: { width: 180, height: 140 },
+				renderEntrypoint: templateEntrypoint('item-list'),
+				dataQueries: [dataQuery('notes', 'Prep notes', 'notes')],
+				configFields: [numberField('count', 'Items shown', 5, { min: 1, max: 30, step: 1 })],
+			}),
+		),
 	];
 	const commandCenterWidgets: WidgetDefinition[] = [
 		commandCenterWidget({
@@ -1879,12 +2133,26 @@ export function createSystemWidgetPackages(now = '2026-06-03T00:00:00.000Z'): Wi
 			configFields: [toggleField('showVitals', 'HP / AC vitals', true)],
 			dataQueries: [dataQuery('party', 'Party', 'visible-characters', 'dm')],
 		}),
-		commandCenterWidget({
+		// RC-SES-7.3 — "What players see": one row per participant from the public `player-projections`
+		// source, each row a Preview intent. A template part like the Command Center's, so the GM's
+		// copy in the builder is this widget exactly (§0.3 rule 12).
+		homePart({
 			type: 'player-views',
 			displayName: 'Player Views',
 			icon: 'preview',
-			description: 'Per-participant Player View assignment + projection.',
+			description: 'What each participant sees, with a preview of their companion.',
+			template: 'link-list',
 			size: { width: 400, height: 300 },
+			configFields: [textDefaultField('heading', 'Heading', i18n('session.playerSummary.title'))],
+			dataQueries: [dataQuery('participants', 'Participants', 'player-projections')],
+			intents: [
+				{
+					id: 'preview',
+					displayName: i18n('session.playerSummary.preview'),
+					kind: 'preview-participant',
+					icon: 'preview',
+				},
+			],
 		}),
 		commandCenterWidget({
 			type: 'combat',

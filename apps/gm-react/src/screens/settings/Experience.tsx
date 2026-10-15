@@ -1,4 +1,5 @@
-import { useSyncExternalStore, type ReactNode } from 'react';
+import { ImportSettingsSection } from '../../app/importHub/settingsImportSection';
+import { useContext, useSyncExternalStore, type ReactNode } from 'react';
 import {
 	isFeatureVisible,
 	resolveMaturitySignals,
@@ -320,8 +321,9 @@ export function AdvancedStepGate({ tier }: { tier: FeatureTier }) {
 /** Render nothing below the declared tier; children (including dialogs) are unmounted. */
 export function SettingsSection({ gateKey, children }: { gateKey: string; children: ReactNode }) {
 	const tier = useSettingsTier();
+	const explicitImport = useContext(ImportSettingsSection);
 	const gate = SETTINGS_FEATURE_GATES.find((entry) => entry.id === gateKey);
-	if (!gate || !settingsGateVisible(gateKey, tier)) return null;
+	if (!gate || (explicitImport !== gateKey && !settingsGateVisible(gateKey, tier))) return null;
 	return (
 		<div id={gate.sectionAnchor} data-settings-section={gate.id}>
 			{children}

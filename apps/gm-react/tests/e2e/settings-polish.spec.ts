@@ -168,9 +168,14 @@ test('Knowledge sources: a folder connects, exports, and disconnects by name', a
 	await stubFolderPicker(page);
 	await gotoRoute(page, '/settings?tab=vault');
 	await expect(page.getByText('No sources connected')).toBeVisible();
-	// The empty state's action opens Knowledge; its copy names Sources as the next step there.
-	await expect(page.getByText(/Connect a Markdown folder in Knowledge → Sources/)).toBeVisible();
-	await page.getByRole('button', { name: 'Open Knowledge', exact: true }).click();
+	// Imports now start at the shared hub; ongoing source connections remain in Knowledge.
+	await expect(
+		page.getByText(/Use the Import hub to bring in a Markdown folder or ZIP/),
+	).toBeVisible();
+	await page.getByRole('button', { name: 'Import hub', exact: true }).first().click();
+	await expect(page.getByRole('dialog', { name: 'Bring your existing material' })).toBeVisible();
+	await page.keyboard.press('Escape');
+	await page.getByRole('button', { name: 'Manage in Knowledge', exact: true }).click();
 	await expect(page).toHaveURL(/#\/knowledge/);
 	await page.getByRole('button', { name: 'Sources', exact: true }).click();
 	const sources = page.locator('section').filter({

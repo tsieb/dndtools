@@ -65,7 +65,8 @@ test('create from a template, rename, pin, and switch by library, header switche
 	await markOnboarded(page);
 	await gotoRoute(page, '/screens');
 	const library = page.getByTestId('screens-library');
-	await expect(library.getByRole('heading', { level: 2, name: 'Screens' })).toBeVisible();
+	// RC-CAN-8.7 — the top bar titles the page; the library's own headings are its sections.
+	await expect(library.getByRole('heading', { level: 2, name: 'DM screens' })).toBeVisible();
 	// The GM screen is listed under its own name and its visibility is named honestly.
 	const homeId = await homeSceneId(page);
 	const homeCard = page.getByTestId(`screen-card-${homeId}`);

@@ -54,7 +54,7 @@ for (const theme of THEMES) {
 		await stage(page, theme);
 		await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
 		await page.waitForFunction(() => window.__rt?.loaded === true, null, { timeout: 20_000 });
-		const frames = page.getByTestId('scene-board-bounded').locator('[data-testid^="widget-"]');
+		const frames = page.locator('#main-content [data-testid^="widget-"]');
 		await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
 		await expect(frames.first()).toBeVisible();
 		await page.getByRole('button', { name: 'Add', exact: true }).click();

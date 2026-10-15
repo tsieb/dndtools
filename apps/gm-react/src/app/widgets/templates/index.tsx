@@ -6,6 +6,7 @@ import type { BoardWidget } from '../../board-helpers';
 import type { WidgetCommandHandler } from '../../widget-bodies';
 import { resolveWidgetTemplateData } from '../dataEnvironment';
 import { ActionPanelTemplate } from './ActionPanel';
+import { BOARD_TEMPLATES } from './board';
 import { ChartTemplate } from './Chart';
 import { DataTableTemplate } from './DataTable';
 import { FormPanelTemplate } from './FormPanel';
@@ -74,6 +75,8 @@ export const TEMPLATE_RENDERER_ENTRIES: ReadonlyArray<
 	['chart', connect(ChartTemplate, 'ChartWidget')],
 	['stat-block', connect(StatBlockTemplate, 'StatBlockWidget')],
 	['form-panel', connect(FormPanelTemplate, 'FormPanelWidget')],
+	// RC-WID-5.7 — the GM board's tools.
+	...BOARD_TEMPLATES.map(([kind, Template, name]) => [kind, connect(Template, name)] as const),
 ];
 
 export type { WidgetTemplateProps };

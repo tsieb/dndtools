@@ -97,6 +97,25 @@ for (const [width, height] of [
 		// fourth faction, so its content no longer fits the default tile. It overflows the designed
 		// way (asserted below) instead of being one of the tiles that must render whole.
 		const whole = ['2. Initiative Tracker', '3. Dice', '4. Timer', '5. Audio'];
+		// RC-CAN-8.6: Fit's 12px painted text floor can require more room on the rail.
+		// Such bodies must remain keyboard-scrollable and Grow must reveal all their content.
+		const scrollOnly = new Set<string>();
+		if (width === 834) {
+			const reach = await clippedTiles(page);
+			for (const name of whole.filter((name) => reach[name] > 1)) {
+				const region = page.getByRole('region', { name });
+				await expect(region).toHaveAttribute('tabindex', '0');
+				await region.focus();
+				await page.keyboard.press('End');
+				await expect.poll(() => region.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+				const tile = region.locator('xpath=ancestor::*[starts-with(@data-testid,"widget-")][1]');
+				const grow = tile.getByRole('button', { name: /^Grow .* to fit content$/ });
+				if (await grow.isVisible()) {
+					await grow.click();
+					await expect(tile.getByRole('button', { name: 'Restore tile size' })).toBeVisible();
+				} else scrollOnly.add(name);
+			}
+		}
 		await expect
 			.poll(async () => {
 				const reach = await clippedTiles(page);
@@ -105,8 +124,9 @@ for (const [width, height] of [
 			.toEqual([]);
 		for (const name of ['2. Initiative Tracker', '4. Timer']) {
 			const region = page.getByRole('region', { name });
-			// Nothing to scroll: no tab stop, no footer.
-			await expect(region).not.toHaveAttribute('tabindex');
+			// A rail body reached by scrolling keeps its tab stop; whole bodies add none.
+			if (scrollOnly.has(name)) await expect(region).toHaveAttribute('tabindex', '0');
+			else await expect(region).not.toHaveAttribute('tabindex');
 			await expect(region.locator('xpath=..')).not.toContainText(/more line|More below|Grow/);
 		}
 		// The tile that no longer fits says so and offers Grow, rather than clipping silently.

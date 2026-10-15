@@ -1,6 +1,6 @@
 import type { PermissionState } from '../state/permission-state';
 import type { VaultContentState } from '../state/content';
-import { parseMarkdownNote } from '../state/markdown';
+import { parseNoteCached } from './parsed-note-cache';
 import {
 	buildQualityNode,
 	computeGraphQuality,
@@ -76,12 +76,13 @@ function buildQualityNodesForActor(
 	return getContentItemsForActor(content, permissions, actorId)
 		.filter((view) => view.kind === 'note')
 		.map((view) => {
-			const parsed = parseMarkdownNote(view.body);
+			const parsed = parseNoteCached(view.body);
 			return buildQualityNode({
 				id: view.id,
 				title: view.title,
 				aliases: parsed.aliases,
 				body: parsed.body,
+				wikilinks: parsed.wikilinks,
 			});
 		});
 }
@@ -141,13 +142,14 @@ export function getGraphClustersForActor(
 	const nodes: ClusterInputNode[] = getContentItemsForActor(content, permissions, actorId)
 		.filter((view) => view.kind === 'note')
 		.map((view) => {
-			const parsed = parseMarkdownNote(view.body);
+			const parsed = parseNoteCached(view.body);
 			return {
 				...buildQualityNode({
 					id: view.id,
 					title: view.title,
 					aliases: parsed.aliases,
 					body: parsed.body,
+					wikilinks: parsed.wikilinks,
 				}),
 				updatedAt: view.updatedAt,
 			};

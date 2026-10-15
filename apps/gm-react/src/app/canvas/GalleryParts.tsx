@@ -2,7 +2,7 @@ import type React from 'react';
 import { useId, type CSSProperties, type ReactNode } from 'react';
 import { Icon } from '../../ds';
 import { useI18n } from '../../i18n';
-import { GenerateGateNote, useGenerateGate } from '../widgetBuilder/GenerateDialog';
+import { GenerateGateNote, useGenerateGate } from '../widgetBuilder/generateGate';
 
 // RC-POL-1.2 — the Add panel's empty-board header and its "More ways to add" group, out of
 // `AddWidgetGallery.tsx`.

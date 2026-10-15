@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { isValidFormula } from '../state/system-package';
 import {
 	ALL_HOST_PERMISSIONS,
-	ALL_WIDGET_TEMPLATE_KINDS,
 	WIDGET_COMMAND_EXECUTORS,
 	WIDGET_DATA_QUERY_SOURCES,
 	WIDGET_INTENT_CREATE_TARGETS,
@@ -15,6 +14,7 @@ import {
 	WIDGET_QUERY_SORTS,
 	WIDGET_QUERY_STATUSES,
 	WIDGET_QUERY_TAG_MAX_LENGTH,
+	WIDGET_TEMPLATE_KINDS,
 	widgetFormulaIdentifiers,
 	widgetQueryOptionIssues,
 	type WidgetIntentCreateTarget,
@@ -77,7 +77,7 @@ const widgetCommandDescriptorSchema = z
 	})
 	.strict();
 
-// RC-WID-5.1 — an intent is one of five closed shapes. Each variant is strict, so a descriptor has
+// RC-WID-5.1 — an intent is one of six closed shapes. Each variant is strict, so a descriptor has
 // no field a URL could hide in, and every target outside an id is an enum.
 const widgetIntentBase = {
 	id: idSchema,
@@ -123,6 +123,14 @@ const widgetIntentDescriptorSchema = z.discriminatedUnion('kind', [
 			tab: z.enum(WIDGET_INTENT_SETTINGS_TABS),
 		})
 		.strict(),
+	// RC-SES-7.3 — preview the companion as one participant: an actor id, never a path.
+	z
+		.object({
+			...widgetIntentBase,
+			kind: z.literal('preview-participant'),
+			targetId: idSchema.optional(),
+		})
+		.strict(),
 ]);
 
 const widgetEventDescriptorSchema = z
@@ -136,7 +144,8 @@ const widgetRenderEntrypointSchema = z
 	.object({
 		runtime: z.enum(['template', 'builtin', 'custom-html-js']),
 		sandbox: z.enum(['iframe', 'worker']).optional(),
-		template: z.enum(ALL_WIDGET_TEMPLATE_KINDS).optional(),
+		// RC-WID-5.7 — every kind, the GM board's tools included.
+		template: z.enum(WIDGET_TEMPLATE_KINDS).optional(),
 		assetPath: z.string().min(1).optional(),
 		exportName: z.string().min(1).optional(),
 		hostApiVersion: z.number().int().positive(),

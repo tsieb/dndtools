@@ -138,13 +138,13 @@ export function FlowTile({
 			// tiles, and "3 of 9" is layout telemetry nobody reading it asked for.
 			aria-label={
 				editing
-					? t('boardCanvas.flow.name', {
+					? t('boardCanvas.flow.tileAt', {
 							title: w.title,
 							type: w.typeLabel,
 							index: placement.index + 1,
 							count,
 						})
-					: t('boardCanvas.frame.name', { title: w.title, type: w.typeLabel })
+					: t('boardCanvas.flow.tile', { title: w.title, type: w.typeLabel })
 			}
 			tabIndex={tabbable ? 0 : -1}
 			onKeyDown={onKeyDown}
@@ -230,6 +230,7 @@ export function FlowTile({
 					font: `var(--text-2xs) ${T.sans}`,
 					letterSpacing: 'var(--tracking-wide)',
 					textTransform: 'uppercase',
+					// Tertiary only on the raised tile; a placeholder's sunken fill needs secondary.
 					color: placeholder ? T.sub : T.ter,
 					flex: '0 0 auto',
 				}}

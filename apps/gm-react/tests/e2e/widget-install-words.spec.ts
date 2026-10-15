@@ -38,7 +38,9 @@ const gallery = (page: Page) => page.getByTestId('add-widget-gallery');
 async function openAdd(page: Page): Promise<void> {
 	await gotoRoute(page, '/board');
 	await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
-	await expect(page.getByTestId('scene-board-bounded')).toBeVisible();
+	await expect(
+		page.locator('[data-testid="scene-board-bounded"], [data-testid="stacked-board"]'),
+	).toBeVisible();
 	await page.getByRole('button', { name: 'Add', exact: true }).click();
 	await expect(gallery(page)).toBeVisible();
 }

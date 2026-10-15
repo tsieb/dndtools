@@ -2048,6 +2048,36 @@ export interface MaturitySignalStatus {
 /** Count one usage metric directly over durable state. Pure, deterministic, no query-layer
  * dependency (onboarding stays Core-only): counts skip soft-deleted content items (CONTENT-001). */
 function countMaturityMetric(state: CoreStateSlice, metric: MaturitySignalMetric): number {
+	switch (metric) {
+		case 'notes':
+		case 'objects':
+		case 'links':
+		case 'tags': {
+			// RC-ENG-3.2 — the nav asks on every render; a command that leaves the items alone keeps
+			// the same object, so the parse of every note body runs once per content change.
+			let counts = contentMetricCache.get(state.content.items);
+			if (!counts) {
+				counts = {};
+				contentMetricCache.set(state.content.items, counts);
+			}
+			return (counts[metric] ??= countContentMetric(state, metric));
+		}
+		case 'sessions':
+			return Object.keys(state.session.archives).length;
+		case 'maps':
+			return Object.keys(state.maps.maps).length;
+	}
+}
+
+const contentMetricCache = new WeakMap<
+	CoreStateSlice['content']['items'],
+	Partial<Record<MaturitySignalMetric, number>>
+>();
+
+function countContentMetric(
+	state: CoreStateSlice,
+	metric: 'notes' | 'objects' | 'links' | 'tags',
+): number {
 	const liveItems = Object.values(state.content.items).filter((item) => item.deletedAt === null);
 	switch (metric) {
 		case 'notes':
@@ -2066,10 +2096,6 @@ function countMaturityMetric(state: CoreStateSlice, metric: MaturitySignalMetric
 			}
 			return seen.size;
 		}
-		case 'sessions':
-			return Object.keys(state.session.archives).length;
-		case 'maps':
-			return Object.keys(state.maps.maps).length;
 	}
 }
 

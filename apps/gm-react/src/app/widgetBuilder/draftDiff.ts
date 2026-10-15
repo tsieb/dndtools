@@ -45,6 +45,8 @@ function printIntent(intent: WidgetDraft['intents'][number]): string {
 			return `${intent.displayName} → new ${intent.target}`;
 		case 'open-settings':
 			return `${intent.displayName} → settings ${intent.tab}`;
+		case 'preview-participant':
+			return `${intent.displayName} → preview as ${intent.targetId ?? 'row'}`;
 	}
 }
 

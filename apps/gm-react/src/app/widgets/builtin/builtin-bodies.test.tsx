@@ -3,8 +3,10 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { preloadBuiltinBodies } from './index';
 import {
+	BOARD_TOOL_WIDGET_TYPES,
 	HOME_WIDGET_TYPES,
 	createSystemWidgetPackages,
 	dispatchCommand,
@@ -14,10 +16,19 @@ import {
 } from '@dndtools/core';
 import { DM_ACTOR, PLAYER_ACTOR, buildInitialState, makeEnvironment } from '@dndtools/core/testing';
 import type { BoardWidget } from '../../board-helpers';
+import type { WidgetCommandHandler } from '../../widget-body-kit';
 import { I18nProvider } from '../../../i18n';
+
+// RC-ENG-3.2 — the session and combat bodies load on first use; these tests render synchronously.
+beforeAll(() => preloadBuiltinBodies());
 
 /**
  * RC-WID-4.1 — EVERY system widget type draws a real body.
+ *
+ * RC-WID-5.7 — the GM board's seven tools draw through their board template kinds now, not a
+ * builtin body, so `draw` below renders a type the way the render slot does: its builtin body when it
+ * has one, else its definition's registered template. The snapshots did not change: the tools read
+ * the same as they did as bodies.
  *
  * The list of types is read out of `createSystemWidgetPackages()` rather than typed here, so adding
  * a system widget to the core without giving it a body fails this file instead of shipping a
@@ -33,12 +44,22 @@ const dispatchSpy = vi.fn(async () => ({ status: 'accepted' as const }));
 const runtimeRef: {
 	state: CoreStateSlice;
 	defaultActorId: string;
+	activeActorId: string;
 	dispatch: typeof dispatchSpy;
+	newId: () => string;
 } = {
 	state: buildInitialState(DM_ACTOR, PLAYER_ACTOR),
 	defaultActorId: DM_ACTOR.id,
+	activeActorId: DM_ACTOR.id,
 	dispatch: dispatchSpy,
+	newId: () => 'press-id',
 };
+
+/** One viewing actor, for both the bodies (`defaultActorId`) and the templates (`activeActorId`). */
+function viewAs(actorId: string): void {
+	runtimeRef.defaultActorId = actorId;
+	runtimeRef.activeActorId = actorId;
+}
 
 vi.mock('../../../runtime/RuntimeContext', () => ({
 	useRuntime: () => runtimeRef,
@@ -54,6 +75,18 @@ vi.mock('../../../platform/assetUrl', () => ({
 
 // Imported after the mocks so the bodies pick them up.
 const { WidgetBody, BUILTIN_WIDGET_TYPES, hasBuiltinBody } = await import('./index');
+const { TEMPLATE_RENDERER_ENTRIES } = await import('../templates');
+const TEMPLATES = new Map(TEMPLATE_RENDERER_ENTRIES);
+
+/** Draw a widget the way the render slot does: its builtin body, else its registered template. */
+function Draw({ widget, onCommand }: { widget: BoardWidget; onCommand?: WidgetCommandHandler }) {
+	if (hasBuiltinBody(widget.type)) return <WidgetBody widget={widget} onCommand={onCommand} />;
+	const definition = SYSTEM_DEFINITIONS.find((candidate) => candidate.type === widget.type);
+	const kind = definition?.renderEntrypoint?.template;
+	const Template = kind ? TEMPLATES.get(kind) : undefined;
+	if (!Template) throw new Error(`${widget.type} has neither a builtin body nor a template`);
+	return <Template widget={widget} onCommand={onCommand} />;
+}
 
 // React 18 wants this flag to treat `act()` as a real act scope outside a test renderer.
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -161,9 +194,10 @@ function campaign(): CoreStateSlice {
 }
 
 // RC-CAN-7.6 — the Command Center's parts are system widgets with NO builtin body: they render
-// through their hub templates, which is the point of them (a GM-built copy draws the same). The hub
-// templates carry their own tests (`templates/Hub.test.tsx`, `screens/CommandCenter.baseline.test.tsx`).
-const HOME_PARTS: ReadonlySet<string> = new Set(HOME_WIDGET_TYPES);
+// through their hub templates, which is the point of them (a GM-built copy draws the same). So does
+// RC-SES-7.3's `player-views`. The hub templates carry their own tests (`templates/Hub.test.tsx`,
+// `screens/CommandCenter.baseline.test.tsx`).
+const HOME_PARTS: ReadonlySet<string> = new Set([...HOME_WIDGET_TYPES, 'player-views']);
 const SYSTEM_DEFINITIONS: WidgetDefinition[] = Object.values(createSystemWidgetPackages().packages)
 	.flatMap((record) => record.package.widgets)
 	.filter((definition) => !HOME_PARTS.has(definition.type));
@@ -194,15 +228,19 @@ function boardWidget(definition: WidgetDefinition): BoardWidget {
 }
 
 /** Render one body against the campaign fixture and return the text the frame shows. */
-function renderBody(definition: WidgetDefinition, actorId: string = DM_ACTOR.id): string {
+function renderBody(
+	definition: WidgetDefinition,
+	actorId: string = DM_ACTOR.id,
+	onCommand?: WidgetCommandHandler,
+): string {
 	runtimeRef.state = campaign();
-	runtimeRef.defaultActorId = actorId;
+	viewAs(actorId);
 	act(() =>
 		root.render(
 			// Bodies render inside the app's router; the first-session guide's links navigate with state.
 			<MemoryRouter>
 				<I18nProvider>
-					<WidgetBody widget={boardWidget(definition)} />
+					<Draw widget={boardWidget(definition)} onCommand={onCommand} />
 				</I18nProvider>
 			</MemoryRouter>,
 		),
@@ -211,9 +249,21 @@ function renderBody(definition: WidgetDefinition, actorId: string = DM_ACTOR.id)
 }
 
 describe('every system widget type has a body', () => {
-	it('declares a builtin body for each shipped system widget type', () => {
-		const missing = SYSTEM_DEFINITIONS.map((d) => d.type).filter((type) => !hasBuiltinBody(type));
+	it('draws each shipped system widget type through a builtin body or a board template', () => {
+		const missing = SYSTEM_DEFINITIONS.filter(
+			(definition) =>
+				!hasBuiltinBody(definition.type) &&
+				!(
+					definition.renderEntrypoint?.runtime === 'template' &&
+					BOARD_TOOL_WIDGET_TYPES.includes(definition.type as never) &&
+					TEMPLATES.has(definition.renderEntrypoint.template!)
+				),
+		).map((definition) => definition.type);
 		expect(missing).toEqual([]);
+	});
+
+	it('draws none of the GM board tools by hand (RC-WID-5.7)', () => {
+		expect(BOARD_TOOL_WIDGET_TYPES.filter((type) => hasBuiltinBody(type))).toEqual([]);
 	});
 
 	it('claims no builtin type the system packages do not ship', () => {
@@ -246,10 +296,6 @@ describe('Command Center bodies stay actor-scoped', () => {
 		expect(renderBody(byType('session'), PLAYER_ACTOR.id)).not.toContain('1 player');
 	});
 
-	it('tells a player the player-view controls are DM only rather than showing an empty roster', () => {
-		expect(renderBody(byType('player-views'), PLAYER_ACTOR.id)).toContain('DM only');
-	});
-
 	it('shows a player no prepared encounter on the combat body', () => {
 		expect(renderBody(byType('combat'), DM_ACTOR.id)).toContain('Mill ambush');
 		expect(renderBody(byType('combat'), PLAYER_ACTOR.id)).not.toContain('Mill ambush');
@@ -268,17 +314,20 @@ describe('declared operate commands are visible controls on the tile', () => {
 		return found;
 	};
 
-	function renderOperable(definition: WidgetDefinition): {
+	function renderOperable(
+		definition: WidgetDefinition,
+		widget: BoardWidget = boardWidget(definition),
+	): {
 		onCommand: ReturnType<typeof vi.fn>;
 		buttons: HTMLButtonElement[];
 	} {
 		runtimeRef.state = campaign();
-		runtimeRef.defaultActorId = DM_ACTOR.id;
+		viewAs(DM_ACTOR.id);
 		const onCommand = vi.fn();
 		act(() =>
 			root.render(
 				<I18nProvider>
-					<WidgetBody widget={boardWidget(definition)} onCommand={onCommand} />
+					<Draw widget={widget} onCommand={onCommand} />
 				</I18nProvider>,
 			),
 		);
@@ -313,24 +362,39 @@ describe('declared operate commands are visible controls on the tile', () => {
 
 	it('advances the turn from the initiative tile through the same core command /session uses', async () => {
 		dispatchSpy.mockClear();
-		const { buttons } = renderOperable(byType('initiative-tracker'));
+		// The tile placed on the GM board: a widget command names the screen it sits on.
+		const state = campaign();
+		const board = state.scenes.scenes[state.commandCenter.homeSceneId!]!;
+		const placed = board.widgets.find((widget) => widget.type === 'initiative-tracker')!;
+		const definition = byType('initiative-tracker');
+		const { buttons } = renderOperable(definition, { ...boardWidget(definition), id: placed.id });
 		const next = buttons.find((b) => nameOf(b) === 'Next turn');
 		expect(next).toBeTruthy();
 		expect(next?.getAttribute('aria-disabled')).toBeNull();
 		await act(async () => next?.click());
+		// RC-WID-5.7 — as the tile's declared command, through `widget.dispatch-command`.
 		expect(dispatchSpy).toHaveBeenCalledWith(
-			expect.objectContaining({ type: 'combat.advance-turn', actorId: DM_ACTOR.id }),
+			expect.objectContaining({
+				type: 'widget.dispatch-command',
+				actorId: DM_ACTOR.id,
+				payload: expect.objectContaining({
+					sceneId: board.id,
+					widgetInstanceId: placed.id,
+					commandType: 'combat.advance-turn',
+					payload: {},
+				}),
+			}),
 		);
 	});
 
 	it('soft-disables the turn control with a reason while no combat is running', () => {
 		runtimeRef.state = buildInitialState(DM_ACTOR, PLAYER_ACTOR);
-		runtimeRef.defaultActorId = DM_ACTOR.id;
+		viewAs(DM_ACTOR.id);
 		dispatchSpy.mockClear();
 		act(() =>
 			root.render(
 				<I18nProvider>
-					<WidgetBody widget={boardWidget(byType('initiative-tracker'))} onCommand={vi.fn()} />
+					<Draw widget={boardWidget(byType('initiative-tracker'))} onCommand={vi.fn()} />
 				</I18nProvider>,
 			),
 		);
@@ -385,13 +449,13 @@ describe('the widget accessibility contract', () => {
 					payload: { kind: 'object', title: 'Lantern', body: '', visibility: 'player-visible' },
 				}),
 			);
-			runtimeRef.defaultActorId = DM_ACTOR.id;
+			viewAs(DM_ACTOR.id);
 			const draw = (state: CoreStateSlice) => {
 				runtimeRef.state = state;
 				act(() =>
 					root.render(
 						<I18nProvider>
-							<WidgetBody widget={boardWidget(byType(type))} />
+							<Draw widget={boardWidget(byType(type))} />
 						</I18nProvider>,
 					),
 				);
@@ -416,8 +480,11 @@ describe('the widget accessibility contract', () => {
 			try {
 				vi.setSystemTime(new Date('2026-09-20T12:00:00Z'));
 				runtimeRef.state = campaign();
-				runtimeRef.defaultActorId = DM_ACTOR.id;
-				const widget = boardWidget(byType('timer'));
+				viewAs(DM_ACTOR.id);
+				// The GM board's own timer: the `widget-timer` source reads only a placed instance.
+				const board = runtimeRef.state.scenes.scenes[runtimeRef.state.commandCenter.homeSceneId!]!;
+				const placedId = board.widgets.find((instance) => instance.type === 'timer')!.id;
+				const widget = { ...boardWidget(byType('timer')), id: placedId };
 				const timer = {
 					id: 'timer',
 					widgetInstanceId: widget.id,
@@ -432,7 +499,7 @@ describe('the widget accessibility contract', () => {
 					act(() =>
 						root.render(
 							<I18nProvider>
-								<WidgetBody widget={widget} />
+								<Draw widget={widget} />
 							</I18nProvider>,
 						),
 					);
@@ -465,12 +532,12 @@ describe('the widget accessibility contract', () => {
 
 	it('keeps the region mounted as the value changes, so the change is announced', () => {
 		runtimeRef.state = campaign();
-		runtimeRef.defaultActorId = DM_ACTOR.id;
+		viewAs(DM_ACTOR.id);
 		const draw = () =>
 			act(() =>
 				root.render(
 					<I18nProvider>
-						<WidgetBody widget={boardWidget(byType('combat'))} />
+						<Draw widget={boardWidget(byType('combat'))} />
 					</I18nProvider>,
 				),
 			);
@@ -494,6 +561,21 @@ describe('the widget accessibility contract', () => {
 	it('draws the empty audio tile inside the region a starting track will be announced in', () => {
 		renderBody(byType('audio'));
 		expect(container.firstElementChild?.getAttribute('aria-live')).toBe('polite');
+	});
+
+	// RC-CAN-8.7 — the scene cards left the Screens library; the atmosphere widget links to them.
+	it('offers the GM the scene cards from the audio tile, outside its live region', () => {
+		const operate: WidgetCommandHandler = () => {};
+		renderBody(byType('audio'), DM_ACTOR.id, operate);
+		// A declared `open-route` intent on the `now-playing` template; the host refuses it to a player.
+		const link = container.querySelector<HTMLElement>('[data-testid="audio-scene-cards"]');
+		expect(link?.getAttribute('aria-label')).toBe('Scene cards');
+		expect(link?.closest('[aria-live]')).toBeNull();
+		// Not to a player, and not on an edit-mode (inert) tile.
+		renderBody(byType('audio'), PLAYER_ACTOR.id, operate);
+		expect(container.querySelector('[data-testid="audio-scene-cards"]')).toBeNull();
+		renderBody(byType('audio'));
+		expect(container.querySelector('[data-testid="audio-scene-cards"]')).toBeNull();
 	});
 
 	it('names a done setup step and a pinned search, instead of leaving it to the accent tone', () => {

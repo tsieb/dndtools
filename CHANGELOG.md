@@ -6,12 +6,58 @@ v1 document-editor have been removed; that application's last state is preserved
 
 ## [Unreleased]
 
-### Release candidate preview
+## [0.4.4] - 2026-10-14
 
-The Lamplight release candidate is in development. These notes describe changes on the current
-branch. Installers still come from the alpha releases.
+Same application as 0.4.3. 0.4.3's Android release check could not reach the app's private storage
+on the test device, so it produced no installers and is superseded; the 0.4.3 to 0.4.0 notes below
+describe this release too.
 
 ### For players and GMs
+
+- The Android release check reaches the app's saved vault again, so it once more proves your data
+  survives a restart and an update before the release is published.
+
+## [0.4.3] - 2026-10-14
+
+Same application as 0.4.2. 0.4.2's Android release check could not reach a button on a fresh
+install, so it produced no installers and is superseded; the 0.4.2, 0.4.1 and 0.4.0 notes below
+describe this release too.
+
+### For players and GMs
+
+- The Android release is checked again on a fresh install before it is published.
+
+## [0.4.2] - 2026-10-14
+
+Same application as 0.4.1. 0.4.1's Windows and macOS installers could not be built, so it produced
+no installers and is superseded; the 0.4.1 and 0.4.0 notes below describe this release too.
+
+### For players and GMs
+
+- Windows and macOS installers build again. Two source files whose names differed only in
+  capitalization confused those systems' file names.
+
+## [0.4.1] - 2026-10-14
+
+Same application as 0.4.0 with patched dependencies. 0.4.0's release build stopped at the
+dependency check, so it produced no installers and is superseded; its notes below describe this
+release too.
+
+### For players and GMs
+
+- Android: updated the app runtime to fix a flaw that could let remote content load as if it came
+  from the app itself.
+
+## [0.4.0] - 2026-10-14
+
+The first release-candidate preview of Lamplight. Installers are still alpha prereleases: the
+Android build is signed with the alpha key and the desktop installers are unsigned.
+
+### For players and GMs
+
+- Graph and Search keep up on a large campaign: the graph updates after an edit in under a third
+  of the time it took, results appear as you type, and a full board opens without loading the
+  editing tools until you use them.
 
 - Preview as a player shows what that player's phone shows. Picking a player or Observer from the
   top bar's View as menu opens the player view as them, with their character and the scene you

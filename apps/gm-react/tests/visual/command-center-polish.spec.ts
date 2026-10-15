@@ -17,7 +17,7 @@ for (const theme of ['tavern', 'parchment', 'high-contrast', 'scholar', 'dungeon
 		const launchers = page.getByTestId('widget-template-launcher');
 		await launchers.scrollIntoViewIfNeeded();
 		await expect(launchers).toHaveScreenshot(`home-create--${theme}.png`);
-		await page.goto('/#/screens', { waitUntil: 'domcontentloaded' });
+		await page.goto('/#/scene-cards', { waitUntil: 'domcontentloaded' });
 		await expect(page.locator('#card-title')).toBeVisible();
 		await expect(
 			page.locator('[data-illustration="scenes-empty"]').last().locator('..'),

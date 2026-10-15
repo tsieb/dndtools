@@ -1,12 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import {
-	evaluateWidgetPackageAuthorTrust,
-	widgetPackageForkIdentity,
-	type WidgetLibraryEntry,
-	type WidgetPackageDefinition,
-} from '@dndtools/core';
+import { evaluateWidgetPackageAuthorTrust, type WidgetPackageDefinition } from '@dndtools/core';
 import { Badge, Button, IconButton, Toaster } from '../../ds';
 import { T } from '../../app/screen-kit';
 import { useViewport, useViewportHeight } from '../../app/useViewport';
@@ -17,7 +11,6 @@ import {
 	STEP_LABEL,
 	buildPackage,
 	draftStorageKey,
-	editStepFor,
 	emptyDraft,
 	isDraftDirty,
 	keptDraftStore,
@@ -25,7 +18,6 @@ import {
 	readStoredDraft,
 	removeStoredDraft,
 	resumeDraft,
-	widgetEditTarget,
 	writeStoredDraft,
 	type BuilderStepId,
 	type StoredWidgetDraft,
@@ -640,151 +632,4 @@ export function WidgetBuilder({
 			{dialogs}
 		</div>
 	);
-}
-
-/**
- * RC-WID-6.2 — the gallery's in-place "Enable": its own list row under a library row that is dimmed
- * because its package is off. Offered to the DM only for a package already trusted, or one the
- * author-trust rule clears (what this builder would have installed enabled). A package with code or
- * a permission is never switched on from here; it still goes through review.
- */
-export function InPlaceEnable({
-	entry,
-	onEnabled,
-}: {
-	entry: WidgetLibraryEntry;
-	onEnabled: (entry: WidgetLibraryEntry) => void;
-}) {
-	const { t } = useI18n();
-	const runtime = useRuntime();
-	const [busy, setBusy] = useState(false);
-	const dmId = runtime.defaultActorId;
-	const record = runtime.state.widgets.packages[entry.packageId];
-	const offer =
-		runtime.state.permissions.actors[dmId]?.role === 'dm' &&
-		!runtime.preview &&
-		!entry.availability.available &&
-		!!record &&
-		!record.enabled &&
-		!record.removedAt &&
-		(record.trust.state === 'trusted' ||
-			(record.trust.state === 'unreviewed' &&
-				evaluateWidgetPackageAuthorTrust(record.package).eligible));
-	if (!offer) return null;
-	const enable = () => {
-		if (busy) return;
-		setBusy(true);
-		void runtime
-			.dispatch({
-				type: 'widget.package.enable',
-				actorId: dmId,
-				payload: { packageId: entry.packageId },
-			})
-			.then((result) =>
-				result.status === 'accepted' ? onEnabled(entry) : Toaster.error(result.rejection.message),
-			)
-			.catch((error: unknown) =>
-				Toaster.error(error instanceof Error ? error.message : String(error)),
-			)
-			.finally(() => setBusy(false));
-	};
-	return (
-		<li style={{ paddingLeft: 'var(--space-4)' }}>
-			<Button size="sm" variant="secondary" icon="check" disabled={busy} onClick={enable}>
-				{t('boardCanvas.add.enable', { name: entry.displayName })}
-			</Button>
-		</li>
-	);
-}
-
-/** Edit a placed widget, forking first when the installed definition belongs to someone else. */
-export function useEditWidget(widgetInstanceId: string, widgetType: string) {
-	const { t } = useI18n();
-	const runtime = useRuntime();
-	const [session, setSession] = useState<{
-		packageId: string;
-		step: BuilderStepId;
-		/** The tile's own type, to go back to if the builder closes with the copy still off. */
-		revertTo: string | null;
-	} | null>(null);
-	const busyRef = useRef(false);
-	const dmId = runtime.defaultActorId;
-	const target = widgetEditTarget(runtime.state, widgetType);
-	const available =
-		!runtime.preview && runtime.state.permissions.actors[dmId]?.role === 'dm' && target !== null;
-
-	/** Move this tile onto `type`; a refusal is shown, and the copy is still saved either way. */
-	const repoint = async (type: string) => {
-		const scene = Object.values(runtime.state.scenes.scenes).find((candidate) =>
-			candidate.widgets.some((instance) => instance.id === widgetInstanceId),
-		);
-		const instance = scene?.widgets.find((candidate) => candidate.id === widgetInstanceId);
-		if (!scene || !instance || instance.type === type) return;
-		const result = await runtime.dispatch({
-			type: 'scene.repoint-widget',
-			actorId: dmId,
-			payload: { sceneId: scene.id, widgetInstanceId, widgetType: type },
-		});
-		if (result.status !== 'accepted') Toaster.error(result.rejection.message);
-	};
-
-	const open = async () => {
-		if (!available || !target || busyRef.current) return;
-		busyRef.current = true;
-		try {
-			let copy = target.kind === 'fork' ? undefined : target.record;
-			if (target.kind === 'fork') {
-				const identity = widgetPackageForkIdentity(runtime.state.widgets, widgetType);
-				const name = target.name;
-				const result = await runtime.dispatch({
-					type: 'widget.package.fork',
-					actorId: dmId,
-					payload: {
-						packageId: target.source.package.id,
-						widgetType,
-						forkPackageId: identity.packageId,
-						forkWidgetType: identity.widgetType,
-						displayName: t('extensions.builder.forkName', { name }),
-					},
-				});
-				if (result.status !== 'accepted') {
-					Toaster.error(result.rejection.message);
-					return;
-				}
-				copy = runtime.state.widgets.packages[identity.packageId];
-				Toaster.info(t('extensions.builder.forked', { name }));
-			}
-			if (!copy) return;
-			if (target.kind !== 'own') await repoint(copy.package.widgets[0]!.type);
-			const step = editStepFor(readPackage(copy.package));
-			const revertTo = target.kind === 'own' ? null : widgetType;
-			setSession({ packageId: copy.package.id, step, revertTo });
-		} finally {
-			busyRef.current = false;
-		}
-	};
-
-	const editing = session ? runtime.state.widgets.packages[session.packageId] : undefined;
-	// A portal still bubbles through the React tree, and a tile menu sits inside the canvas: a key in
-	// the builder would reach its shortcuts (Ctrl+Z undoes the board) and a wheel would pan it. The
-	// fence stops them; the builder hears its own keys on its overlay first.
-	const fence = (e: React.SyntheticEvent) => e.stopPropagation();
-	const editor =
-		session && editing
-			? createPortal(
-					<div onKeyDown={fence} onKeyUp={fence} onWheel={fence} onContextMenu={fence}>
-						<WidgetBuilder
-							editPackage={editing.package}
-							initialStep={session.step}
-							onClose={() => {
-								setSession(null);
-								if (session.revertTo && !runtime.state.widgets.packages[session.packageId]?.enabled)
-									void repoint(session.revertTo);
-							}}
-						/>
-					</div>,
-					document.body,
-				)
-			: null;
-	return { available, open, editor };
 }

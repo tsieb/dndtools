@@ -124,22 +124,32 @@ export function isWidgetResizable(
 	);
 }
 
+/** RC-CAN-8.7 — "System", not "System · locked content": the chip beside a widget's name is no place
+ *  for engine jargon about how a definition is stored. */
 export const TIER_LABEL: Record<WidgetTier, string> = {
-	system: 'System · locked content',
+	system: 'System',
 	template: 'Template',
 	custom: 'Custom',
 	ai: 'AI',
 };
 
-/** RC-POL-1.2 — the tier word as a catalog key, for the canvas's selection chip. "System · locked
- *  content" said nothing a GM could act on; a built-in tile is simply built in. (`TIER_LABEL` stays
- *  for the scene editor's Inspector until it moves to these keys.) */
-export const TIER_KEY = {
-	system: 'boardCanvas.tier.system',
-	template: 'boardCanvas.tier.template',
-	custom: 'boardCanvas.tier.custom',
-	ai: 'boardCanvas.tier.ai',
-} as const satisfies Record<WidgetTier, string>;
+/** RC-CAN-8.7 — the selected tile's chip says only what sets a widget apart: "Custom" or "AI". A
+ *  system or template widget is the ordinary case, so its chip is the widget's name alone. */
+export function tileChipTierLabel(tier: WidgetTier): string | null {
+	return tier === 'custom' || tier === 'ai' ? TIER_LABEL[tier] : null;
+}
+
+/** RC-POL-1.2 — the chip's tier word as a catalog key: what {@link tileChipTierLabel} says, in the
+ *  reader's language. */
+export function tileChipTierKey(
+	tier: WidgetTier,
+): 'boardCanvas.tier.custom' | 'boardCanvas.tier.ai' | null {
+	return tier === 'custom'
+		? 'boardCanvas.tier.custom'
+		: tier === 'ai'
+			? 'boardCanvas.tier.ai'
+			: null;
+}
 
 function statusNoteFor(payload: WidgetBindingPayload | undefined): string | null {
 	// No payload: the actor read did not deliver this instance (see `boardWidgetsOf`).
@@ -267,19 +277,21 @@ export function payloadIndex(
 /** The visibility chip's catalog label + tone for a widget's configured visibility. */
 export function visibilityChip(visibility: string): {
 	label:
-		| 'boardCanvas.visibility.shared'
-		| 'boardCanvas.visibility.players'
-		| 'boardCanvas.visibility.dmOnly';
+		| 'boardCanvas.tileMenu.visibility.shared'
+		| 'boardCanvas.tileMenu.visibility.players'
+		| 'boardCanvas.tileMenu.visibility.dmOnly';
 	players: boolean;
 } {
 	if (visibility === 'player-visible' || visibility === 'shared') {
 		const shared = visibility === 'shared';
 		return {
-			label: shared ? 'boardCanvas.visibility.shared' : 'boardCanvas.visibility.players',
+			label: shared
+				? 'boardCanvas.tileMenu.visibility.shared'
+				: 'boardCanvas.tileMenu.visibility.players',
 			players: true,
 		};
 	}
-	return { label: 'boardCanvas.visibility.dmOnly', players: false };
+	return { label: 'boardCanvas.tileMenu.visibility.dmOnly', players: false };
 }
 
 /** The size the core seeds every one-column board tile at (`command-center-state.ts`

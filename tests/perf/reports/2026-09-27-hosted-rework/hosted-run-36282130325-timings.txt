@@ -1,0 +1,125 @@
+2026-09-27T00:20:00.1915950Z · started a dev server on :5373 (reference)
+2026-09-27T00:20:01.1163131Z · started a dev server on :5273 (candidate)
+2026-09-27T00:26:07.9751515Z · smoke-ci … 7 samples per revision, interleaved, in 365s
+2026-09-27T00:27:21.7001293Z · app-startup … 21 samples per revision, interleaved, in 74s
+2026-09-27T00:28:59.9491723Z · vault-open … 21 samples per revision, interleaved, in 98s
+2026-09-27T00:30:18.6205844Z · scene-first-render … 21 samples per revision, interleaved, in 79s
+2026-09-27T00:30:46.5937751Z · widget-update … 175 samples per revision, interleaved, in 28s
+2026-09-27T00:32:17.7214405Z · map-pan-zoom-desktop … 377 samples per revision, interleaved, in 91s
+2026-09-27T00:34:00.0997012Z · map-pan-zoom-slim … 1350 samples per revision, interleaved, in 102s
+2026-09-27T00:37:24.7587010Z · search … 140 samples per revision, interleaved, in 205s
+2026-09-27T00:40:16.9428459Z · graph-indexing … 35 samples per revision, interleaved, in 172s
+2026-09-27T00:42:18.8708090Z · sync-reconciliation … 35 samples per revision, interleaved, in 122s
+2026-09-27T00:42:43.2611664Z · live-session-delivery … 105 samples per revision, interleaved, in 24s
+2026-09-27T00:47:38.2053900Z · smoke-ci:large … 7 samples per revision, interleaved, in 295s
+2026-09-27T00:51:38.2648009Z · app-startup:large … 21 samples per revision, interleaved, in 240s
+2026-09-27T00:53:19.2764857Z · vault-open:large … 21 samples per revision, interleaved, in 101s
+2026-09-27T00:57:47.2547245Z · scene-first-render:large … 21 samples per revision, interleaved, in 268s
+2026-09-27T00:59:49.5037006Z · widget-update:large … 175 samples per revision, interleaved, in 122s
+2026-09-27T00:59:59.7001204Z · map-pan-zoom-desktop:large … FAILED (page.evaluate: PlatformBoundaryRejectionError: Payload of 5244507 bytes exceeds the 5242880 byte limit for storage.persistFullState.)
+2026-09-27T01:00:10.4279761Z · map-pan-zoom-slim:large … FAILED (page.evaluate: PlatformBoundaryRejectionError: Payload of 5244495 bytes exceeds the 5242880 byte limit for storage.persistFullState.)
+2026-09-27T01:14:54.6090798Z · search:large … 140 samples per revision, interleaved, in 884s
+2026-09-27T01:21:37.1202141Z · graph-indexing:large … 35 samples per revision, interleaved, in 403s
+2026-09-27T01:23:42.5374837Z · sync-reconciliation:large … 35 samples per revision, interleaved, in 125s
+2026-09-27T01:24:55.8168718Z · live-session-delivery:large … 105 samples per revision, interleaved, in 73s
+2026-09-27T01:24:56.2725660Z Wrote /home/runner/work/dndtools/dndtools/tmp/perf/reference-1.json (22 budgets, reference).
+2026-09-27T01:24:56.2794836Z Wrote /home/runner/work/dndtools/dndtools/tmp/perf/current-1.json (22 budgets, candidate).
+2026-09-27T01:24:59.8988328Z · started a dev server on :5373 (reference)
+2026-09-27T01:25:00.5060309Z · started a dev server on :5273 (candidate)
+2026-09-27T01:29:54.4412793Z · smoke-ci … 7 samples per revision, interleaved, in 293s
+2026-09-27T01:31:06.8265368Z · app-startup … 21 samples per revision, interleaved, in 72s
+2026-09-27T01:32:45.2646381Z · vault-open … 21 samples per revision, interleaved, in 98s
+2026-09-27T01:34:05.6287750Z · scene-first-render … 21 samples per revision, interleaved, in 80s
+2026-09-27T01:34:34.2073359Z · widget-update … 175 samples per revision, interleaved, in 29s
+2026-09-27T01:36:05.9671225Z · map-pan-zoom-desktop … 392 samples per revision, interleaved, in 92s
+2026-09-27T01:37:49.9464361Z · map-pan-zoom-slim … 1348 samples per revision, interleaved, in 104s
+2026-09-27T01:41:10.6683843Z · search … 140 samples per revision, interleaved, in 201s
+2026-09-27T01:44:02.2547551Z · graph-indexing … 35 samples per revision, interleaved, in 172s
+2026-09-27T01:46:02.5805608Z · sync-reconciliation … 35 samples per revision, interleaved, in 120s
+2026-09-27T01:46:26.7595431Z · live-session-delivery … 105 samples per revision, interleaved, in 24s
+2026-09-27T01:51:19.8032802Z · smoke-ci:large … 7 samples per revision, interleaved, in 293s
+2026-09-27T01:55:16.8361423Z · app-startup:large … 21 samples per revision, interleaved, in 237s
+2026-09-27T01:56:55.4107235Z · vault-open:large … 21 samples per revision, interleaved, in 99s
+2026-09-27T02:01:19.8044526Z · scene-first-render:large … 21 samples per revision, interleaved, in 264s
+2026-09-27T02:03:21.6486334Z · widget-update:large … 175 samples per revision, interleaved, in 122s
+2026-09-27T02:03:31.7196520Z · map-pan-zoom-desktop:large … FAILED (page.evaluate: PlatformBoundaryRejectionError: Payload of 5244507 bytes exceeds the 5242880 byte limit for storage.persistFullState.)
+2026-09-27T02:03:42.4526439Z · map-pan-zoom-slim:large … FAILED (page.evaluate: PlatformBoundaryRejectionError: Payload of 5244495 bytes exceeds the 5242880 byte limit for storage.persistFullState.)
+2026-09-27T02:18:35.3021417Z · search:large … 140 samples per revision, interleaved, in 893s
+2026-09-27T02:25:21.3800586Z · graph-indexing:large … 35 samples per revision, interleaved, in 406s
+2026-09-27T02:27:25.9714078Z · sync-reconciliation:large … 35 samples per revision, interleaved, in 125s
+2026-09-27T02:28:40.0951589Z · live-session-delivery:large … 105 samples per revision, interleaved, in 74s
+2026-09-27T02:28:40.5464764Z Wrote /home/runner/work/dndtools/dndtools/tmp/perf/reference-2.json (22 budgets, reference).
+2026-09-27T02:28:40.5540905Z Wrote /home/runner/work/dndtools/dndtools/tmp/perf/current-2.json (22 budgets, candidate).
+2026-09-27T02:28:44.1610643Z · started a dev server on :5373 (reference)
+2026-09-27T02:28:44.7674523Z · started a dev server on :5273 (candidate)
+2026-09-27T02:33:39.2037606Z · smoke-ci … 7 samples per revision, interleaved, in 294s
+2026-09-27T02:34:50.6673948Z · app-startup … 21 samples per revision, interleaved, in 71s
+2026-09-27T02:36:28.6347980Z · vault-open … 21 samples per revision, interleaved, in 98s
+2026-09-27T02:37:48.5293720Z · scene-first-render … 21 samples per revision, interleaved, in 80s
+2026-09-27T02:38:16.9494461Z · widget-update … 175 samples per revision, interleaved, in 28s
+2026-09-27T02:39:48.4634873Z · map-pan-zoom-desktop … 393 samples per revision, interleaved, in 92s
+2026-09-27T02:41:31.0349189Z · map-pan-zoom-slim … 1346 samples per revision, interleaved, in 103s
+2026-09-27T02:44:52.9288103Z · search … 140 samples per revision, interleaved, in 202s
+2026-09-27T02:47:45.5757508Z · graph-indexing … 35 samples per revision, interleaved, in 173s
+2026-09-27T02:49:45.4348584Z · sync-reconciliation … 35 samples per revision, interleaved, in 120s
+2026-09-27T02:50:09.5092481Z · live-session-delivery … 105 samples per revision, interleaved, in 24s
+2026-09-27T02:55:03.9032619Z · smoke-ci:large … 7 samples per revision, interleaved, in 294s
+2026-09-27T02:59:02.6967870Z · app-startup:large … 21 samples per revision, interleaved, in 239s
+2026-09-27T03:00:41.9952524Z · vault-open:large … 21 samples per revision, interleaved, in 99s
+2026-09-27T03:05:08.2897454Z · scene-first-render:large … 21 samples per revision, interleaved, in 266s
+2026-09-27T03:07:09.3681315Z · widget-update:large … 175 samples per revision, interleaved, in 121s
+2026-09-27T03:07:19.6869258Z · map-pan-zoom-desktop:large … FAILED (page.evaluate: PlatformBoundaryRejectionError: Payload of 5244507 bytes exceeds the 5242880 byte limit for storage.persistFullState.)
+2026-09-27T03:07:30.2797231Z · map-pan-zoom-slim:large … FAILED (page.evaluate: PlatformBoundaryRejectionError: Payload of 5244495 bytes exceeds the 5242880 byte limit for storage.persistFullState.)
+2026-09-27T03:22:15.6401392Z · search:large … 140 samples per revision, interleaved, in 885s
+2026-09-27T03:28:57.7969994Z · graph-indexing:large … 35 samples per revision, interleaved, in 402s
+2026-09-27T03:31:02.3054176Z · sync-reconciliation:large … 35 samples per revision, interleaved, in 125s
+2026-09-27T03:32:16.5669599Z · live-session-delivery:large … 105 samples per revision, interleaved, in 74s
+2026-09-27T03:32:17.0205779Z Wrote /home/runner/work/dndtools/dndtools/tmp/perf/reference-3.json (22 budgets, reference).
+2026-09-27T03:32:17.0284661Z Wrote /home/runner/work/dndtools/dndtools/tmp/perf/current-3.json (22 budgets, candidate).
+2026-09-27T03:32:20.6641108Z · started a dev server on :5373 (reference)
+2026-09-27T03:32:21.2713884Z · started a dev server on :5273 (candidate)
+2026-09-27T03:37:15.0633221Z · smoke-ci … 7 samples per revision, interleaved, in 293s
+2026-09-27T03:38:27.3939267Z · app-startup … 21 samples per revision, interleaved, in 72s
+2026-09-27T03:40:03.3056524Z · vault-open … 21 samples per revision, interleaved, in 96s
+2026-09-27T03:41:22.0156999Z · scene-first-render … 21 samples per revision, interleaved, in 79s
+2026-09-27T03:41:50.0493031Z · widget-update … 175 samples per revision, interleaved, in 28s
+2026-09-27T03:43:21.1130410Z · map-pan-zoom-desktop … 383 samples per revision, interleaved, in 91s
+2026-09-27T03:45:03.0235539Z · map-pan-zoom-slim … 1346 samples per revision, interleaved, in 102s
+2026-09-27T03:48:23.6343435Z · search … 140 samples per revision, interleaved, in 201s
+2026-09-27T03:51:13.8891299Z · graph-indexing … 35 samples per revision, interleaved, in 170s
+2026-09-27T03:53:14.2854123Z · sync-reconciliation … 35 samples per revision, interleaved, in 120s
+2026-09-27T03:53:38.2881415Z · live-session-delivery … 105 samples per revision, interleaved, in 24s
+2026-09-27T03:58:30.4139959Z · smoke-ci:large … 7 samples per revision, interleaved, in 292s
+2026-09-27T04:02:29.8635664Z · app-startup:large … 21 samples per revision, interleaved, in 239s
+2026-09-27T04:04:08.9568416Z · vault-open:large … 21 samples per revision, interleaved, in 99s
+2026-09-27T04:08:33.0121429Z · scene-first-render:large … 21 samples per revision, interleaved, in 264s
+2026-09-27T04:10:34.3525873Z · widget-update:large … 175 samples per revision, interleaved, in 121s
+2026-09-27T04:10:44.5011233Z · map-pan-zoom-desktop:large … FAILED (page.evaluate: PlatformBoundaryRejectionError: Payload of 5244507 bytes exceeds the 5242880 byte limit for storage.persistFullState.)
+2026-09-27T04:10:55.2566836Z · map-pan-zoom-slim:large … FAILED (page.evaluate: PlatformBoundaryRejectionError: Payload of 5244495 bytes exceeds the 5242880 byte limit for storage.persistFullState.)
+2026-09-27T04:25:34.7976538Z · search:large … 140 samples per revision, interleaved, in 880s
+2026-09-27T04:32:20.7517454Z · graph-indexing:large … 35 samples per revision, interleaved, in 406s
+2026-09-27T04:34:26.7237683Z · sync-reconciliation:large … 35 samples per revision, interleaved, in 126s
+2026-09-27T04:35:42.5497009Z · live-session-delivery:large … 105 samples per revision, interleaved, in 76s
+2026-09-27T04:35:43.0038763Z Wrote /home/runner/work/dndtools/dndtools/tmp/perf/reference-4.json (22 budgets, reference).
+2026-09-27T04:35:43.0124333Z Wrote /home/runner/work/dndtools/dndtools/tmp/perf/current-4.json (22 budgets, candidate).
+2026-09-27T04:35:46.7069820Z · started a dev server on :5373 (reference)
+2026-09-27T04:35:47.3146783Z · started a dev server on :5273 (candidate)
+2026-09-27T04:40:42.3522721Z · smoke-ci … 7 samples per revision, interleaved, in 294s
+2026-09-27T04:41:54.1048317Z · app-startup … 21 samples per revision, interleaved, in 72s
+2026-09-27T04:43:31.0287360Z · vault-open … 21 samples per revision, interleaved, in 97s
+2026-09-27T04:44:49.4807772Z · scene-first-render … 21 samples per revision, interleaved, in 78s
+2026-09-27T04:45:17.2312709Z · widget-update … 175 samples per revision, interleaved, in 28s
+2026-09-27T04:46:48.4748387Z · map-pan-zoom-desktop … 381 samples per revision, interleaved, in 91s
+2026-09-27T04:48:31.1557028Z · map-pan-zoom-slim … 1350 samples per revision, interleaved, in 103s
+2026-09-27T04:51:54.1362174Z · search … 140 samples per revision, interleaved, in 203s
+2026-09-27T04:54:46.8960412Z · graph-indexing … 35 samples per revision, interleaved, in 173s
+2026-09-27T04:56:48.4732977Z · sync-reconciliation … 35 samples per revision, interleaved, in 122s
+2026-09-27T04:57:12.7207421Z · live-session-delivery … 105 samples per revision, interleaved, in 24s
+2026-09-27T05:02:09.0104789Z · smoke-ci:large … 7 samples per revision, interleaved, in 296s
+2026-09-27T05:06:06.3830763Z · app-startup:large … 21 samples per revision, interleaved, in 237s
+2026-09-27T05:07:45.3170455Z · vault-open:large … 21 samples per revision, interleaved, in 99s
+2026-09-27T05:12:10.8391070Z · scene-first-render:large … 21 samples per revision, interleaved, in 266s
+2026-09-27T05:14:11.5955474Z · widget-update:large … 175 samples per revision, interleaved, in 121s
+2026-09-27T05:14:21.8676908Z · map-pan-zoom-desktop:large … FAILED (page.evaluate: PlatformBoundaryRejectionError: Payload of 5244507 bytes exceeds the 5242880 byte limit for storage.persistFullState.)
+2026-09-27T05:14:32.4685988Z · map-pan-zoom-slim:large … FAILED (page.evaluate: PlatformBoundaryRejectionError: Payload of 5244495 bytes exceeds the 5242880 byte limit for storage.persistFullState.)
+2026-09-27T05:19:18.5721123Z ##[error]The operation was canceled.

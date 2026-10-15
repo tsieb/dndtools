@@ -1,4 +1,5 @@
-import { HelpMenu } from './help/HelpMenu';
+import { openImportHub } from './importHub/registry';
+import { HelpMenu } from './help/HelpPanel';
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -149,6 +150,20 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 			withQuery,
 			matchesNeedle,
 		});
+
+		if (!canvasPrefix && matchesNeedle(t('importHub.command'), t('importHub.keywords')))
+			actions.push({
+				id: 'import-hub',
+				kind: 'action',
+				label: t('importHub.command'),
+				icon: 'import',
+				group: t('palette.group.actions'),
+				keywords: withQuery(t('importHub.keywords')),
+				run: () => {
+					onClose();
+					openImportHub();
+				},
+			});
 
 		// Each launcher lands with `state.create` so the destination OPENS its create flow (instead of
 		// leaving the user on a list hunting for the button). Keywords cover the words a GM actually

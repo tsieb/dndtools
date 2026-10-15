@@ -2,6 +2,13 @@ import { dispatchWidgetCommandInputSchema } from '../schemas/commands';
 import { handleRollDice } from './dice';
 import { handleUpdateContentItem } from './content';
 import { handleUpdateVaultObject } from './vault-object';
+import {
+	handleAdvanceCombatTurn,
+	handleApplyCombatResource,
+	handleSetCombatantVisibility,
+} from './combat';
+import { handleProjectActiveMap, handleSetActiveMap } from './session-control';
+import { handleConfigureWidget } from './widget';
 import { parseDiceExpression } from '../state/dice';
 import { contentItemById, isLiveContentItem } from '../state/content';
 import type { ContentItem, VaultContentState } from '../state/content';
@@ -70,6 +77,28 @@ function projectedAssignmentIncludesWidget(
 	return scene.sections
 		.filter((section) => assignment.target.sectionIds?.includes(section.id))
 		.some((section) => section.widgetInstanceIds.includes(widgetInstanceId));
+}
+
+/**
+ * RC-WID-5.7 — whether `actorId` receives the placed widget `widgetInstanceId`: its screen is
+ * visible to them, or a player-view projection hands them that widget. The gate
+ * `widget.dispatch-command` applies before it runs a press, shared with the `widget-timer` query
+ * source so a timer is described only to a viewer who receives its widget. An unplaced instance
+ * reaches nobody.
+ */
+export function widgetInstanceReachesActor(
+	state: CoreStateSlice,
+	actorId: string,
+	widgetInstanceId: string,
+): boolean {
+	const actor = state.permissions.actors[actorId];
+	if (!actor) return false;
+	const scene = Object.values(state.scenes.scenes).find((candidate) =>
+		candidate.widgets.some((instance) => instance.id === widgetInstanceId),
+	);
+	if (!scene) return false;
+	if (evaluateSceneVisibility(scene, actor, state.permissions).kind === 'visible') return true;
+	return projectedAssignmentIncludesWidget(state, actor.id, scene.id, widgetInstanceId);
 }
 
 export function handleDispatchWidgetCommand(
@@ -238,6 +267,18 @@ export function handleDispatchWidgetCommand(
 	if (parsed.data.commandType === 'content.update-item') {
 		return writeBoundNote(state, env, actor.id, scene, widget, parsed.data, idempotencyKey);
 	}
+	// RC-WID-5.7 — the GM board's map and initiative writes: the core command of the same name, run
+	// under the presser's own authority after the widget's operate/configure check above, and recorded
+	// with the envelope's idempotency key so a retry is not applied twice.
+	const delegate = DELEGATED_CORE_COMMANDS[parsed.data.commandType];
+	if (delegate) {
+		return recordDelegatedPress(
+			state,
+			env,
+			{ actorId: actor.id, scene, widget, data: parsed.data, idempotencyKey, executor: null },
+			delegate(state, env, actor.id, { scene, widget, payload: parsed.data.payload }),
+		);
+	}
 	// RC-WID-6.1 — everything else runs through the command's executor. Install refuses a template
 	// command without one, so reaching the end of this chain means a package installed before
 	// executors existed, or custom code naming a command it never gave the core a way to run.
@@ -261,6 +302,39 @@ export function handleDispatchWidgetCommand(
 		state,
 	);
 }
+
+type DelegatedCoreCommand = (
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	target: { scene: Scene; widget: WidgetInstance; payload: Record<string, unknown> },
+) => CommandResult;
+
+/**
+ * RC-WID-5.7 — the core commands a widget runs by name beyond the timer, dice and bound-note ones
+ * (`CORE_NAMED_WIDGET_COMMANDS`). The payload is the core command's own; the core handler validates
+ * it and decides whether this actor may (combat and map staging are the DM's). Reconfiguring is the
+ * one exception to a pass-through: its scene and instance are the dispatching widget's, whatever the
+ * payload says, so a widget can never rebind or reconfigure another one.
+ */
+const DELEGATED_CORE_COMMANDS: Readonly<Record<string, DelegatedCoreCommand>> = Object.freeze({
+	'combat.advance-turn': (state, env, actorId, { payload }) =>
+		handleAdvanceCombatTurn(state, env, actorId, payload),
+	'combat.apply-resource': (state, env, actorId, { payload }) =>
+		handleApplyCombatResource(state, env, actorId, payload),
+	'combat.set-combatant-visibility': (state, env, actorId, { payload }) =>
+		handleSetCombatantVisibility(state, env, actorId, payload),
+	'session.set-active-map': (state, env, actorId, { payload }) =>
+		handleSetActiveMap(state, env, actorId, payload),
+	'session.project-active-map': (state, env, actorId, { payload }) =>
+		handleProjectActiveMap(state, env, actorId, payload),
+	'scene.configure-widget': (state, env, actorId, { scene, widget, payload }) =>
+		handleConfigureWidget(state, env, actorId, {
+			...payload,
+			sceneId: scene.id,
+			widgetInstanceId: widget.id,
+		}),
+});
 
 const TIMER_OPERATE_COMMANDS: readonly string[] = Object.freeze([
 	'timer.start',
@@ -942,10 +1016,10 @@ function writeWidgetState(
 function recordDelegatedPress(
 	state: CoreStateSlice,
 	env: CoreEnvironment,
-	ctx: Pick<
-		ExecutorContext,
-		'actorId' | 'scene' | 'widget' | 'data' | 'idempotencyKey' | 'executor'
-	>,
+	ctx: Pick<ExecutorContext, 'actorId' | 'scene' | 'widget' | 'data' | 'idempotencyKey'> & {
+		/** Null for a command the core runs by name rather than through an executor. */
+		executor: WidgetCommandExecutor | null;
+	},
 	result: CommandResult,
 ): CommandResult {
 	if (result.status !== 'accepted') return result;
@@ -957,7 +1031,7 @@ function recordDelegatedPress(
 		value: {
 			widgetInstanceId: ctx.widget.id,
 			commandType: ctx.data.commandType,
-			executor: ctx.executor,
+			...(ctx.executor ? { executor: ctx.executor } : {}),
 			delegatedOperationIds: result.operationIds,
 			idempotencyKey: ctx.idempotencyKey,
 		},

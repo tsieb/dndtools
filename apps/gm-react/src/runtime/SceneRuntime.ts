@@ -1,5 +1,7 @@
+import { unstable_batchedUpdates } from 'react-dom';
 import { prepareNewCampaignOnboarding } from '../platform/preferences';
 import {
+	clearParsedNoteCache,
 	EMPTY_CHARACTER_STATE,
 	EMPTY_COMMAND_CENTER_STATE,
 	EMPTY_MAP_STATE,
@@ -212,7 +214,11 @@ export class SceneRuntime {
 
 	private emit(): void {
 		this.version += 1;
-		for (const listener of this.listeners) listener();
+		// Keep the external-store notification synchronous, while scheduling all React
+		// consumers together (a scene can have multiple subscribers per widget).
+		unstable_batchedUpdates(() => {
+			for (const listener of this.listeners) listener();
+		});
 	}
 
 	/** The document's local storage identity; the original vault retains its cloud key identity. */
@@ -390,6 +396,8 @@ export class SceneRuntime {
 	 */
 	async reloadFromStorage(): Promise<void> {
 		this.loadFailed = false;
+		// The replaced vault's note bodies must not stay resident in the graph reads' parse memo.
+		clearParsedNoteCache();
 		try {
 			await this.hydrateFromStorage(false);
 		} catch (error) {
@@ -405,15 +413,19 @@ export class SceneRuntime {
 		// Resolve inside the load error boundary, so unreadable selection offers the normal retry UI.
 		const vaultId = this.vaultId;
 		if (vaultId !== LEGACY_LOCAL_VAULT_ID) this.options.env.vaultId = vaultId;
+		// Populate only on initial boot. A restore is authoritative and must not silently add demo data.
+		// The seed's own guards decide what is missing, so a demo boot always runs it: fetch the module
+		// while storage is read instead of after (RC-ENG-3.2). A failed fetch still fails the load below.
+		const seedModule = seedDemo && !this.freshVaultChosen() ? import('./demo-seed') : null;
+		seedModule?.catch(() => {});
 		const loaded = await loadCoreState();
 		if (seedDemo)
 			prepareNewCampaignOnboarding(
 				Object.keys(loaded.permissions.actors).length === 0 && loaded.sync.operations.length === 0,
 			);
 		this.innerState = this.ensureDefaultActor(loaded, seedDemo);
-		// Populate only on initial boot. A restore is authoritative and must not silently add demo data.
-		if (seedDemo && !this.freshVaultChosen()) {
-			await this.enqueueMutation(() => this.seedDemoInOneCommit());
+		if (seedModule && !this.freshVaultChosen()) {
+			await this.enqueueMutation(() => this.seedDemoInOneCommit(seedModule));
 		}
 		this.lifecycle = null;
 		this.error = null;
@@ -430,7 +442,9 @@ export class SceneRuntime {
 	 * A failed commit leaves the vault as it was; the seed's per-slice emptiness guards retry on the
 	 * next load, exactly as they do for a rejected seed command.
 	 */
-	private async seedDemoInOneCommit(): Promise<void> {
+	private async seedDemoInOneCommit(
+		seedModule: Promise<typeof import('./demo-seed')>,
+	): Promise<void> {
 		const before = this.innerState;
 		const env = this.options.env;
 		const registry = this.mcpToolRegistry;
@@ -449,9 +463,9 @@ export class SceneRuntime {
 				return result;
 			},
 		};
-		// The seed module (its fixtures and the command sequence) is only needed by a vault that has
-		// never been seeded, so a returning DM's boot never loads it.
-		const { seedDemoContent } = await import('./demo-seed');
+		// The seed module (its fixtures and the command sequence) is only needed by a demo vault; a
+		// fresh or campaign vault never loads it.
+		const { seedDemoContent } = await seedModule;
 		await seedDemoContent(staged);
 		const seeded = staged.state;
 		if (seeded === before) return;

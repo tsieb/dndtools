@@ -89,3 +89,29 @@ Vault switcher that explains itself: 2026-10-12, RC-UX-6.8.
 - [VaultSwitcher.tsx](../../apps/gm-react/src/app/shell/VaultSwitcher.tsx)
 - [local-vaults.spec.ts](../../apps/gm-react/tests/e2e/local-vaults.spec.ts)
 - [demo-vault.spec.ts](../../apps/gm-react/tests/e2e/demo-vault.spec.ts)
+
+## Bring your existing material
+
+Open the **Import hub** from **Your first session**, **Help**, or **Settings → Vault
+connections**. You can also search for **Import…** in the command palette. **Knowledge →
+Sources** links to the same hub. Choose a row to open its existing import flow and picker.
+
+- **Markdown folder or ZIP:** notes, calendars and images. Adds new notes without replacing
+  existing notes; reuses identical calendars and images and refuses conflicting calendars.
+  If your device cannot pick a folder, use ZIP.
+- **Notes and content bundles:** Markdown, text or content-export JSON. Review the files;
+  matching notes are skipped by default. Overwriting needs confirmation.
+- **Character JSON:** includes D&D Beyond exports. Review the mapped fields before adding
+  a new character. Existing characters remain unchanged.
+- **Map images and external formats:** opens the Atlas import dialog for the selected map.
+  If your vault has no map, create the destination first. Image imports preview a new layer
+  and grid/scale changes. The existing external-format review does not parse map JSON files.
+- **Audio files:** adds a local asset, reusing identical file contents.
+- **Vault backup:** validates a full backup JSON, then asks before replacing the current
+  vault's data and assets. Export a backup first if you need to keep the current contents.
+- **System packages and modules:** opens the `.dndmodule` review in Community. Imported
+  systems become custom copies; other module kinds retain their existing install review.
+- **Scene files:** imports a `.dndscene` as a new portable scene card and keeps existing scenes.
+
+Imports require a GM in an editable vault. The hub does not change file formats, parsing,
+permissions or the review steps in those flows.

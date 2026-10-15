@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { Page, Panel, T } from '../../app/screen-kit';
 import { EmptyState, Tabs, tabPanelProps } from '../../ds';
 import { useI18n } from '../../i18n';
@@ -30,8 +31,13 @@ import { CommWiki } from './Wiki';
 
 export function Community() {
 	const { t } = useI18n();
-	const [tab, setTab] = useState('discover');
+	const location = useLocation();
+	const intent = (location.state as { importer?: string } | null)?.importer;
+	const [tab, setTab] = useState(intent === 'module' || intent === 'scene' ? 'export' : 'discover');
 	const runtime = useRuntime();
+	useEffect(() => {
+		if (intent === 'module' || intent === 'scene') setTab('export');
+	}, [intent]);
 	const tabs = [
 		{ id: 'discover', label: t('community.tab.discover'), icon: 'globe' },
 		{ id: 'export', label: t('community.tab.export'), icon: 'send' },

@@ -428,6 +428,8 @@ const SYSTEM_PACKAGE_IDS = ['system.scene-widgets', 'system.command-center-widge
 
 /** The operate commands the keyboard test knows how to drive, by the control that runs each one. */
 const KEYBOARD_DRIVEN = [
+	// RC-WID-5.7 — the initiative tile's Next turn is a declared command now.
+	'combat.advance-turn',
 	'dice.roll',
 	'timer.advance',
 	'timer.pause',
@@ -817,7 +819,7 @@ test.describe('widget accessibility contract', () => {
 		const start = timer.getByRole('button', { name: /^Start \d+-second timer$/ });
 		await expect(start).toBeFocused();
 
-		// The initiative tile's own control: not a declared widget command, but its operate control.
+		// combat.advance-turn — the initiative tile's Next turn (a declared command since RC-WID-5.7).
 		const turn = await combatTurn(page);
 		await tabTo(page, initiative.getByRole('button', { name: 'Next turn', exact: true }));
 		await page.keyboard.press('Enter');

@@ -47,16 +47,25 @@ const Onboarding = lazy(() => import('./app/Onboarding').then((m) => ({ default:
 const ScenesCreator = lazy(() =>
 	import('./screens/ScenesCreator').then((m) => ({ default: m.ScenesCreator })),
 );
+const SceneCards = lazy(() =>
+	import('./screens/SceneCardsPanel').then((m) => ({ default: m.SceneCardsPage })),
+);
 const SceneEditor = lazy(() =>
 	import('./screens/sceneEditor').then((m) => ({ default: m.SceneEditor })),
 );
 // RC-CAN-7.3 / ADR-041 — `/screen/:id` renders any screen; `/board` resolves to the GM screen's.
-const ScreenView = lazy(() =>
-	import('./screens/screen/ScreenView').then((m) => ({ default: m.ScreenView })),
-);
-const BoardAlias = lazy(() =>
-	import('./screens/screen/ScreenView').then((m) => ({ default: m.BoardAlias })),
-);
+const loadScreenView = () => import('./screens/screen/ScreenView');
+// RC-ENG-3.2 — routes render only once the vault has loaded, so a cold open of a screen fetched its
+// chunk after hydration. Start it now instead; it downloads while the vault loads. Its deepest import
+// chains (board → widget bodies → map canvas) start alongside it rather than one level at a time.
+if (/^#\/(?:board|screen\/)/.test(window.location.hash)) {
+	void loadScreenView();
+	void import('./screens/Board');
+	void import('./app/widget-bodies');
+	void import('./app/map/canvas/MapCanvas');
+}
+const ScreenView = lazy(() => loadScreenView().then((m) => ({ default: m.ScreenView })));
+const BoardAlias = lazy(() => loadScreenView().then((m) => ({ default: m.BoardAlias })));
 const Session = lazy(() => import('./screens/session').then((m) => ({ default: m.Session })));
 const Characters = lazy(() =>
 	import('./screens/characters').then((m) => ({ default: m.Characters })),
@@ -459,6 +468,8 @@ function ShelledRoutes() {
 					    `ScreenRouteAliases` (outside this boundary) replaces the entry with `/screens`. */}
 					<Route path="/screens" element={<ScenesCreator />} />
 					<Route path="/scenes" element={<ScenesCreator />} />
+					{/* RC-CAN-8.7 — the atmosphere scene cards, moved off the library onto their own page. */}
+					<Route path="/scene-cards" element={<SceneCards />} />
 					<Route path="/screen/:id" element={<ScreenView />} />
 					<Route path="/scene/:id" element={<SceneEditor />} />
 					<Route path="/session" element={<Session />} />

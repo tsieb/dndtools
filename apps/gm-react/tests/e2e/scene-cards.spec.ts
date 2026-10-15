@@ -118,9 +118,10 @@ test.describe('scene cards: atmosphere authoring, push, and display', () => {
 	test.beforeEach(async ({ page }) => {
 		await page.emulateMedia({ reducedMotion: 'reduce' });
 		await markOnboarded(page);
-		await gotoRoute(page, '/scenes');
+		// RC-CAN-8.7 — the scene cards' own page (they used to sit under the Screens library).
+		await gotoRoute(page, '/scene-cards');
 		await seedFresh(page);
-		await page.goto('/#/scenes', { waitUntil: 'domcontentloaded' });
+		await page.goto('/#/scene-cards', { waitUntil: 'domcontentloaded' });
 		await waitReady(page);
 		await page.locator('#main-content').waitFor({ state: 'attached' });
 	});

@@ -22,6 +22,7 @@ import { ChartTemplate } from './Chart';
 import { DataTableTemplate } from './DataTable';
 import { FormPanelTemplate } from './FormPanel';
 import { HUB_TEMPLATES } from './Hub';
+import { BOARD_TEMPLATE_RENDERERS } from './board';
 import { SceneMessageTemplate } from './SceneMessage';
 import { StatBlockTemplate } from './StatBlock';
 import { StatusListTemplate } from './StatusList';
@@ -50,6 +51,7 @@ const TEMPLATES: Record<WidgetTemplateKind, ComponentType<WidgetTemplateProps>> 
 	'stat-block': StatBlockTemplate,
 	'form-panel': FormPanelTemplate,
 	...HUB_TEMPLATES,
+	...BOARD_TEMPLATE_RENDERERS,
 };
 
 let root: Root;

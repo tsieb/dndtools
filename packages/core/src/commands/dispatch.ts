@@ -323,6 +323,7 @@ import {
 } from './mcp-policy';
 import { EMPTY_MAP_IMPORT_ADAPTER_REGISTRY } from '../state/map-import';
 import { classifyObserverCommand } from '../collab/observer-access';
+import { withPlayerSummaryOnNewSessionScreen } from '../queries/player-view-control';
 
 export function dispatchCommand(
 	state: CoreStateSlice,
@@ -440,8 +441,12 @@ export function dispatchCommand(
 				command.payload,
 				command.idempotencyKey,
 			);
+		// RC-SES-7.3 — a freshly provisioned Session screen gets the "What players see" row.
 		case 'command-center.ensure-home':
-			return handleEnsureCommandCenterHome(state, env, command.actorId, command.payload);
+			return withPlayerSummaryOnNewSessionScreen(
+				env,
+				handleEnsureCommandCenterHome(state, env, command.actorId, command.payload),
+			);
 		case 'command-center.save-preset':
 			return handleSaveCommandCenterPreset(state, env, command.actorId, command.payload);
 		case 'command-center.apply-preset':

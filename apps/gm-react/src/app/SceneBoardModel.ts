@@ -12,6 +12,15 @@ import type { MessageKey } from '../i18n';
 
 export const GRID = 20;
 export const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
+/** RC-CAN-8.6 — screen px a tile-menu trigger slides right. Held at screen size, it is wider than a
+ *  Small tile at Fit and, right-aligned, hung off the left of the viewport. It slides no further
+ *  than its own tile's left edge, so it still covers its tile; measured net of `current`. */
+export function triggerNudge(anchor: HTMLElement | null, current: number) {
+	const frame = anchor?.parentElement;
+	if (!anchor || !frame) return current;
+	const left = anchor.getBoundingClientRect().left - current;
+	return Math.max(0, Math.min(4 - left, frame.getBoundingClientRect().left - left));
+}
 export const snapTo = (n: number, snap: boolean) =>
 	snap ? Math.round(n / GRID) * GRID : Math.round(n);
 /** Drop one widget's in-flight drag draft, so it falls back to its durable position/size. */
@@ -48,6 +57,8 @@ export const ZOOM_PRESET_KEY: Record<ZoomPreset, MessageKey> = {
 };
 
 export interface SceneBoardCanvasProps {
+	/** A phone's editing overview fits the full width; a loupe provides the detailed view. */
+	fitFloor?: number;
 	widgets: BoardWidget[];
 	policy: 'bounded' | 'canvas';
 	editing: boolean;

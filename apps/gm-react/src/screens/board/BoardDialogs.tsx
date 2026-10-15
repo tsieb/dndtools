@@ -1,14 +1,13 @@
 import type { WidgetPackageDefinition } from '@dndtools/core';
 import { TemplatePicker } from '../../app/canvas/TemplatePicker';
-import { GenerateDialog } from '../../app/widgetBuilder/GenerateDialog';
 import type { Viewport } from '../../app/useViewport';
-import { WidgetBuilder } from '../extensions/WidgetBuilder';
+import { BoardAuthoring } from './BoardAuthoring';
 
 /**
  * RC-POL-1.2 — the board's modal flows, out of `Board.tsx`: the scene-template picker (RC-CAN-4.4)
- * and the gallery's "Generate with assistant" and "Build your own" entries (RC-CAN-4.1). `builder.pkg`
- * is the assistant's staged proposal, or null for a blank widget; neither is durable until the
- * builder installs it, and what it installs goes back to the gallery through `onBuilt` (RC-WID-6.2).
+ * and the gallery's "Generate with assistant" and "Build your own" entries (RC-CAN-4.1), which
+ * `BoardAuthoring` loads on demand (RC-ENG-3.2). `builder.pkg` is the assistant's staged proposal,
+ * or null for a blank widget; what the builder installs goes back to the gallery (RC-WID-6.2).
  */
 export function BoardDialogs({
 	viewport,
@@ -31,7 +30,7 @@ export function BoardDialogs({
 	onGenerateClose: () => void;
 	builder: { pkg: WidgetPackageDefinition | null } | null;
 	onBuilder: (next: { pkg: WidgetPackageDefinition | null } | null) => void;
-	onBuilt: (pkg: WidgetPackageDefinition | null) => void;
+	onBuilt: (pkg: WidgetPackageDefinition) => void;
 }) {
 	return (
 		<>
@@ -42,21 +41,13 @@ export function BoardDialogs({
 				sceneId={sceneId}
 				onApplied={onTemplateApplied}
 			/>
-			<GenerateDialog
-				open={generateOpen}
-				onClose={onGenerateClose}
-				onGenerated={(pkg) => {
-					onGenerateClose();
-					onBuilder({ pkg });
-				}}
+			<BoardAuthoring
+				generateOpen={generateOpen}
+				onGenerateClose={onGenerateClose}
+				builder={builder}
+				onBuilder={onBuilder}
+				onInstalled={onBuilt}
 			/>
-			{builder && (
-				<WidgetBuilder
-					generatedPackage={builder.pkg}
-					onClose={() => onBuilder(null)}
-					onInstalled={onBuilt}
-				/>
-			)}
 		</>
 	);
 }

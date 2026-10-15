@@ -97,14 +97,17 @@ test('player preview uses actor reads and offers no create launchers', async ({ 
 });
 
 test('release-note load failure recovers on retry without leaving help', async ({ page }) => {
-	await page.route(/CHANGELOG\.md/, (route) => route.abort('failed'));
+	// The notes' content fetch, not the dev server's `CHANGELOG.md?import&url` module that names it
+	// (the Help panel loads on first open, after this route is in place).
+	const changelog = /CHANGELOG\.md(?:[#?](?!import)|$)/;
+	await page.route(changelog, (route) => route.abort('failed'));
 	await page.keyboard.press('Control+k');
 	await page.getByRole('combobox').fill('Help');
 	await page.getByRole('option', { name: 'Help', exact: true }).waitFor();
 	await page.getByRole('combobox').press('Enter');
 	const help = page.getByRole('dialog', { name: 'Help', exact: true });
 	await expect(help.getByText('Release notes couldn’t load. Try again.')).toBeVisible();
-	await page.unroute(/CHANGELOG\.md/);
+	await page.unroute(changelog);
 	await help.getByRole('button', { name: 'Retry' }).click();
 	await expect(help.getByText(/Version /)).toBeVisible();
 	await help.getByRole('button', { name: 'Keyboard shortcuts' }).click();

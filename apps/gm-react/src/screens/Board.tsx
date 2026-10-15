@@ -38,7 +38,7 @@ import {
 	ScreenInspector,
 	ScreenPreviewOverlay,
 	useQuietPlacement,
-} from './sceneEditor';
+} from './sceneEditor/screenParts';
 import { ScreenToolbar } from './sceneEditor/SceneToolbar';
 import { usePreviewActions } from '../app/ViewAsControl';
 import { readPlayerPreview } from './sceneEditor/playerPreview';
@@ -133,14 +133,14 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 	const phone = viewport === 'phone';
 	// A phone's Layout opens at Comfortable, the real tiles at 1:1; its Fit is the titles-only overview.
 	const [zoom, setZoom] = useState<ZoomPreset>(phone ? 'comfortable' : 'fit');
-	const steps = Phone.phoneZoomSteps(phone, editing, zoom);
+	const steps = Phone.phoneZoomSteps(phone, editing && !preview, zoom, true);
 	// The screen route names the scene; the board never provisions one.
 	const sceneId = screen.id;
 	const boardScene = runtime.state.scenes.scenes[sceneId];
 	const flow = !!boardScene && screenLayoutPolicy(boardScene) === 'flow';
 	// The panel list stands in for a CANVAS on a phone. A flow screen already collapses to one column
 	// of its own content (ADR-041), so it reads through FlowBoard on every tier (RC-CAN-7.6).
-	const posture = useStackedPosture(phone && !editing && !flow);
+	const posture = useStackedPosture(phone && !flow);
 	const [layoutFull, setLayoutFull] = useState(false);
 	const chromeHidden = posture.hideChrome || layoutFull;
 	// The Layouts panel used to render unconditionally whenever edit mode was on, with no close
@@ -162,12 +162,14 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 
 	// Presets and safe points are `command-center.*` commands on the HOME board, so only it offers them.
 	const isHomeBoard = sceneId === runtime.state.commandCenter.homeSceneId;
-	const summary = getSceneForActor(
-		runtime.state.scenes,
-		runtime.state.permissions,
-		actorId,
-		sceneId,
-		{ widgetPackages: runtime.state.widgets },
+	// RC-ENG-3.2 — memoised on what it reads, so an unrelated runtime change does not hand the canvas
+	// a fresh widget list (and every frame new props).
+	const scenes = runtime.state.scenes;
+	const permissions = runtime.state.permissions;
+	const widgetPackages = runtime.state.widgets;
+	const summary = useMemo(
+		() => getSceneForActor(scenes, permissions, actorId, sceneId, { widgetPackages }),
+		[scenes, permissions, actorId, sceneId, widgetPackages],
 	);
 	const ready = !('kind' in summary);
 	const previewBlocked =
@@ -372,11 +374,12 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 							zoom={zoom}
 							onZoom={setZoom}
 							canvasZoom={steps.canvas}
+							fitFloor={steps.fitFloor}
 							onFullScreenChange={setLayoutFull}
 						/>
 						{ready && widgets.length === 0 && (
 							<BoardEmptyState
-								title={t('board.emptyTitle')}
+								title={t('board.emptyTitleNamed', { name: screen.title })}
 								repeat={previouslyFilled}
 								testId="board-empty-templates"
 								onAdd={() => {

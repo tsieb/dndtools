@@ -1,6 +1,14 @@
 # RC-ENG-1.3: measure a pinned reference and the candidate interleaved, batch by batch, on the same
-# runner, five times over, and verify the five runs agree. Raw batches, the CI baselines, reports and
-# agreement evidence are retained.
+# runner, and retain raw batches, the CI baselines, reports and agreement evidence.
+# RC-ENG-1.4: two modes, decided by `compare.ts --policy` (docs/development/PERFORMANCE.md §2.1).
+#   scheduled     the weekly run on main, or a manual run: five paired runs. Records a baseline
+#                 candidate for the runner class; once one is committed, drift past tolerance fails
+#                 the run.
+#   pull-request  pushes to main, or a manual run in this mode: two interleaved repeats. Fails only
+#                 on an absolute target breached in both repeats, and only once a baseline exists.
+#                 Pull requests themselves no longer trigger a capture (ADR-043).
+# Until tests/perf/baseline.ci.json records a baseline for this runner class, both modes report
+# (job summary + artifact) and do not fail.
 name: Performance
 
 on:
@@ -22,6 +30,7 @@ on:
   schedule:
     - cron: '0 4 * * 1' # Mondays 04:00 UTC: a weekly sample even when nothing budget-relevant landed
   # A manual run can capture any ref, so an unmerged candidate gets hosted evidence before it lands.
+  # It runs the scheduled mode by default, which is how the first baseline is captured.
   workflow_dispatch:
     inputs:
       ref:
@@ -29,9 +38,19 @@ on:
         required: false
         type: string
         default: ''
+      mode:
+        description: 'scheduled: five runs, records a baseline candidate, drift binding. pull-request: two repeats, target binding.'
+        required: false
+        type: choice
+        options:
+          - scheduled
+          - pull-request
+        default: scheduled
 
+# Keyed per ref, event and mode: a scheduled run never cancels a push run, and two manual runs of
+# different refs do not cancel each other.
 concurrency:
-  group: perf-${{ inputs.ref || github.ref }}
+  group: perf-${{ inputs.ref || github.ref }}-${{ github.event_name }}-${{ inputs.mode || 'auto' }}
   cancel-in-progress: true
 
 permissions:
@@ -43,6 +62,8 @@ jobs:
     runs-on: ubuntu-24.04
     # Five paired runs measure both revisions every time; GitHub-hosted jobs cap at 360.
     timeout-minutes: 300
+    env:
+      PERF_MODE: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.mode != 'pull-request')) && 'scheduled' || 'pull-request' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -68,14 +89,27 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Test performance measurement and comparison
-        run: pnpm exec vitest run --config tests/perf/vitest.config.ts
+        run: |
+          pnpm exec vitest run --config tests/perf/vitest.config.ts
+          pnpm exec tsx scripts/perf/compare.ts --test-policy
 
       # The capture drives the real app in Chromium and resolves Playwright from apps/gm-react.
       - name: Set up browser tests
         uses: ./.github/actions/setup-e2e
 
-      - name: Measure reference and candidate interleaved, five runs
-        run: bash scripts/perf/ci.sh
+      # The capture's own exit status is not the verdict: a failed run leaves no verdict file, and the
+      # policy step below fails closed on that when enforcing.
+      - name: Measure reference and candidate interleaved (five runs scheduled, two on a PR)
+        run: |
+          if [[ "$PERF_MODE" == scheduled ]]; then export PERF_RUNS=5; else export PERF_RUNS=2; fi
+          bash scripts/perf/ci.sh || echo "::warning::ci.sh exited $?; the policy step decides the verdict."
+
+      # The one binding verdict for this job (RC-ENG-1.4). Writes policy.json/policy.md, and on a
+      # clean scheduled set a baseline.ci.json candidate for the delivery PR to land.
+      - name: Apply the performance policy
+        run: >-
+          pnpm exec tsx scripts/perf/compare.ts --policy "$PERF_MODE" --dir tmp/perf
+          --run-id "$GITHUB_RUN_ID" --summary "$GITHUB_STEP_SUMMARY"
 
       - name: Upload the run and the report
         if: always()

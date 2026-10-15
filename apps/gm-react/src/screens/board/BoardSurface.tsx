@@ -35,6 +35,7 @@ export function BoardSurface({
 	zoom,
 	onZoom,
 	canvasZoom,
+	fitFloor,
 	onFullScreenChange,
 }: {
 	posture: StackedPosture;
@@ -62,13 +63,19 @@ export function BoardSurface({
 	zoom: ZoomPreset;
 	onZoom: (preset: ZoomPreset) => void;
 	canvasZoom: ZoomPreset;
+	/** RC-CAN-8.6: set while a phone arranges at Fit, which may then go as small as it needs. */
+	fitFloor?: number;
 	onFullScreenChange: (full: boolean) => void;
 }) {
 	const { t } = useI18n();
+	const tileOps = { onSelect, onMove, onResize, onRemove };
 	return posture.stacked ? (
 		<StackedBoard
 			history={history}
 			sceneId={sceneId}
+			editing={editing}
+			selectedId={selectedId}
+			{...tileOps}
 			widgets={widgets}
 			onWidgetCommand={onWidgetCommand}
 			emptyHint={ready ? '' : t('board.preparingHint')}
@@ -81,10 +88,7 @@ export function BoardSurface({
 			tier={viewport}
 			editing={editing}
 			selectedId={selectedId}
-			onSelect={onSelect}
-			onMove={onMove}
-			onResize={onResize}
-			onRemove={onRemove}
+			{...tileOps}
 			onWidgetCommand={onWidgetCommand}
 			history={history}
 			emptyTitle=""
@@ -94,30 +98,29 @@ export function BoardSurface({
 		<PhoneNavigator
 			active={phone}
 			editing={editing}
+			{...tileOps}
 			widgets={widgets}
-			zoom={zoom}
+			zoom={fitFloor ? 'fit' : zoom}
 			onZoom={onZoom}
 			onWidgetCommand={onWidgetCommand}
 			onFullScreenChange={onFullScreenChange}
 		>
 			<SceneBoardCanvas
+				fitFloor={fitFloor}
 				widgets={widgets}
 				policy="bounded"
 				editing={editing}
 				snap={snap}
 				selectedId={selectedId}
-				onSelect={onSelect}
-				onMove={onMove}
-				onResize={onResize}
+				{...tileOps}
 				focusOrder={focusOrder}
-				onRemove={onRemove}
 				onWidgetCommand={onWidgetCommand}
 				emptyHint={ready ? '' : t('board.preparingHint')}
 				// The illustrated overlay owns the ready-empty copy; keep the canvas mounted for shortcuts.
 				emptyTitle={ready ? '' : t('board.preparingTitle')}
 				history={history}
 				zoomPreset={canvasZoom}
-				onZoomPresetChange={onZoom}
+				onZoomPresetChange={fitFloor ? undefined : onZoom}
 			/>
 		</PhoneNavigator>
 	);

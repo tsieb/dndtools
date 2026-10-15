@@ -6,7 +6,7 @@ import { useI18n, type MessageKey } from '../../i18n';
 import { noteDepth, type NoteDepth } from '../widgets/builtin/Note';
 import { NoteFrameContext } from '../widgets/builtin/NoteBody';
 import { useRuntime } from '../../runtime/RuntimeContext';
-import { TIER_KEY, type BoardWidget } from '../board-helpers';
+import { tileChipTierKey, type BoardWidget } from '../board-helpers';
 import {
 	safeBoundEntityName,
 	tileBindingState,
@@ -333,7 +333,14 @@ export function WidgetFrame({
 					style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}
 				>
 					<NoteFrameContext.Provider value={true}>
-						<WidgetRenderSlot widget={w} onCommand={onCommand} {...fit.slot} />
+						<WidgetRenderSlot
+							widget={w}
+							onCommand={onCommand}
+							{...fit.slot}
+							// Fit's text floor can make a previously whole body scroll. Keep that content
+							// keyboard-reachable even while the frame owns layout editing.
+							keyboardScrollable={fit.slot.keyboardScrollable || scale < 1}
+						/>
 					</NoteFrameContext.Provider>
 				</div>
 				{w.statusNote && (
@@ -416,7 +423,11 @@ export function WidgetFrame({
 					>
 						<Icon name={resizable ? 'move' : 'lock'} size={11} />
 						{w.title}
-						<span style={{ opacity: 0.85, fontWeight: 500 }}>· {t(TIER_KEY[w.tier])}</span>
+						{tileChipTierKey(w.tier) && (
+							<span style={{ opacity: 0.85, fontWeight: 500 }}>
+								· {t(tileChipTierKey(w.tier)!)}
+							</span>
+						)}
 					</div>
 					{resizable && (
 						<button

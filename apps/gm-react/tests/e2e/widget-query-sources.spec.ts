@@ -44,6 +44,18 @@ const SOURCES = [
 	'resume',
 	'table-scenes',
 	'library-sections',
+	// RC-WID-5.7 — the GM board's tools and the legacy Command Center bodies.
+	'widget-timer',
+	'session-audio',
+	'bound-map',
+	'bound-character',
+	'session-status',
+	'onboarding',
+	'command-center',
+	'map-projection',
+	'player-view-controller',
+	'encounters',
+	'saved-searches',
 ];
 
 const SECRET_SCREEN = 'Smugglers’ hold — RC-WID-5.2';

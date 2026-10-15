@@ -19,7 +19,7 @@ import type { Viewport } from '../useViewport';
 
 import { WidgetLibraryCard } from './WidgetLibraryCard';
 import { Miniature } from './GalleryMiniature';
-import { InPlaceEnable } from '../../screens/extensions/WidgetBuilder';
+import { InPlaceEnable } from '../../screens/extensions/InPlaceEnable';
 import { GalleryMoreWays, GalleryStartHeader } from './GalleryParts';
 
 // The free-slot search moved beside the palette rows that share it (RC-CAN-8.5).

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
 	fitWidgetSize,
 	frameName,
@@ -8,7 +8,6 @@ import {
 } from './board-helpers';
 import { type CoreCommand } from '@dndtools/core';
 
-import { WidgetFrame } from './canvas/WidgetFrame';
 import { EmptyCanvas, HistoryCluster } from './canvas/frameParts';
 import {
 	arrangeCommand,
@@ -37,9 +36,11 @@ import {
 } from './canvas/keyboard';
 import { matchesShortcut } from './shortcuts/registry';
 import { ZoomCluster } from './canvas/ZoomCluster';
-import { useCanvasZoom, usePaneWidth } from './canvas/useCanvasZoom';
-import { useCanvasScene } from './canvas/useCanvasScene';
-import { useWindowGestures } from './canvas/useWindowGestures';
+import { useCanvasZoom, useKeepFocusInView } from './canvas/useCanvasZoom';
+import { useWidgetCommands } from './widgets/useWidgetCommands';
+import { BoardFrame, useFrameHandlers, usePaneWidth } from './widgets/boardFrames';
+import { useCanvasScene, useCanvasSelection } from './canvas/useCanvasScene';
+import { capturePointer, useWindowGestures } from './canvas/useWindowGestures';
 import {
 	CanvasAnnouncements,
 	CanvasBackdrop,
@@ -47,12 +48,19 @@ import {
 	canvasSurfaceStyle,
 } from './canvas/CanvasLayers';
 import * as A11y from './canvas/surfaceA11y';
-import { ARROW_DELTA, GRID, type Drag, type SceneBoardCanvasProps } from './SceneBoardModel';
+import {
+	ARROW_DELTA,
+	FIT_FLOOR,
+	GRID,
+	type Drag,
+	type SceneBoardCanvasProps,
+} from './SceneBoardModel';
 export { ZOOM_PRESETS, ZOOM_PRESET_KEY, type ZoomPreset } from './SceneBoardModel';
 export { WidgetGlyph } from './canvas/frameParts';
 import { useI18n } from '../i18n';
 
 export function SceneBoardCanvas({
+	fitFloor = FIT_FLOOR,
 	widgets: authoredWidgets,
 	policy,
 	editing,
@@ -102,25 +110,16 @@ export function SceneBoardCanvas({
 	const frameRefs = useRef(new Map<string, HTMLDivElement>());
 	const [focusedId, setFocusedId] = useState<string | null>(null);
 	const runtime = useRuntime();
-	const [multi, setMulti] = useState<string[]>([]);
 	const [marquee, setMarquee] = useState<Box | null>(null);
 	// RC-CAN-8.3 — the snap guides and gaps of the tile under a move drag (`id`), while it moves.
 	const [guides, setGuides] = useState<(DragGuides & { id: string }) | null>(null);
 	const marqueeRef = useRef<{ x: number; y: number; base: string[] } | null>(null);
 	const groupDrag = useRef<Record<string, { x: number; y: number }>>({});
-	const selection = multi.length ? multi : selectedId ? [selectedId] : [];
 	const { scene, sections, background, surfaceTheme, widgets, groupOf } = useCanvasScene(
 		authoredWidgets,
 		policy,
 	);
-	const select = (ids: string[]) => {
-		setMulti(ids.length > 1 ? ids : []);
-		onSelect(ids[ids.length - 1] ?? null);
-	};
-	useEffect(() => {
-		if (!editing || !selectedId || !multi.includes(selectedId))
-			setMulti((m) => (m.length ? [] : m));
-	}, [editing, selectedId, multi]);
+	const { multi, selection, select } = useCanvasSelection(editing, selectedId, onSelect);
 	const { pending, nudge } = useNudges();
 	const rects = useMemo(
 		() =>
@@ -142,7 +141,10 @@ export function SceneBoardCanvas({
 		[onMove],
 	);
 
-	const wrapWidth = usePaneWidth(wrapRef);
+	// RC-ENG-3.2 — read before the first paint, so a Fit board does not paint at 100% and re-render.
+	const paneWidth = usePaneWidth(wrapRef);
+	const wrapWidth = paneWidth ?? 0;
+	useKeepFocusInView(wrapRef, wrapWidth);
 
 	const contentExtent = extentOf([...authoredWidgets, ...rects, ...sections.map((s) => s.bounds)]);
 	const {
@@ -163,22 +165,15 @@ export function SceneBoardCanvas({
 		wrapRef,
 		wrapWidth,
 		contentWidth: contentExtent.width,
+		fitFloor,
 		zoomPreset,
 		onZoomPresetChange,
 		historyGutter: editing && !!history,
 	});
 
-	const capture = (e: React.PointerEvent) => {
-		try {
-			e.currentTarget.setPointerCapture(e.pointerId);
-		} catch {
-			/* a pointer that has already ended cannot be captured — the listeners still cover us */
-		}
-	};
-
 	/** Start a pointer gesture: capture it, record it (`null` for a marquee) and stop text selection. */
 	const begin = (e: React.PointerEvent, drag: Drag | null) => {
-		capture(e);
+		capturePointer(e);
 		dragRef.current = drag;
 		document.body.style.userSelect = 'none';
 	};
@@ -391,13 +386,24 @@ export function SceneBoardCanvas({
 		else void (key.kind === 'undo' ? history?.undo() : history?.redo());
 	};
 
+	const commands = useWidgetCommands(authoredWidgets, onWidgetCommand);
+	const frameHandlers = useFrameHandlers(widgets, frameRefs, {
+		onKeyDown: (w, e) => frameKeyDown(e, w),
+		onFocusIn: (w) => setFocusedId(w.id),
+		onStartMove: (w, e) => startMove(e, w),
+		onStartResize: (w, e) => startResize(e, w),
+		onCycleSize: cycleSize,
+		onResizeStep: (w, dx, dy) => keyboardResize(w, dx, dy),
+	});
+	// One settle callback for every frame: a fresh closure per render would defeat `BoardFrame`'s memo.
+	const settle = useCallback(() => historyRef.current?.settle(), []);
 	const frames = orderedWidgets.map((w) => {
 		const pos = posDraft[w.id] ?? { x: w.x, y: w.y };
 		const size = sizeDraft[w.id] ?? { w: w.w, h: w.h };
 		const selected = editing && selection.includes(w.id);
 		const resizable = editing && isWidgetResizable(w) && (canResize?.(w) ?? true);
 		return (
-			<WidgetFrame
+			<BoardFrame
 				key={w.id}
 				history={history}
 				w={w}
@@ -414,22 +420,9 @@ export function SceneBoardCanvas({
 				tabbable
 				stackOrder={widgets.indexOf(w)}
 				ariaLabel={frameName(w, { editing, selected: selected && multi.length > 0 }, t)}
-				onKeyDown={(e) => frameKeyDown(e, w)}
-				onFocusIn={() => setFocusedId(w.id)}
-				onSettle={() => history?.settle()}
-				registerRef={(el) => {
-					if (el) frameRefs.current.set(w.id, el);
-					else frameRefs.current.delete(w.id);
-				}}
-				onStartMove={(e) => startMove(e, w)}
-				onStartResize={(e) => startResize(e, w)}
-				onCycleSize={() => void cycleSize(w)}
-				onResizeStep={(dx, dy) => keyboardResize(w, dx, dy)}
-				onCommand={
-					!editing && onWidgetCommand
-						? (commandType, payload) => onWidgetCommand(w.id, commandType, payload)
-						: undefined
-				}
+				onSettle={settle}
+				{...frameHandlers(w.id)}
+				onCommand={editing ? undefined : commands.get(w.id)}
 			/>
 		);
 	});
@@ -456,6 +449,7 @@ export function SceneBoardCanvas({
 				extent={contentExtent}
 			/>
 			<CanvasStage
+				measured={paneWidth !== null}
 				policy={policy}
 				tx={tx}
 				ty={ty}

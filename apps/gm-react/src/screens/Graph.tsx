@@ -2,10 +2,21 @@ import './graph/graph.css';
 import { GraphSearch } from './graph/Search';
 import { GraphInspector } from './graph/Inspector';
 import { GraphHealth } from './graph/Health';
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import {
+	memo,
+	useDeferredValue,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+	type KeyboardEvent,
+	type ReactNode,
+} from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-	getGraphVisualizationForActor,
+	buildGraphVisualizationBase,
+	filterGraphVisualization,
 	isMaturitySignalReached,
 	type GraphVisualization,
 	type GraphVizNode,
@@ -24,7 +35,8 @@ import {
 	useClusterHulls,
 	useGraphClusters,
 } from './graph/clusters';
-import { indexConnections, showNodeLabel, walkNode } from './graph/interaction';
+import { indexConnections, limitCanvasNodes, showNodeLabel, walkNode } from './graph/interaction';
+import { GraphCanvasNode, edgeKeys, nodeDiameter, type CanvasNodeHandlers } from './graph/nodes';
 import {
 	KIND_COLOR,
 	KIND_ICON,
@@ -37,7 +49,7 @@ import {
 
 /**
  * Graph & Search — the relationship graph canvas + faceted search, wired to the live Processing
- * Core. Every node/edge/facet comes from `getGraphVisualizationForActor`,
+ * Core. Every node/edge/facet comes from `getGraphVisualizationForActor` (its base + filter halves),
  * the actor-filtered GRAPH-004 read model: the DM/Player toggle simply re-runs the read AS a different
  * actor, so a player view drops every DM-only node the data layer hides (the leak-proofing contract,
  * proven by the read itself, not by client-side filtering). Health is the DM-only GRAPH-007 report;
@@ -53,9 +65,9 @@ import {
 
 const DEFAULT_SOURCE_ID = 'local-vault';
 
-/** The diameter says how connected a node is; the name lives outside it, so a long title never
- * stretches or squeezes the circle. 48px at least: the node is a touch target. */
-const nodeDiameter = (degree: number) => Math.max(48, Math.min(72, 48 + degree * 4));
+// Its props are the memoized read plus state setters, so hover, focus and keyboard walks on the
+// canvas no longer re-render every result row (RC-ENG-3.2).
+const MemoGraphSearch = memo(GraphSearch);
 
 export function Graph() {
 	const runtime = useRuntime();
@@ -101,38 +113,75 @@ export function Graph() {
 
 	const viewActorId = view === 'dm' ? dmId : playerId;
 
-	const viz: GraphVisualization = useMemo(
+	const { content, maps, session, permissions } = runtime.state;
+	// The vault-dependent half of the read is rebuilt only when the vault or viewpoint changes; each
+	// search keystroke or facet click runs just the filter pass over it (RC-ENG-3.2).
+	const vizBase = useMemo(
 		() =>
-			getGraphVisualizationForActor(
-				runtime.state.content,
-				runtime.state.maps,
-				runtime.state.session,
-				runtime.state.permissions,
+			buildGraphVisualizationBase(
+				content,
+				maps,
+				session,
+				permissions,
 				viewActorId,
 				DEFAULT_SOURCE_ID,
-				{
-					kinds: facet === 'all' ? undefined : [facet as GraphVizNode['kind']],
-					text: query.trim() || undefined,
-				},
 			),
-		[runtime.state, viewActorId, facet, query],
+		[content, maps, session, permissions, viewActorId],
+	);
+	const listViz: GraphVisualization = useMemo(
+		() =>
+			filterGraphVisualization(vizBase, {
+				kinds: facet === 'all' ? undefined : [facet as GraphVizNode['kind']],
+				text: query.trim() || undefined,
+			}),
+		[vizBase, facet, query],
+	);
+	// The results list follows every keystroke. The canvas, its label pass and the count follow a
+	// deferred query in an interruptible render, so typing commits the list first (RC-ENG-3.2).
+	const canvasQuery = useDeferredValue(query);
+	// Filtered on its own (not reused from the list) so its identity, and every canvas memo below,
+	// holds through the urgent render.
+	const viz: GraphVisualization = useMemo(
+		() =>
+			filterGraphVisualization(vizBase, {
+				kinds: facet === 'all' ? undefined : [facet as GraphVizNode['kind']],
+				text: canvasQuery.trim() || undefined,
+			}),
+		[vizBase, facet, canvasQuery],
 	);
 
-	const health = useGraphHealth(view, dmId, playerId);
+	// Health and clusters are whole-vault reports for the side panels and hull washes. Reading them from
+	// a deferred state lets the graph itself commit first after a change; the panels follow in an
+	// interruptible render instead of holding every command's update on a large vault (RC-ENG-3.2).
+	const panelState = useDeferredValue(runtime.state);
+	const health = useGraphHealth(panelState, view, dmId, playerId);
 	// The same usage signal that puts Graph in the nav (three links): before it, a filter, cluster
 	// hulls and a dormant-arcs report are analytics about a graph that does not exist yet.
-	const signalReached = useMemo(
-		() => isMaturitySignalReached('graph', runtime.state),
-		[runtime.state],
-	);
+	const signalReached = useMemo(() => isMaturitySignalReached('graph', panelState), [panelState]);
 
-	const clusters = useGraphClusters(runtime.state, viewActorId);
+	const clusters = useGraphClusters(panelState, viewActorId);
 
-	const nodes = useMemo(() => positioned(viz.nodes), [viz.nodes]);
+	const connections = useMemo(() => indexConnections(viz), [viz]);
+	// A large vault draws only part of itself (see `limitCanvasNodes`). The selection stays drawn (a node
+	// clicked on the canvas already is). Admit the selection and focus anchor before capped neighbours.
+	const canvasPool = useMemo(() => {
+		const pinned = new Set<string>(sel ? [sel] : []);
+		if (focusId) {
+			pinned.add(focusId);
+			for (const n of connections.get(focusId)?.neighbors ?? []) pinned.add(n);
+		}
+		return limitCanvasNodes(viz.nodes, pinned);
+	}, [viz.nodes, connections, sel, focusId]);
+	const nodes = useMemo(() => positioned(canvasPool), [canvasPool]);
 	const nodeById = useMemo(() => Object.fromEntries(nodes.map((n) => [n.id, n])), [nodes]);
+	// Every result, drawn or not: the inspector lists a selection's links even to undrawn neighbours.
+	const resultById = useMemo(
+		() =>
+			canvasPool === viz.nodes ? nodeById : Object.fromEntries(viz.nodes.map((n) => [n.id, n])),
+		[canvasPool, viz.nodes, nodeById],
+	);
 	const { hulls, hullsOn, toggleHulls } = useClusterHulls(clusters.clusters, nodeById);
 	const selNode = sel && nodeById[sel] ? nodeById[sel] : null;
-	const connections = useMemo(() => indexConnections(viz), [viz]);
 	const selectedConnections = selNode ? connections.get(selNode.id) : undefined;
 	const selEdges = selectedConnections?.edges ?? [];
 	const focusAnchor = focusId && nodeById[focusId] ? focusId : null;
@@ -145,8 +194,32 @@ export function Graph() {
 				: nodes,
 		[nodes, connections, focusAnchor],
 	);
-	const canvasIds = canvasNodes.map((n) => n.id);
+	const canvasIds = useMemo(() => canvasNodes.map((n) => n.id), [canvasNodes]);
 	const tabId = activeId && canvasIds.includes(activeId) ? activeId : canvasIds[0];
+	const edgeKey = useMemo(() => edgeKeys(viz.edges), [viz.edges]);
+	// Stable across renders so the memoized nodes only re-render when their own props change.
+	const walkIds = useRef(canvasIds);
+	useLayoutEffect(() => {
+		walkIds.current = canvasIds;
+	}, [canvasIds]);
+	const nodeHandlers = useMemo<CanvasNodeHandlers>(
+		() => ({
+			register: (id, el) => {
+				if (el) nodeButtons.current.set(id, el);
+				else nodeButtons.current.delete(id);
+			},
+			focus: setActiveId,
+			hover: setHoverId,
+			walk: (id, e) => {
+				const next = walkNode(walkIds.current, id, e.key);
+				if (!next) return;
+				e.preventDefault();
+				nodeButtons.current.get(next)?.focus();
+			},
+			toggle: (id) => setSel((cur) => (cur === id ? null : id)),
+		}),
+		[],
+	);
 	// The kinds the actor COULD filter by, straight from the live facets (never reveals hidden content).
 	const legendKinds = viz.facets.kinds;
 	const showCanvas = !isPhone || mapOpen;
@@ -324,7 +397,7 @@ export function Graph() {
 					const hot = selNode != null && (e.fromId === sel || e.toId === sel);
 					return (
 						<line
-							key={`${e.fromId}-${e.toId}-${i}`}
+							key={edgeKey[i]}
 							x1={a.x}
 							y1={a.y}
 							x2={b.x}
@@ -338,73 +411,21 @@ export function Graph() {
 					);
 				})}
 			</svg>
-			{canvasNodes.map((n) => {
-				const col = KIND_COLOR[n.kind] ?? T.sub;
-				const dim = selNode != null && n.id !== sel && !selectedConnections?.neighbors.has(n.id);
-				const d = nodeDiameter(n.degree);
-				return (
-					<button
-						key={n.id}
-						data-testid="graph-node"
-						data-graph-node={n.id}
-						ref={(el: HTMLButtonElement | null) => {
-							if (el) nodeButtons.current.set(n.id, el);
-							else nodeButtons.current.delete(n.id);
-						}}
-						tabIndex={n.id === tabId ? 0 : -1}
-						onFocus={() => setActiveId(n.id)}
-						onMouseEnter={() => setHoverId(n.id)}
-						onMouseLeave={() => setHoverId(null)}
-						aria-describedby="graph-walk-help"
-						onKeyDown={(e: KeyboardEvent<HTMLButtonElement>) => {
-							const next = walkNode(canvasIds, n.id, e.key);
-							if (!next) return;
-							e.preventDefault();
-							nodeButtons.current.get(next)?.focus();
-						}}
-						type="button"
-						// Toggle, not latch. `setSel(null)` existed nowhere, so the first click on any
-						// node emphasized its neighbors and dimmed every non-incident edge to
-						// 0.22 for the rest of the session with no way back. Atlas's POI list already
-						// toggles the same way.
-						aria-pressed={n.id === sel}
-						onClick={() => setSel((cur) => (cur === n.id ? null : n.id))}
-						title={t('graph.nodeTitle', {
-							title: n.title,
-							kind: KIND_LABEL[n.kind] ? t(KIND_LABEL[n.kind]) : n.kind,
-							count: n.degree,
-						})}
-						aria-label={t('graph.nodeLabel', {
-							title: n.title,
-							kind: KIND_LABEL[n.kind] ? t(KIND_LABEL[n.kind]) : n.kind,
-							count: n.degree,
-						})}
-						style={{
-							position: 'absolute',
-							left: `${n.x}%`,
-							top: `${(n.y / 70) * 100}%`,
-							transform: 'translate(-50%,-50%)',
-							width: d,
-							height: d,
-							borderRadius: 'var(--radius-full)',
-							cursor: 'pointer',
-							display: 'flex',
-							alignItems: 'center',
-							justifyContent: 'center',
-							padding: 'var(--space-1)',
-							opacity: 1,
-							filter: dim ? 'grayscale(1)' : undefined,
-							border: `0.09375rem solid ${n.id === sel ? T.acc : col}`,
-							background: `color-mix(in srgb, ${col} ${n.id === sel ? 28 : 16}%, ${T.surf})`,
-							color: T.ink,
-							boxShadow: n.id === sel ? T.smd : 'none',
-							transition: 'opacity var(--duration-fast) var(--easing-standard)',
-						}}
-					>
-						<Icon name={KIND_ICON[n.kind] ?? 'tag'} size={15} />
-					</button>
-				);
-			})}
+			{canvasNodes.map((n) => (
+				<GraphCanvasNode
+					key={n.id}
+					id={n.id}
+					title={n.title}
+					kind={n.kind}
+					degree={n.degree}
+					x={n.x}
+					y={n.y}
+					selected={n.id === sel}
+					dim={selNode != null && n.id !== sel && !selectedConnections?.neighbors.has(n.id)}
+					tabbable={n.id === tabId}
+					handlers={nodeHandlers}
+				/>
+			))}
 			{/* The names, as one layer after every node so no circle paints over a name. Each sits
 			    below its node, two lines at most; the node's aria-label and title carry the full
 			    name. `data-graph-rank` orders the collision pass: the selection keeps its slot, then
@@ -467,7 +488,7 @@ export function Graph() {
 				    did anything. It is present from mount, so role=status announces each change. */}
 					<span role="status" style={{ font: `var(--text-base) ${T.sans}`, color: T.ter }}>
 						{t('graph.showing', {
-							shown: viz.nodes.length,
+							shown: nodes.length,
 							total: viz.totalVisibleNodes,
 						})}
 						{viz.partial ? t('graph.partial') : ''}
@@ -556,10 +577,10 @@ export function Graph() {
 							</Button>
 						)}
 						{isPhone && showCanvas && canvas}
-						<GraphSearch
+						<MemoGraphSearch
 							filterable={signalReached}
 							view={view}
-							viz={viz}
+							viz={listViz}
 							query={query}
 							setQuery={setQuery}
 							facet={facet}
@@ -572,7 +593,7 @@ export function Graph() {
 							<GraphInspector
 								selNode={selNode}
 								selEdges={selEdges}
-								nodeById={nodeById}
+								nodeById={resultById}
 								facet={facet}
 								query={query}
 								setSel={setSel}

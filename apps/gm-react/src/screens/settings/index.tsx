@@ -1,3 +1,7 @@
+import {
+	ImportSettingsSection,
+	settingsImportSection,
+} from '../../app/importHub/settingsImportSection';
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { FeatureTier } from '@dndtools/core';
@@ -155,6 +159,7 @@ export function Settings() {
 		requestedSection?.id === 'settings.privacy.rowCloud'
 			? settingsFeatureGate(tab, 'settings-privacy-title')
 			: requestedSection;
+	const importSection = settingsImportSection(location.search);
 	const hiddenGate =
 		sectionGate && !settingsGateVisible(sectionGate.id, tier)
 			? sectionGate.id
@@ -263,7 +268,13 @@ export function Settings() {
 					})}
 			</nav>
 			<div style={{ minWidth: 0 }}>
-				{hiddenGate ? <GatedTab gateId={hiddenGate} tier={tier} /> : <Sub />}
+				{hiddenGate && !importSection ? (
+					<GatedTab gateId={hiddenGate} tier={tier} />
+				) : (
+					<ImportSettingsSection.Provider value={importSection}>
+						<Sub />
+					</ImportSettingsSection.Provider>
+				)}
 			</div>
 		</Page>
 	);

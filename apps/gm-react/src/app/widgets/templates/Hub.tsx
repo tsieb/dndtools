@@ -439,7 +439,11 @@ function HubBody({
 									targetId={row.id}
 									render={(control) => (
 										<ControlButton control={control} style={style} hoverStyle={{}}>
-											<LinkRowBody row={row} icon={icon} />
+											<LinkRowBody
+												row={row}
+												icon={icon}
+												action={intent.kind === 'preview-participant' ? control.label : undefined}
+											/>
 										</ControlButton>
 									)}
 								/>

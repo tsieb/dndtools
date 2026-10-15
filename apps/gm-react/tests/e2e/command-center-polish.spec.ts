@@ -37,7 +37,8 @@ test('Command Center and screen creator overlay are axe clean; keyboard focus re
 test('scene-card failed save retains input, retry persists and editor is axe clean', async ({
 	page,
 }) => {
-	await gotoRoute(page, '/screens');
+	// RC-CAN-8.7 — the scene cards have their own page; the library no longer carries the form.
+	await gotoRoute(page, '/scene-cards');
 	await page.locator('#card-title').fill('Lantern bridge');
 	await page.evaluate(() => {
 		const rt = window.__rt!;
@@ -70,8 +71,9 @@ test('read-only preview hides scene-card writes and runtime rejects a write', as
 	await expect(page.getByTestId('home-screen')).toHaveCount(0);
 	await axe(page);
 	await gotoRoute(page, '/screens');
-	await expect(page.locator('#card-title')).toHaveCount(0);
 	await expect(page.getByTestId('screens-new')).toHaveCount(0);
+	await gotoRoute(page, '/scene-cards');
+	await expect(page.locator('#card-title')).toHaveCount(0);
 	const result = await page.evaluate(() =>
 		window.__rt!.dispatch({
 			type: 'scene-card.create',
@@ -96,6 +98,8 @@ test('large text keeps creator controls reachable', async ({ page }) => {
 	await cancel.scrollIntoViewIfNeeded();
 	await expect(cancel).toBeInViewport();
 	await cancel.click();
+	await gotoRoute(page, '/scene-cards');
+	await page.addStyleTag({ content: 'html { font-size: 200%; }' });
 	const title = page.locator('#card-title');
 	await title.scrollIntoViewIfNeeded();
 	await expect(title).toBeInViewport();

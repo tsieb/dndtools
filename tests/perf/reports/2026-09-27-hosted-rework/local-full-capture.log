@@ -1,0 +1,29 @@
+· started a dev server on :16373 (reference)
+· started a dev server on :16273 (candidate)
+· smoke-ci … 7 samples per revision, interleaved, in 363s
+· app-startup … 21 samples per revision, interleaved, in 89s
+· vault-open … 21 samples per revision, interleaved, in 118s
+· scene-first-render … 21 samples per revision, interleaved, in 99s
+· widget-update … 175 samples per revision, interleaved, in 33s
+· map-pan-zoom-desktop … 388 samples per revision, interleaved, in 102s
+· map-pan-zoom-slim … 1349 samples per revision, interleaved, in 111s
+· search … 140 samples per revision, interleaved, in 234s
+· graph-indexing … 35 samples per revision, interleaved, in 197s
+· sync-reconciliation … 35 samples per revision, interleaved, in 153s
+· live-session-delivery … 105 samples per revision, interleaved, in 26s
+· smoke-ci:large … 7 samples per revision, shared with smoke-ci
+· app-startup:large … 21 samples per revision, interleaved, in 78s
+· vault-open:large … 21 samples per revision, interleaved, in 108s
+· scene-first-render:large … 21 samples per revision, interleaved, in 138s
+· widget-update:large … 175 samples per revision, interleaved, in 89s
+· map-pan-zoom-desktop:large … 356 samples per revision, interleaved, in 80s
+· map-pan-zoom-slim:large … 1360 samples per revision, interleaved, in 97s
+· search:large … 140 samples per revision, interleaved, in 184s
+· graph-indexing:large … 35 samples per revision, interleaved, in 333s
+· sync-reconciliation:large … 35 samples per revision, interleaved, in 136s
+· live-session-delivery:large … 105 samples per revision, interleaved, in 60s
+
+Wrote tmp/perf-local/full-reference.json (22 budgets, reference).
+
+Wrote tmp/perf-local/full-current.json (22 budgets, candidate).
+exit=0

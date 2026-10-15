@@ -73,6 +73,7 @@ export function CanvasBackdrop({
 
 /** The transformed layer the frames sit in: the edit grid, section bands, marquee and guides. */
 export function CanvasStage({
+	measured,
 	policy,
 	tx,
 	ty,
@@ -84,6 +85,8 @@ export function CanvasStage({
 	guides,
 	children,
 }: {
+	/** False until the pane is measured: see the `display` note below. */
+	measured: boolean;
 	policy: 'bounded' | 'canvas';
 	tx: number;
 	ty: number;
@@ -106,6 +109,10 @@ export function CanvasStage({
 					transform: `translate(${tx}px, ${ty}px) scale(${scale})`,
 					// Bare number: `.scene-board-operation` divides its touch target by it.
 					'--scene-board-scale': String(scale),
+					// The tiles mount before the pane is measured, and the fit scale that reading sets
+					// restyles every one of them (their text sizes divide by it). Kept out of style until
+					// then, a cold board computes its tiles' styles once (RC-ENG-3.2).
+					display: measured ? undefined : 'none',
 					minWidth: policy === 'bounded' ? extent.width : '100%',
 					height: policy === 'bounded' ? extent.height : undefined,
 				} as CSSProperties

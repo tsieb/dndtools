@@ -93,13 +93,6 @@ export const CHIP: CSSProperties = {
 	whiteSpace: 'nowrap',
 };
 
-// Secondary, not tertiary, text on the sunken chip: the same 4.5:1 fix WidgetFrame's chip carries.
-export const CHIP_DM: CSSProperties = {
-	...CHIP,
-	background: 'var(--color-surface-sunken)',
-	color: 'var(--color-text-secondary)',
-};
-
 export const CHIP_PLAYERS: CSSProperties = {
 	...CHIP,
 	background: 'var(--color-accent-subtle)',
@@ -156,4 +149,11 @@ export const EMPTY_HINT: CSSProperties = {
 	font: 'var(--text-sm) var(--font-sans)',
 	color: 'var(--color-text-secondary)',
 	maxWidth: '20rem',
+};
+
+export const EDIT_CONTROLS: CSSProperties = {
+	display: 'flex',
+	flexWrap: 'wrap',
+	gap: 'var(--space-1)',
+	padding: 'var(--space-2)',
 };

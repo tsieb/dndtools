@@ -1,0 +1,486 @@
+import {
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
+import { resolveWidgetIntent, type MapView } from '@dndtools/core';
+import { IconButton, Select, Toaster } from '../../../../ds';
+import { useRuntime } from '../../../../runtime/RuntimeContext';
+import { useI18n } from '../../../../i18n';
+import { T } from '../../../screen-kit';
+import { MapCanvas } from '../../../map/canvas/MapCanvas';
+import { clamp01 } from '../../../map/mapVocab';
+import { Muted, bodyWrap, cfg } from '../../../widget-body-kit';
+import type { WidgetTemplateProps } from '../shared';
+import { declares, detailOf, useWidgetCommandRunner } from './boardData';
+
+/**
+ * RC-CAN-4.5 — the MAP TILE. The `map` widget used to draw a cover-cropped `<img>` of the bound
+ * map's raster and a line of counts, which is a picture of a map rather than a map: no pan, no zoom,
+ * no fight on it, and nothing the DM could act on without leaving the board.
+ *
+ * RC-WID-5.7 made it the `map-view` template kind: the view comes from the definition's `bound-map`
+ * query and every action is one of its declared commands or intents, so a copy the GM builds from it
+ * draws and works the same. Nothing on screen changed.
+ *
+ * This renders the real thing through the SAME renderer the Atlas and the map editor use
+ * (`MapCanvas`), reading the SAME actor-filtered query (`getMapViewForActor`). Every visibility
+ * decision therefore stays in the core: fog, hidden layers, hidden POIs and combatants a player may
+ * not see are already absent from the view this tile receives, so projecting a map tile into a
+ * player view obeys fog for exactly the reason the Atlas does — the player's runtime asks the query
+ * as the player and gets a fogged view back (`packages/core/src/queries/map-query.ts`).
+ *
+ * The combat overlay is `MapCanvas`'s read-only `CombatOverlay` (RC-MAP-2.3), fed by
+ * `MapView.combatTokens`. It is synced with the tracker by construction: the tokens ARE the running
+ * combat's combatants, joined by the core through the tracker's own visibility rule, so a turn
+ * advancing or a combatant being removed moves the tile without a second subscription. When the
+ * overlay is switched off the tile asks the query WITHOUT `{ combat }`, so there is no list to leak
+ * rather than a list that is merely not drawn.
+ *
+ * Edit mode stays inert, like every other body: `onCommand` is absent there, so the tile draws the
+ * map and nothing else. The actions below only appear in VIEW mode, and only for a DM — a player
+ * cannot configure a widget or project to the table, and a control that could only ever be refused
+ * would be a dead control. Each appears only when the definition declares what it runs.
+ */
+
+const ZOOM_MIN = 1;
+const ZOOM_MAX = 4;
+const ZOOM_STEP = 0.25;
+/** Fraction of the visible width one arrow press slides the view (scaled by zoom). */
+const PAN_STEP = 0.12;
+
+function zoomed(zoom: number, delta: number): number {
+	return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, +(zoom + delta).toFixed(2)));
+}
+
+/**
+ * Where the party is standing, for the `followParty` option. Combat tokens of kind `character` are
+ * the party in a running fight; outside one, the placed map tokens that are linked to an actor are.
+ * Both lists are already actor-filtered, so following the party can never pull the view onto a
+ * combatant this actor may not see. No party ⇒ null, and the view simply does not follow.
+ */
+function partyCentre(view: MapView | null): { x: number; y: number } | null {
+	if (!view) return null;
+	const points = view.combatTokens
+		.filter((token) => token.kind === 'character')
+		.map((token) => token.position);
+	if (points.length === 0) {
+		for (const token of view.tokens) if (token.linkedActorId) points.push(token.position);
+	}
+	if (points.length === 0) return null;
+	const sum = points.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 });
+	return { x: clamp01(sum.x / points.length), y: clamp01(sum.y / points.length) };
+}
+
+export function MapViewTemplate({ widget, definition, data, onCommand }: WidgetTemplateProps) {
+	const runtime = useRuntime();
+	const { t } = useI18n();
+	const isDm = data.isDm;
+	// Present only in VIEW mode (SceneBoardCanvas). Its absence is what keeps edit mode inert.
+	const interactive = onCommand !== undefined;
+	const bound = detailOf(data, 'map')?.map ?? null;
+	const { placed, run: runCommand } = useWidgetCommandRunner(widget);
+
+	const overlayOn = cfg<boolean>(widget, 'combatOverlay') !== false;
+	const followParty = cfg<boolean>(widget, 'followParty') === true;
+	const initialZoom = Number(cfg<number>(widget, 'initialZoom') ?? 1) || 1;
+
+	const [zoom, setZoom] = useState(() => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, initialZoom)));
+	const [centre, setCentre] = useState({ x: 0.5, y: 0.5 });
+	// The configured zoom is the tile's STARTING view, not a lock: re-configuring it in the inspector
+	// re-frames the tile, but a DM who has since panned/zoomed by hand keeps their framing.
+	const configuredZoom = useRef(initialZoom);
+	useEffect(() => {
+		if (configuredZoom.current === initialZoom) return;
+		configuredZoom.current = initialZoom;
+		setZoom(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, initialZoom)));
+		setCentre({ x: 0.5, y: 0.5 });
+	}, [initialZoom]);
+
+	const boundId = bound?.mapId ?? null;
+	// The actor-filtered view; with the overlay off the source passed no combat slice, so the view
+	// carries no combat tokens at all (fail closed).
+	const view = bound?.view ?? null;
+	const layers = bound?.layers ?? [];
+	const rasterAssetId = bound?.rasterAssetId ?? null;
+	const party = useMemo(() => (followParty ? partyCentre(view) : null), [followParty, view]);
+	const shownCentre = party ?? centre;
+
+	// RC-ENG-8.2 — `MapCanvas` draws tokens and POIs as `<button>`s whether or not anything handles a
+	// press. The tile never does (pan is its only gesture), and the board shrinks tiles on the phone
+	// tier, so on the default board those dead buttons became 15px targets. The canvas gets the view
+	// without its markers, and the tile draws the same places as decoration (same transform as
+	// `MapCanvas`'s `toVisual`, same `enabled`-layer rule).
+	const canvasView = useMemo(() => (view ? { ...view, tokens: [], pois: [] } : null), [view]);
+	const markerGlyphs = useMemo(() => {
+		if (!view) return [];
+		const on = new Set(view.layers.filter((layer) => layer.enabled).map((layer) => layer.id));
+		const place = (p: { x: number; y: number }) => ({
+			x: 0.5 + zoom * (p.x - shownCentre.x),
+			y: 0.5 + zoom * (p.y - shownCentre.y),
+		});
+		const pois = view.pois
+			.filter((poi) => on.has(poi.layerId))
+			.map((poi) => ({ id: poi.id, kind: 'poi' as const, at: place(poi.position), label: '' }));
+		const tokens = view.tokens
+			.filter((token) => on.has(token.layerId))
+			.map((token) => ({
+				id: token.id,
+				kind: token.linkedActorId ? ('party' as const) : ('token' as const),
+				at: place(token.position),
+				label: token.label.slice(0, 1),
+			}));
+		return [...pois, ...tokens].filter(
+			({ at }) => at.x >= 0 && at.x <= 1 && at.y >= 0 && at.y <= 1,
+		);
+	}, [view, zoom, shownCentre]);
+
+	// The DM's choices come from the source, which offers them to the DM alone.
+	const choices = isDm && interactive ? (bound?.choices ?? []) : [];
+	const canConfigure = declares(widget, 'scene.configure-widget');
+	const canProject =
+		declares(widget, 'session.set-active-map') && declares(widget, 'session.project-active-map');
+	// "Open in map editor" is the definition's open-entity map intent, if it declares one.
+	const openIntent =
+		(definition?.intents ?? []).find(
+			(intent) => intent.kind === 'open-entity' && intent.entityKind === 'map',
+		) ?? null;
+
+	async function run(
+		commandType: string,
+		payload: Record<string, unknown>,
+		ok?: string,
+	): Promise<boolean> {
+		const outcome = await runCommand(commandType, payload);
+		if (outcome.ok) {
+			if (ok) Toaster.success(ok);
+			return true;
+		}
+		Toaster.error(outcome.message);
+		return false;
+	}
+
+	function changeMap(mapId: string): void {
+		if (!placed || !mapId) return;
+		void run(
+			'scene.configure-widget',
+			{
+				binding: {
+					source: { entityType: 'map', entityId: mapId },
+					mode: 'read',
+					requiredCapability: 'viewer',
+				},
+			},
+			t('widgetBody.map.mapChanged'),
+		);
+	}
+
+	function toggleOverlay(): void {
+		if (!placed) return;
+		void run(
+			'scene.configure-widget',
+			{ configuration: { ...widget.configuration, combatOverlay: !overlayOn } },
+			overlayOn ? t('widgetBody.map.overlayHidden') : t('widgetBody.map.overlayShown'),
+		);
+	}
+
+	function openInEditor(): void {
+		if (!view || !openIntent || !definition) return;
+		// The core decides the intent for this viewer, as for any widget's intent (`resolveWidgetIntent`):
+		// the `#/atlas?map=…` deep link the palette and the editor's copy-link write. Followed through
+		// the hash rather than `useNavigate` so a widget body never requires a Router in the tree.
+		const decision = resolveWidgetIntent({
+			widgetInstanceId: widget.id,
+			definition,
+			request: { intentId: openIntent.id, targetId: view.mapId },
+			approvedPermissions: [],
+			state: runtime.state,
+			actorId: runtime.activeActorId,
+		});
+		if (decision.decision === 'resolved')
+			globalThis.location.hash = `#${decision.destination.path}`;
+		else Toaster.error(t('widgetTemplate.intentUnavailable'));
+	}
+
+	async function projectToPlayers(): Promise<void> {
+		if (!view) return;
+		const players = bound?.playerActorIds ?? [];
+		if (players.length === 0) {
+			Toaster.warning(t('projection.noPlayers'));
+			return;
+		}
+		// Projection is defined on the session's ACTIVE map, so staging this map is half of the verb —
+		// and it is the half that explains why the session screen now agrees with the tile.
+		const staged = await run('session.set-active-map', { mapId: view.mapId });
+		if (!staged) return;
+		await run(
+			'session.project-active-map',
+			{ playerActorIds: players },
+			t('projection.mapProjected'),
+		);
+	}
+
+	/** Arrow keys pan, `+`/`-` zoom, `0` refits — the keyboard equivalent of the drag and the cluster. */
+	function onRegionKeyDown(event: ReactKeyboardEvent<HTMLDivElement>): void {
+		const step = PAN_STEP / zoom;
+		const pan = (dx: number, dy: number) => {
+			setCentre((c) => ({ x: clamp01(c.x + dx), y: clamp01(c.y + dy) }));
+		};
+		switch (event.key) {
+			case 'ArrowLeft':
+				pan(-step, 0);
+				break;
+			case 'ArrowRight':
+				pan(step, 0);
+				break;
+			case 'ArrowUp':
+				pan(0, -step);
+				break;
+			case 'ArrowDown':
+				pan(0, step);
+				break;
+			case '+':
+			case '=':
+				setZoom((z) => zoomed(z, ZOOM_STEP));
+				break;
+			case '-':
+				setZoom((z) => zoomed(z, -ZOOM_STEP));
+				break;
+			case '0':
+				setZoom(ZOOM_MIN);
+				setCentre({ x: 0.5, y: 0.5 });
+				break;
+			default:
+				return;
+		}
+		// The board canvas binds the arrow keys to moving the widget itself; inside the map they belong
+		// to the map.
+		event.preventDefault();
+		event.stopPropagation();
+	}
+
+	// The board scales the widget; compensate the action hit areas just like operation chips.
+	const actionTarget = {
+		minWidth: 'var(--operation-touch-target)',
+		minHeight: 'var(--operation-touch-target)',
+		flexShrink: 0,
+	};
+	const actions =
+		interactive && isDm && placed ? (
+			<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+				{canConfigure && choices.length > 0 && (
+					<div style={{ flex: '1 1 120px', minWidth: 100 }}>
+						<Select
+							// The board scales its tiles down, so a control sized in plain density units
+							// lands well under the 48dp Android floor once painted. `scene-board-operation`
+							// divides the density target by the layer's own scale — the same compensation
+							// the tile's other operations already get; the inline `minHeight` is needed
+							// because `Select` sets one of its own, which a class cannot outrank.
+							className="scene-board-operation"
+							style={{
+								minHeight: 'var(--operation-touch-target, var(--density-input-height, 2.25rem))',
+							}}
+							aria-label={t('widgetBody.map.changeMap')}
+							value={view?.mapId ?? ''}
+							options={[
+								...(view ? [] : [{ value: '', label: t('widgetBody.map.chooseMap') }]),
+								...choices.map((entry) => ({ value: entry.id, label: entry.name })),
+							]}
+							onChange={(e: { target: { value: string } }) => changeMap(e.target.value)}
+						/>
+					</div>
+				)}
+				{canConfigure && (
+					<IconButton
+						className="scene-board-operation"
+						style={actionTarget}
+						icon={overlayOn ? 'visibility-players' : 'visibility-hidden'}
+						label={overlayOn ? t('widgetBody.map.overlayOff') : t('widgetBody.map.overlayOn')}
+						variant="outline"
+						size="sm"
+						onClick={toggleOverlay}
+					/>
+				)}
+				{openIntent && (
+					<IconButton
+						className="scene-board-operation"
+						style={actionTarget}
+						icon="edit"
+						label={t('widgetBody.map.openInEditor')}
+						variant="outline"
+						size="sm"
+						disabled={!view}
+						onClick={openInEditor}
+					/>
+				)}
+				{canProject && (
+					<IconButton
+						className="scene-board-operation"
+						style={actionTarget}
+						icon="visibility-shared"
+						label={t('projection.toPlayers')}
+						variant="outline"
+						size="sm"
+						disabled={!view || !bound?.sessionLive}
+						onClick={() => void projectToPlayers()}
+					/>
+				)}
+			</div>
+		) : null;
+
+	// No binding at all is the "choose a map" empty state, never "missing": the board resolves an
+	// unbound tile as available, so the status alone cannot tell the two apart (RC-ENG-8.2).
+	if (!boundId || (widget.requiresBinding && widget.status !== 'available')) {
+		return (
+			<div style={bodyWrap}>
+				<Muted>{t('widgetBody.map.noBinding')}</Muted>
+				{actions}
+			</div>
+		);
+	}
+	if (!view) {
+		return (
+			<div style={bodyWrap}>
+				<Muted>{isDm ? t('widgetBody.map.missingDm') : t('widgetBody.map.missingPlayer')}</Muted>
+				{actions}
+			</div>
+		);
+	}
+
+	return (
+		<div
+			className="scene-board-operation"
+			style={{ ...bodyWrap, gap: 6, overflowY: 'auto' }}
+			data-testid="map-tile"
+			tabIndex={interactive ? undefined : 0}
+			onKeyDown={(event) => {
+				if (event.target === event.currentTarget && /^(Arrow|Page|Home|End)/.test(event.key))
+					event.stopPropagation();
+			}}
+		>
+			<div
+				role="group"
+				aria-label={t('widgetBody.map.viewRegion', { name: view.name })}
+				tabIndex={interactive ? 0 : undefined}
+				onKeyDown={interactive ? onRegionKeyDown : undefined}
+				// Keeps a drag-to-pan and a press inside the tile from also reaching the board canvas
+				// underneath, which would deselect or start moving the widget.
+				onPointerDown={interactive ? (e) => e.stopPropagation() : undefined}
+				style={{
+					flex: '1 0 auto',
+					minHeight: 64,
+					position: 'relative',
+					borderRadius: T.radius.sm,
+				}}
+			>
+				<MapCanvas
+					view={canvasView}
+					layers={layers}
+					isDm={isDm}
+					zoom={zoom}
+					center={shownCentre}
+					rasterAssetId={rasterAssetId}
+					// The pan tool is the ONLY gesture the tile enables; markers stay non-interactive and
+					// nothing here can author. Following the party owns the centre, so hand-panning is off
+					// while it does.
+					editable={interactive && !party}
+					tool="pan"
+					onPan={party ? undefined : setCentre}
+					compactCombat
+					height="100%"
+					style={{ borderRadius: 'var(--radius-sm)' }}
+				>
+					<div
+						aria-hidden
+						style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}
+					>
+						{markerGlyphs.map((glyph) => (
+							<span
+								key={glyph.id}
+								style={{
+									position: 'absolute',
+									left: `${glyph.at.x * 100}%`,
+									top: `${glyph.at.y * 100}%`,
+									transform: 'translate(-50%,-50%)',
+									width: '1.25em',
+									height: '1.25em',
+									borderRadius: T.radius.full,
+									display: 'flex',
+									alignItems: 'center',
+									justifyContent: 'center',
+									font: `700 var(--text-xs)/1 ${T.mono}`,
+									color: T.ink,
+									background: glyph.kind === 'poi' ? 'var(--layer-poi)' : T.bg,
+									border: `2px solid ${glyph.kind === 'poi' ? T.bg : glyph.kind === 'party' ? T.ok : T.err}`,
+								}}
+							>
+								{glyph.label}
+							</span>
+						))}
+					</div>
+				</MapCanvas>
+			</div>
+			{/* Zoom lives in the tile's own scrolling column, not stacked inside the map: a board-scaled
+			    touch target is several times a small tile's height, and inside the clipped map it ran off
+			    the bottom with no way to scroll to it. */}
+			{interactive && (
+				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+					<IconButton
+						className="scene-board-operation"
+						style={actionTarget}
+						icon="zoom-in"
+						label={t('atlas.zoomIn')}
+						variant="outline"
+						size="sm"
+						disabled={zoom >= ZOOM_MAX}
+						onClick={() => setZoom((z) => zoomed(z, ZOOM_STEP))}
+					/>
+					<IconButton
+						className="scene-board-operation"
+						style={actionTarget}
+						icon="zoom-out"
+						label={t('atlas.zoomOut')}
+						variant="outline"
+						size="sm"
+						disabled={zoom <= ZOOM_MIN}
+						onClick={() => setZoom((z) => zoomed(z, -ZOOM_STEP))}
+					/>
+					<IconButton
+						className="scene-board-operation"
+						style={actionTarget}
+						icon="zoom-fit"
+						label={t('atlas.fit')}
+						variant="outline"
+						size="sm"
+						onClick={() => {
+							setZoom(ZOOM_MIN);
+							setCentre({ x: 0.5, y: 0.5 });
+						}}
+					/>
+				</div>
+			)}
+			<div
+				style={{
+					display: 'flex',
+					alignItems: 'center',
+					gap: 6,
+					font: `var(--text-xs)/1.5 ${T.sans}`,
+					color: T.ter,
+				}}
+			>
+				{/* RC-WID-4.4 — the tile's value readout: a fight joining the map or the view starting
+				    to follow the party is announced, not just redrawn. */}
+				<span aria-live="polite" aria-atomic="true" data-testid="map-tile-summary">
+					{view.name} · {t('widgetBody.map.pois', { count: view.pois.length })}
+					{overlayOn && view.combatTokens.length > 0
+						? ` · ${t('widgetBody.map.inFight', { count: view.combatTokens.length })}`
+						: ''}
+					{party ? ` · ${t('widgetBody.map.following')}` : ''}
+				</span>
+			</div>
+			{actions}
+		</div>
+	);
+}

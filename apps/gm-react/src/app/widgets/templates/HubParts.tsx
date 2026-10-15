@@ -73,7 +73,10 @@ export function rowIntent(intents: WidgetIntentDescriptor[], row: WidgetDataRow)
 		intents.find((intent) => 'targetId' in intent && intent.targetId === row.id) ??
 		intents.find(
 			(intent) =>
-				(intent.kind === 'open-screen' || intent.kind === 'open-entity') && !intent.targetId,
+				(intent.kind === 'open-screen' ||
+					intent.kind === 'open-entity' ||
+					intent.kind === 'preview-participant') &&
+				!intent.targetId,
 		) ??
 		intents.find((intent) => intent.id === row.id)
 	);
@@ -216,7 +219,16 @@ export function LaunchTileBody({ row, icon }: { row: WidgetDataRow; icon: string
 	);
 }
 
-export function LinkRowBody({ row, icon }: { row: WidgetDataRow; icon: string }) {
+export function LinkRowBody({
+	row,
+	icon,
+	action,
+}: {
+	row: WidgetDataRow;
+	icon: string;
+	/** RC-SES-7.3 — a row that does something other than open itself names it ("Preview"). */
+	action?: string;
+}) {
 	return (
 		<>
 			<Icon name={row.icon ?? icon} size="sm" color={sub} />
@@ -228,6 +240,7 @@ export function LinkRowBody({ row, icon }: { row: WidgetDataRow; icon: string })
 					{row.secondary ?? row.meta}
 				</span>
 			</span>
+			{action && <span style={{ font: `600 var(--text-xs) ${sans}`, color: ink }}>{action}</span>}
 			<Icon name="chevron-right" size="sm" color={ter} />
 		</>
 	);

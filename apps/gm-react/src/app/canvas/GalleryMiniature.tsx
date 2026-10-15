@@ -15,6 +15,7 @@ import { ChartTemplate } from '../widgets/templates/Chart';
 import { DataTableTemplate } from '../widgets/templates/DataTable';
 import { FormPanelTemplate } from '../widgets/templates/FormPanel';
 import { HUB_TEMPLATES } from '../widgets/templates/Hub';
+import { BOARD_TEMPLATE_RENDERERS } from '../widgets/templates/board';
 import { SceneMessageTemplate } from '../widgets/templates/SceneMessage';
 import { StatBlockTemplate } from '../widgets/templates/StatBlock';
 import { StatusListTemplate } from '../widgets/templates/StatusList';
@@ -70,6 +71,7 @@ const PREVIEW_TEMPLATES: Record<WidgetTemplateKind, React.ComponentType<WidgetTe
 	'stat-block': StatBlockTemplate,
 	'status-list': StatusListTemplate,
 	tracker: TrackerTemplate,
+	...BOARD_TEMPLATE_RENDERERS,
 };
 
 function TemplateMiniature({ widget }: { widget: BoardWidget }) {

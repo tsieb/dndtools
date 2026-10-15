@@ -1452,6 +1452,25 @@ test.describe('canvas: the tile action menu', () => {
 		return { sceneId, widgetId };
 	}
 
+	// RC-CAN-8.6 — the fixed menu closes when a scroll moves its trigger, and survives one that doesn't.
+	test('a scroll that moves the trigger closes the menu', async ({ page }) => {
+		const { widgetId } = await editBoard(page);
+		const trigger = page.getByTestId(`widget-${widgetId}`).getByTestId('tile-actions-trigger');
+		const menu = page.getByTestId('tile-actions-menu');
+		await trigger.scrollIntoViewIfNeeded();
+		await trigger.click();
+		await expect(menu).toBeVisible();
+		await page.evaluate(() => window.dispatchEvent(new Event('scroll')));
+		await page.waitForTimeout(100);
+		await expect(menu).toBeVisible();
+		// Stands in for the canvas scrolling the tile: the frame moves, then the scroll event lands.
+		await page.getByTestId(`widget-${widgetId}`).evaluate((el) => {
+			el.style.translate = '0 40px';
+			el.dispatchEvent(new Event('scroll'));
+		});
+		await expect(menu).toHaveCount(0);
+	});
+
 	test('follows the WAI-ARIA menu-button keyboard pattern, submenu included', async ({ page }) => {
 		const { widgetId } = await editBoard(page);
 		const frame = page.getByTestId(`widget-${widgetId}`);

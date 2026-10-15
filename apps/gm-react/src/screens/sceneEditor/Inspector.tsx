@@ -15,7 +15,7 @@ import { InspectorTransform } from './InspectorTransform';
 import { StyleTokenList } from './StyleTokenList';
 import { readPlayerPreview } from './playerPreview';
 import { useI18n, type MessageKey } from '../../i18n';
-import { useEditWidget } from '../extensions/WidgetBuilder';
+import { useEditWidget } from '../extensions/useEditWidget';
 import { widgetSettingsFields } from '../../app/widgetBuilder/draft';
 
 const TABS = ['content', 'display', 'style', 'binding', 'transform', 'visibility'] as const;

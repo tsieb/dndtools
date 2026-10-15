@@ -166,6 +166,9 @@ test('backgrounds, docks and section bands persist', async ({ page }) => {
 	);
 	expect(saved).toMatchObject({ dock: 'bottom', x: 80, y: 90 });
 	await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
+	// RC-CAN-8.6 — a phone edits in the list posture; these steps drive the canvas (Layout).
+	if (await page.getByTestId('stacked-board').isVisible())
+		await page.getByRole('button', { name: 'Layout', exact: true }).click();
 	await tile.focus();
 	await page.keyboard.press('Enter');
 	await inspector.getByRole('tab', { name: 'Transform', exact: true }).click();
@@ -173,9 +176,14 @@ test('backgrounds, docks and section bands persist', async ({ page }) => {
 	await inspector.getByRole('button', { name: 'Close inspector' }).click();
 	await tile.scrollIntoViewIfNeeded();
 	const box = (await tile.boundingBox())!;
-	await page.mouse.move(box.x + 30, box.y + 50);
+	// 60 board units. A phone edits the canvas at Fit (RC-CAN-8.6), so convert by the painted scale.
+	const scale = await page
+		.getByTestId('scene-board-bounded')
+		.locator('[style*="--scene-board-scale"]')
+		.evaluate((el) => Number(getComputedStyle(el).getPropertyValue('--scene-board-scale')) || 1);
+	await page.mouse.move(box.x + 30 * scale, box.y + 50 * scale);
 	await page.mouse.down();
-	await page.mouse.move(box.x + 90, box.y + 50, { steps: 5 });
+	await page.mouse.move(box.x + 90 * scale, box.y + 50 * scale, { steps: 5 });
 	await page.mouse.up();
 	await expect
 		.poll(() =>

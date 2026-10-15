@@ -1,11 +1,5 @@
+import type { MessageKey } from '../../i18n';
 import { boardWidgetPresentation, type BoardWidget } from '../board-helpers';
-
-/** The catalog keys of the span presets' labels (RC-POL-1.2). */
-type SpanLabelKey =
-	| 'boardCanvas.span.full'
-	| 'boardCanvas.span.half'
-	| 'boardCanvas.span.third'
-	| 'boardCanvas.span.quarter';
 
 /* ------------------------------------------------------------------------------------------------
  * RC-CAN-7.7 / ADR-041 — THE FLOW LAYOUT POLICY
@@ -127,11 +121,11 @@ export function flowPresetSpan(divisor: number): number {
  * tier has one column, every divisor rounds to span 1, so every row reports itself checked and
  * picking any of them shrinks the tile to a twelfth of the screen everywhere else.
  */
-export const FLOW_SPAN_PRESETS: readonly { label: SpanLabelKey; span: number }[] = [
-	{ label: 'boardCanvas.span.full', span: flowPresetSpan(1) },
-	{ label: 'boardCanvas.span.half', span: flowPresetSpan(2) },
-	{ label: 'boardCanvas.span.third', span: flowPresetSpan(3) },
-	{ label: 'boardCanvas.span.quarter', span: flowPresetSpan(4) },
+export const FLOW_SPAN_PRESETS: readonly { labelKey: MessageKey; span: number }[] = [
+	{ labelKey: 'boardCanvas.flow.span.full', span: flowPresetSpan(1) },
+	{ labelKey: 'boardCanvas.flow.span.half', span: flowPresetSpan(2) },
+	{ labelKey: 'boardCanvas.flow.span.third', span: flowPresetSpan(3) },
+	{ labelKey: 'boardCanvas.flow.span.quarter', span: flowPresetSpan(4) },
 ];
 
 /** Breathing room between a portalled flow panel and the viewport edge it is pulled back from. */

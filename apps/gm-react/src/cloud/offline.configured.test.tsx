@@ -2,6 +2,7 @@
 
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../i18n';
 import { TIER_ATTR, TIER_KEY, setDocAttr } from '../screens/settings/shared';
@@ -152,7 +153,11 @@ async function goOnline() {
 
 async function mount(node: React.ReactNode) {
 	await act(async () => {
-		root.render(<I18nProvider>{node}</I18nProvider>);
+		root.render(
+			<MemoryRouter>
+				<I18nProvider>{node}</I18nProvider>
+			</MemoryRouter>,
+		);
 	});
 }
 

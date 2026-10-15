@@ -1,3 +1,4 @@
+import { useImportLaunch } from '../../app/importHub/useImportLaunch';
 import { useState, type FormEvent } from 'react';
 import { type CoreCommand } from '@dndtools/core';
 import { Toaster } from '../../ds';
@@ -68,6 +69,8 @@ export function useTrackEditor(
 			setImportBusy(false);
 		}
 	};
+
+	useImportLaunch('audio', () => void importAudio(), canEdit);
 
 	// ADD TRACK — configure a declared source, exactly as the demo seed does for the now-playing stream.
 	const addTrack = async (e: FormEvent) => {

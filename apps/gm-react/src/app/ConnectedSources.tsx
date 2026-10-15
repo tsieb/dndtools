@@ -1,3 +1,4 @@
+import { openImportHub } from './importHub/registry';
 import type { ReactNode } from 'react';
 import { Badge, Button, Dialog, Icon, Input, Select, VisibilityChip } from '../ds';
 import { Panel, T } from './screen-kit';
@@ -131,7 +132,10 @@ export function ConnectedSourcesPanel() {
 		<Panel
 			title={t('sources.title')}
 			action={
-				<div style={{ display: 'flex', gap: T.space.two, alignItems: 'center' }}>
+				<div style={{ display: 'flex', gap: T.space.two, alignItems: 'center', flexWrap: 'wrap' }}>
+					<Button variant="secondary" size="sm" onClick={openImportHub}>
+						{t('importHub.open')}
+					</Button>
 					<Select
 						aria-label={t('sources.policyLabel')}
 						options={PULL_POLICIES.map((option) => ({

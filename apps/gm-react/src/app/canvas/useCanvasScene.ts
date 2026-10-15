@@ -1,4 +1,4 @@
-import { useMemo, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useParams } from 'react-router-dom';
 import { getSceneForActor, type SectionLayoutRegion } from '@dndtools/core';
 import { useRuntime } from '../../runtime/RuntimeContext';
@@ -35,14 +35,19 @@ export function useCanvasScene(authoredWidgets: BoardWidget[], policy: 'bounded'
 			),
 		[runtime.state, authoredWidgets, routeSceneId, policy],
 	);
-	const summary = scene
-		? getSceneForActor(
-				runtime.state.scenes,
-				runtime.state.permissions,
-				runtime.defaultActorId,
-				scene.id,
-			)
-		: null;
+	// RC-ENG-3.2 — memoised on what it reads, so an unrelated runtime change re-reads nothing.
+	const summary = useMemo(
+		() =>
+			scene
+				? getSceneForActor(
+						runtime.state.scenes,
+						runtime.state.permissions,
+						runtime.defaultActorId,
+						scene.id,
+					)
+				: null,
+		[scene, runtime.state.scenes, runtime.state.permissions, runtime.defaultActorId],
+	);
 	const sections = summary && !('kind' in summary) ? summary.sections : NO_SECTIONS;
 	const background = summary && !('kind' in summary) ? summary.visualSettings.background : 'paper';
 	// RC-POL-1.2 — a paper or dark scene surface pins its own palette, except under the high-contrast
@@ -71,4 +76,27 @@ export function useCanvasScene(authoredWidgets: BoardWidget[], policy: 'bounded'
 		[scene],
 	);
 	return { scene, sections, background, surfaceTheme, widgets, groupOf };
+}
+
+/**
+ * RC-CAN-3.6 — the canvas selection: one tile (the host's `selectedId`) or several (`multi`, while
+ * editing). `select` takes either and hands the host its last tile; leaving edit mode, or the host
+ * selecting a tile outside the group, drops the group.
+ */
+export function useCanvasSelection(
+	editing: boolean,
+	selectedId: string | null,
+	onSelect: (id: string | null) => void,
+) {
+	const [multi, setMulti] = useState<string[]>([]);
+	const selection = multi.length ? multi : selectedId ? [selectedId] : [];
+	const select = (ids: string[]) => {
+		setMulti(ids.length > 1 ? ids : []);
+		onSelect(ids[ids.length - 1] ?? null);
+	};
+	useEffect(() => {
+		if (!editing || !selectedId || !multi.includes(selectedId))
+			setMulti((m) => (m.length ? [] : m));
+	}, [editing, selectedId, multi]);
+	return { multi, selection, select };
 }

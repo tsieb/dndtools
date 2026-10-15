@@ -19,7 +19,6 @@ export type Metrics = Record<
 >;
 
 export type Edge = 'left' | 'right' | 'top' | 'bottom';
-
 export function edgesOf(m: Metrics): Record<Edge, boolean> {
 	return {
 		left: m.left > 1,
@@ -28,8 +27,6 @@ export function edgesOf(m: Metrics): Record<Edge, boolean> {
 		bottom: m.top + m.height < m.scrollHeight - 1,
 	};
 }
-
-/** Fit on a phone: every tile at its fitted place, titled at a readable size, no body. */
 export function Overview({
 	scrollRef,
 	widgets,
@@ -44,7 +41,7 @@ export function Overview({
 	onOpen: (id: string) => void;
 }) {
 	const { t } = useI18n();
-	const scale = Math.min(1, Math.max(0.05, (width - 2 * PAD - 2) / extent.width));
+	const scale = Math.min(1, Math.max(0.001, (width - 2 * PAD - 2) / extent.width));
 	return (
 		<div
 			ref={scrollRef}
@@ -87,8 +84,6 @@ export function Overview({
 		</div>
 	);
 }
-
-/** The whole board in a thumbnail, with the part in view outlined. Tap to centre the view there. */
 export function Minimap({
 	widgets,
 	extent,
@@ -104,10 +99,10 @@ export function Minimap({
 	const width = extent.width * scale;
 	const height = extent.height * scale;
 	const view = metrics && {
-		left: (metrics.left / metrics.scrollWidth) * width,
-		top: (metrics.top / metrics.scrollHeight) * height,
-		width: Math.min(1, metrics.width / metrics.scrollWidth) * width,
-		height: Math.min(1, metrics.height / metrics.scrollHeight) * height,
+		left: (metrics.left / Math.max(1, metrics.scrollWidth)) * width,
+		top: (metrics.top / Math.max(1, metrics.scrollHeight)) * height,
+		width: Math.min(1, metrics.width / Math.max(1, metrics.scrollWidth)) * width,
+		height: Math.min(1, metrics.height / Math.max(1, metrics.scrollHeight)) * height,
 	};
 	return (
 		<div
@@ -135,8 +130,6 @@ export function Minimap({
 		</div>
 	);
 }
-
-/** One tile filling the navigator's box — above the tab bar, which AppShell keeps outside `<main>`. */
 export function FullScreenTile({
 	widget: w,
 	onClose,
@@ -150,7 +143,6 @@ export function FullScreenTile({
 	const headingId = useId();
 	const rootRef = useRef<HTMLDivElement>(null);
 	const meta = tileMetadataForWidget(w);
-	// Its opener (a sheet row, an overview tile) is gone or hidden now, so focus starts on the way out.
 	useEffect(() => {
 		rootRef.current
 			?.querySelector<HTMLElement>('[data-testid="phone-fullscreen-close"]')
@@ -191,10 +183,8 @@ export function FullScreenTile({
 		</div>
 	);
 }
-
 export const STAGE: CSSProperties = { flex: 1, minWidth: 0, minHeight: 0, position: 'relative' };
 export const ROOT: CSSProperties = { ...STAGE, display: 'flex', flexDirection: 'column' };
-
 export const SWITCH: CSSProperties = {
 	display: 'flex',
 	flexWrap: 'wrap',
@@ -202,7 +192,6 @@ export const SWITCH: CSSProperties = {
 	flex: '0 1 auto',
 	minWidth: 0,
 };
-
 export const OVERVIEW: CSSProperties = {
 	flex: 1,
 	minWidth: 0,
@@ -214,7 +203,6 @@ export const OVERVIEW: CSSProperties = {
 	border: '1px solid var(--color-border)',
 	borderRadius: 'var(--radius-lg)',
 };
-
 export const OVERVIEW_TILE: CSSProperties = {
 	position: 'absolute',
 	boxSizing: 'border-box',
@@ -233,14 +221,12 @@ export const OVERVIEW_TILE: CSSProperties = {
 	textAlign: 'start',
 	cursor: 'pointer',
 };
-
 export const OVERVIEW_TITLE: CSSProperties = {
 	minWidth: 0,
 	overflow: 'hidden',
 	textOverflow: 'ellipsis',
 	whiteSpace: 'nowrap',
 };
-
 export const fade = (edge: Edge): CSSProperties => {
 	const across = edge === 'left' || edge === 'right';
 	return {
@@ -253,11 +239,9 @@ export const fade = (edge: Edge): CSSProperties => {
 		background: `linear-gradient(to ${{ left: 'right', right: 'left', top: 'bottom', bottom: 'top' }[edge]}, color-mix(in srgb, var(--color-text-primary) 22%, transparent), transparent)`,
 	};
 };
-
 export const FADE = Object.fromEntries(
 	(['left', 'right', 'top', 'bottom'] as const).map((edge) => [edge, fade(edge)]),
 ) as Record<Edge, CSSProperties>;
-
 export const BAR: CSSProperties = {
 	flex: '0 0 auto',
 	display: 'flex',
@@ -266,7 +250,6 @@ export const BAR: CSSProperties = {
 	gap: 'var(--space-2)',
 	paddingTop: 'var(--space-2)',
 };
-
 export const MINIMAP: CSSProperties = {
 	position: 'relative',
 	flex: '0 0 auto',
@@ -278,21 +261,18 @@ export const MINIMAP: CSSProperties = {
 	cursor: 'pointer',
 	touchAction: 'manipulation',
 };
-
 export const MINI_TILE: CSSProperties = {
 	position: 'absolute',
 	boxSizing: 'border-box',
 	background: 'var(--color-surface-raised)',
 	border: '1px solid var(--color-border-strong)',
 };
-
 export const MINI_VIEW: CSSProperties = {
 	position: 'absolute',
 	boxSizing: 'border-box',
 	border: '2px solid var(--color-accent)',
 	pointerEvents: 'none',
 };
-
 export const JUMP_LIST: CSSProperties = {
 	listStyle: 'none',
 	margin: 'var(--space-0)',
@@ -301,20 +281,17 @@ export const JUMP_LIST: CSSProperties = {
 	flexDirection: 'column',
 	gap: 'var(--space-1)',
 };
-
 export const JUMP_ROW: CSSProperties = {
 	display: 'flex',
 	alignItems: 'center',
 	gap: 'var(--space-1)',
 };
-
 export const JUMP_BUTTON: CSSProperties = {
 	flex: '1 1 auto',
 	minWidth: 0,
 	justifyContent: 'flex-start',
 	textAlign: 'start',
 };
-
 export const JUMP_TITLE: CSSProperties = {
 	minWidth: 0,
 	overflow: 'hidden',
@@ -322,21 +299,17 @@ export const JUMP_TITLE: CSSProperties = {
 	whiteSpace: 'nowrap',
 	color: 'var(--color-text-primary)',
 };
-
 export const JUMP_TYPE: CSSProperties = {
 	flex: '0 0 auto',
 	marginInlineStart: 'auto',
 	font: 'var(--text-xs) var(--font-sans)',
 	color: 'var(--color-text-secondary)',
 };
-
-// The design package's touch floor on the phone tier (44px there, via the density lock).
 export const TOUCH_TARGET: CSSProperties = {
 	width: 'var(--density-touch-target)',
 	height: 'var(--density-touch-target)',
 	flex: '0 0 auto',
 };
-
 export const FULL: CSSProperties = {
 	flex: 1,
 	minHeight: 0,
@@ -347,7 +320,6 @@ export const FULL: CSSProperties = {
 	border: '1px solid var(--color-border)',
 	borderRadius: 'var(--radius-md)',
 };
-
 export const FULL_HEADER: CSSProperties = {
 	flex: '0 0 auto',
 	display: 'flex',
@@ -357,7 +329,6 @@ export const FULL_HEADER: CSSProperties = {
 	paddingInline: 'var(--space-3) var(--space-1)',
 	borderBottom: '1px solid var(--color-border)',
 };
-
 export const FULL_TITLE: CSSProperties = {
 	flex: '1 1 auto',
 	minWidth: 0,
@@ -368,7 +339,6 @@ export const FULL_TITLE: CSSProperties = {
 	textOverflow: 'ellipsis',
 	whiteSpace: 'nowrap',
 };
-
 export const FULL_BODY: CSSProperties = {
 	flex: '1 1 auto',
 	minHeight: 0,

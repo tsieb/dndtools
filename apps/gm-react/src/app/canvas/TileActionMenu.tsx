@@ -1,15 +1,15 @@
 import type { LayoutHistory } from './useLayoutHistory';
-import { useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CHARACTER_ENTITY_TYPE, CONTENT_ITEM_ENTITY_TYPE, type CoreCommand } from '@dndtools/core';
 import { IconButton, Menu, Toaster } from '../../ds';
+import { useI18n, type MessageKey } from '../../i18n';
 import { ownsEscape, popEscapeLayer, pushEscapeLayer } from '../../platform/escapeLayers';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { type BoardWidget } from '../board-helpers';
 
-import { useI18n, type MessageKey } from '../../i18n';
-import { GRID } from '../SceneBoardModel';
-import { useEditWidget } from '../../screens/extensions/WidgetBuilder';
+import { GRID, triggerNudge } from '../SceneBoardModel';
+import { useEditWidget } from '../../screens/extensions/useEditWidget';
 import { bindingSlot, sceneInstance, TileBindDialog, TileConfigureDialog } from './TileDialogs';
 import { widgetSettingsFields } from '../widgetBuilder/draft';
 import { MenuRow, firstSubItem, focusParent, type MenuHandle, type Point } from './menuParts';
@@ -19,23 +19,23 @@ export { useLongPress, type MenuHandle, type Point } from './menuParts';
 export const TRIGGER_SIZE = 'var(--density-touch-target, 1.75rem)';
 const MENU_WIDTH = 248;
 
+/* RC-CAN-8.7 — every word either menu shows comes out of the message catalog (`boardCanvas.tileMenu.*`,
+ * `boardCanvas.flow.*`), so the menus read in the GM's locale. `canvas-copy.test.ts` fails on any
+ * string literal in this file that carries language. */
+
 /** A bound tile's source, by the same hash deep links the map body, Graph and character cards use. */
 const SOURCE_LINK: Record<string, readonly [label: MessageKey, route: string]> = {
-	map: ['boardCanvas.menu.openMap', '#/atlas?map='],
-	[CHARACTER_ENTITY_TYPE]: ['boardCanvas.menu.openCharacter', '#/characters/'],
-	[CONTENT_ITEM_ENTITY_TYPE]: ['boardCanvas.menu.openNote', '#/knowledge/'],
+	map: ['boardCanvas.tileMenu.openMap', '#/atlas?map='],
+	[CHARACTER_ENTITY_TYPE]: ['boardCanvas.tileMenu.openCharacter', '#/characters/'],
+	[CONTENT_ITEM_ENTITY_TYPE]: ['boardCanvas.tileMenu.openNote', '#/knowledge/'],
 };
 
-const VISIBILITY_ICON: Record<string, string> = {
-	'dm-only': 'dm-only',
-	shared: 'visibility-shared',
-	'player-visible': 'visibility-players',
-};
-const VISIBILITY_LABEL: Record<string, MessageKey> = {
-	'dm-only': 'boardCanvas.visibility.dmOnly',
-	shared: 'boardCanvas.visibility.shared',
-	'player-visible': 'boardCanvas.visibility.players',
-};
+/** The Visibility submenu's options: the stored value, its icon and its label. */
+const VISIBILITY_OPTIONS: readonly (readonly [value: string, icon: string, label: MessageKey])[] = [
+	['dm-only', 'dm-only', 'boardCanvas.tileMenu.visibility.dmOnly'],
+	['shared', 'visibility-shared', 'boardCanvas.tileMenu.visibility.shared'],
+	['player-visible', 'visibility-players', 'boardCanvas.tileMenu.visibility.players'],
+];
 
 const SEPARATOR = { height: 1, margin: 'var(--space-1) 0', background: 'var(--color-border)' };
 
@@ -102,9 +102,16 @@ export function TileActionMenu({
 	} | null>(null);
 	const [subOpen, setSubOpen] = useState(false);
 	const [dialog, setDialog] = useState<'bind' | 'configure' | null>(null);
+	// RC-CAN-8.6 — `triggerNudge`, re-measured every render: tile size and canvas scale both move it.
+	const [nudge, setNudge] = useState(0);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	useLayoutEffect(() => {
+		const next = triggerNudge(anchorRef.current, nudge);
+		if (Math.abs(next - nudge) > 0.5) setNudge(next);
+	});
 	// RC-WID-6.6 — "Edit widget": the builder on this tile's definition, copied first when not the GM's.
 	const edit = useEditWidget(w.id, w.type);
-	const label = t('boardCanvas.menu.actions', { title: w.title });
+	const label = t('boardCanvas.tileMenu.actions', { title: w.title });
 	const show = (at?: Point) => {
 		setSubOpen(false);
 		const rect = anchorRef.current?.getBoundingClientRect();
@@ -127,6 +134,10 @@ export function TileActionMenu({
 		if (!box) return;
 		const dismiss = (e: Event) => {
 			if (e.target instanceof Element && e.target.closest('[data-testid="tile-actions-menu"]'))
+				return;
+			// Late scroll events (e.g. from bringing the trigger into view) leave an unmoved trigger open.
+			const rect = anchorRef.current?.getBoundingClientRect();
+			if (!box.at && rect && Math.abs(rect.top - box.top) < 1 && Math.abs(rect.left - box.left) < 1)
 				return;
 			setBox(null);
 		};
@@ -221,10 +232,10 @@ export function TileActionMenu({
 			},
 		};
 		const ok = history
-			? await history.run(command, t('boardCanvas.step.duplicated', { title: w.title }))
+			? await history.run(command, t('boardCanvas.tileMenu.duplicated', { title: w.title }))
 			: (await run(command)).status === 'accepted';
 		if (!ok) return;
-		Toaster.success(t('boardCanvas.duplicatedToast', { title: w.title }));
+		Toaster.success(t('boardCanvas.tileMenu.duplicated', { title: w.title }));
 		focusWhenMounted(copyId);
 	}
 
@@ -279,7 +290,7 @@ export function TileActionMenu({
 				top: 6,
 				right: 6,
 				// Held at screen size, like the selection chip: at Fit a 1:1 trigger is half a fingertip.
-				transform: `scale(${1 / scale})`,
+				transform: `translateX(${nudge / scale}px) scale(${1 / scale})`,
 				transformOrigin: 'top right',
 			}}
 		>
@@ -312,7 +323,7 @@ export function TileActionMenu({
 					>
 						<MenuRow
 							icon="move"
-							label={t('boardCanvas.menu.move')}
+							label={t('boardCanvas.tileMenu.move')}
 							keys="ArrowUp ArrowDown ArrowLeft ArrowRight"
 							onSelect={() => viaFrame(' ')}
 						/>
@@ -320,8 +331,8 @@ export function TileActionMenu({
 							icon="zoom-fit"
 							label={
 								resizable
-									? t('boardCanvas.menu.resize')
-									: t('boardCanvas.menu.resizeLocked', { title: w.title })
+									? t('boardCanvas.tileMenu.resize')
+									: t('boardCanvas.tileMenu.resizeLocked', { title: w.title })
 							}
 							keys={resizable ? 'Shift+ArrowRight Shift+ArrowDown' : undefined}
 							disabled={!resizable}
@@ -329,21 +340,21 @@ export function TileActionMenu({
 						/>
 						<MenuRow
 							icon="duplicate"
-							label={t('boardCanvas.menu.duplicate')}
+							label={t('boardCanvas.tileMenu.duplicate')}
 							onSelect={() => void duplicate()}
 						/>
 						<div role="separator" style={SEPARATOR} />
 						{bindable && (
 							<MenuRow
 								icon="link"
-								label={t('boardCanvas.menu.bind')}
+								label={t('boardCanvas.tileMenu.bind')}
 								onSelect={() => openDialog('bind')}
 							/>
 						)}
 						{configurable ? (
 							<MenuRow
 								icon="settings-gear"
-								label={t('boardCanvas.menu.configure')}
+								label={t('boardCanvas.tileMenu.configure')}
 								onSelect={() => {
 									if (onSceneEditor) viaFrame('Enter');
 									else openDialog('configure');
@@ -352,11 +363,12 @@ export function TileActionMenu({
 						) : (
 							<MenuRow
 								icon="settings-gear"
-								label={t('boardCanvas.menu.noSettings')}
+								label={t('boardCanvas.tileMenu.noSettings')}
+								// RC-WID-6.8 — why the row is off, and where to go instead when there is somewhere.
 								hint={t(
 									edit.available
-										? 'boardCanvas.menu.noSettingsEdit'
-										: 'boardCanvas.menu.noSettingsFixed',
+										? 'boardCanvas.tileMenu.noSettingsEditable'
+										: 'boardCanvas.tileMenu.noSettingsReason',
 								)}
 								disabled
 								onSelect={() => undefined}
@@ -365,7 +377,7 @@ export function TileActionMenu({
 						{edit.available && (
 							<MenuRow
 								icon="edit"
-								label={t('boardCanvas.menu.edit')}
+								label={t('boardCanvas.tileMenu.edit')}
 								onSelect={() => {
 									// The frame holds focus, so the builder hands it back there on close.
 									const frame = anchorRef.current?.parentElement;
@@ -378,7 +390,7 @@ export function TileActionMenu({
 						<div role="none">
 							<MenuRow
 								icon="eye"
-								label={t('boardCanvas.menu.visibility')}
+								label={t('boardCanvas.tileMenu.visibility')}
 								parent
 								expanded={subOpen}
 								onSelect={() => setSubOpen(!subOpen)}
@@ -387,14 +399,14 @@ export function TileActionMenu({
 								<div
 									ref={subRef}
 									role="menu"
-									aria-label={t('boardCanvas.menu.visibility')}
+									aria-label={t('boardCanvas.tileMenu.visibility')}
 									style={{ paddingLeft: 'var(--space-4)' }}
 								>
-									{Object.keys(VISIBILITY_ICON).map((value) => (
+									{VISIBILITY_OPTIONS.map(([value, icon, optionLabel]) => (
 										<MenuRow
 											key={value}
-											icon={VISIBILITY_ICON[value]}
-											label={t(VISIBILITY_LABEL[value])}
+											icon={icon}
+											label={t(optionLabel)}
 											checked={w.visibility === value}
 											onSelect={() => setVisibility(value)}
 										/>
@@ -415,7 +427,7 @@ export function TileActionMenu({
 						<div role="separator" style={SEPARATOR} />
 						<MenuRow
 							icon="trash"
-							label={t('boardCanvas.menu.remove')}
+							label={t('boardCanvas.tileMenu.remove')}
 							keys="Delete"
 							onSelect={() => viaFrame('Delete')}
 						/>

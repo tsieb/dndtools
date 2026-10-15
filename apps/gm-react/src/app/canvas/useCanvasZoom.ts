@@ -34,6 +34,7 @@ export function useCanvasZoom({
 	zoomPreset,
 	onZoomPresetChange,
 	historyGutter = false,
+	fitFloor = FIT_FLOOR,
 }: {
 	policy: 'bounded' | 'canvas';
 	wrapRef: RefObject<HTMLDivElement | null>;
@@ -43,6 +44,8 @@ export function useCanvasZoom({
 	onZoomPresetChange?: (preset: ZoomPreset) => void;
 	/** The bounded board shows its Undo/Redo cluster (editing): keep its corner clear of tiles. */
 	historyGutter?: boolean;
+	/** How small Fit may go (RC-CAN-8.6: a phone arranging at Fit goes as small as it needs). */
+	fitFloor?: number;
 }) {
 	const [view, setView] = useState<View>({ tx: 32, ty: 32, scale: 1 });
 	const paneCentre = useCallback((): [number, number] => {
@@ -55,7 +58,7 @@ export function useCanvasZoom({
 	const [zoomNotice, setZoomNotice] = useState<ZoomNotice | null>(null);
 	const zoomSeq = useRef(0);
 
-	const fitScale = wrapWidth > 0 ? clamp((wrapWidth - 16) / contentWidth, FIT_FLOOR, 1) : 1;
+	const fitScale = wrapWidth > 0 ? clamp((wrapWidth - 16) / contentWidth, fitFloor, 1) : 1;
 	const scaleForPreset = useCallback(
 		(p: ZoomPreset) => (p === 'fit' ? fitScale : FIXED_PRESET_SCALE[p]),
 		[fitScale],
@@ -161,27 +164,14 @@ export function useCanvasZoom({
 	};
 }
 
-/** The pane's width, followed as it changes. A pane that changes width re-scales a Fit board, moving
- *  every tile, so whatever has focus is kept in view across it: closing the Add panel widens the pane
- *  after the gallery has scrolled the new tile into view, and the larger scale would otherwise push
- *  it back off the bottom. */
-export function usePaneWidth(wrapRef: RefObject<HTMLDivElement | null>) {
-	const [wrapWidth, setWrapWidth] = useState(0);
-	useEffect(() => {
-		const node = wrapRef.current;
-		if (!node) return;
-		const update = () => setWrapWidth(node.clientWidth);
-		update();
-		const observer = new ResizeObserver(update);
-		observer.observe(node);
-		return () => observer.disconnect();
-	}, [wrapRef]);
-
+/** A pane that changes width re-scales a Fit board, moving every tile, so whatever has focus is kept
+ *  in view across it: closing the Add panel widens the pane after the gallery has scrolled the new
+ *  tile into view, and the larger scale would otherwise push it back off the bottom. */
+export function useKeepFocusInView(wrapRef: RefObject<HTMLDivElement | null>, wrapWidth: number) {
 	useLayoutEffect(() => {
 		const focused = document.activeElement;
 		if (focused instanceof HTMLElement && wrapRef.current?.contains(focused)) {
 			focused.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 		}
 	}, [wrapRef, wrapWidth]);
-	return wrapWidth;
 }

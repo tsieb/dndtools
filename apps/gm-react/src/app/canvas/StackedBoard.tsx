@@ -1,32 +1,14 @@
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Button, Icon, IconButton } from '../../ds';
 import { useI18n } from '../../i18n';
-import { visibilityChip, type BoardWidget } from '../board-helpers';
+import { type BoardWidget } from '../board-helpers';
 import type { SceneBoardCanvasProps } from '../SceneBoardModel';
-import { useDirection } from '../useViewport';
-import { tileMetadataForWidget } from '../widgets/tileMeta';
-import { WidgetRenderSlot, type WidgetCommandHandler } from '../widgets/WidgetRenderSlot';
+
 import type { LayoutHistory } from './useLayoutHistory';
-import { WidgetGlyph, redoLabel, undoLabel } from './frameParts';
-import {
-	LIST,
-	TILE,
-	RAIL,
-	HEADER,
-	HEADING,
-	HEADING_ROW,
-	DISCLOSURE,
-	TITLE,
-	CHIP_DM,
-	CHIP_PLAYERS,
-	TOUCH_TARGET,
-	BODY,
-	CONTENT,
-	STATUS_NOTE,
-	EMPTY,
-	EMPTY_TITLE,
-	EMPTY_HINT,
-} from './stackedStyles';
+
+import { redoLabel, undoLabel } from './frameParts';
+import { StackedTile, TileSizePresets } from './StackedTile';
+import { EDIT_CONTROLS, EMPTY, EMPTY_HINT, EMPTY_TITLE, LIST, TOUCH_TARGET } from './stackedStyles';
 import {
 	PREFERENCE_KEYS,
 	SESSION_KEY_PREFIXES,
@@ -57,14 +39,8 @@ import {
  * - Full screen fills the host's pane. AppShell already bounds `<main>` above the phone tab bar, so
  *   the bottom navigation stays in view and in reach; the host hides its own toolbar while a tile is
  *   full screen (`useStackedPosture().hideChrome`). Escape, or the same button, returns to the list.
- * - Editing stays spatial. A layout is an arrangement on the canvas, so the host's "Edit layout"
- *   swaps `SceneBoardCanvas` back in; this component never moves, resizes or removes anything.
+ * - Editing keeps the list mounted; handles and buttons commit reading order through core moves.
  */
-
-/** The header's height, which is also its touch target (`--space-12`). */
-const HEADER_PX = 48;
-/** However short a tile was authored, its body keeps enough room to show something. */
-const MIN_BODY_PX = 120;
 
 /** Reading order: top to bottom, then left to right — how the eye scans the canvas. */
 export function stackOrder(widgets: readonly BoardWidget[]): BoardWidget[] {
@@ -98,7 +74,7 @@ function writeExpanded(sceneId: string | null, expanded: ExpandedById): void {
 
 /**
  * Phones read panels by default; only an explicit canvas preference opts out. Unset, unreadable
- * and unrecognized preferences all retain the phone posture. Editing stays spatial. `hideChrome`
+ * and unrecognized preferences all retain the phone posture, including while editing. `hideChrome`
  * is a full-screen tile taking over the pane, which the host answers by hiding its own toolbar.
  */
 export function useStackedPosture(phoneReading: boolean) {
@@ -148,6 +124,13 @@ export interface StackedBoardProps {
 	/** Scopes the remembered panels. Null while the host's scene is still being created. */
 	sceneId: string | null | undefined;
 	widgets: BoardWidget[];
+	editing?: boolean;
+	selectedId?: string | null;
+	/** Enter on a tile while editing: the host's Inspector edits the selected tile. */
+	onSelect?: (id: string) => void;
+	onMove?: SceneBoardCanvasProps['onMove'];
+	onResize?: SceneBoardCanvasProps['onResize'];
+	onRemove?: SceneBoardCanvasProps['onRemove'];
 	onWidgetCommand?: SceneBoardCanvasProps['onWidgetCommand'];
 	history?: LayoutHistory;
 	emptyTitle: string;
@@ -169,6 +152,12 @@ function StackedList({
 	emptyTitle,
 	emptyHint,
 	onMaximizedChange,
+	editing = false,
+	selectedId,
+	onSelect,
+	onMove,
+	onResize,
+	onRemove,
 }: StackedBoardProps) {
 	const { t } = useI18n();
 	const scene = sceneId ?? null;
@@ -202,6 +191,55 @@ function StackedList({
 		});
 		return () => cancelAnimationFrame(frame);
 	}, [maximized]);
+
+	const [notice, setNotice] = useState('');
+	const moving = useRef(false);
+	async function reorder(id: string, to: number) {
+		const from = ordered.findIndex((w) => w.id === id);
+		if (!onMove || moving.current || from < 0 || to < 0 || to >= ordered.length || from === to)
+			return;
+		// Rewrite the reading order as vertical slots, preserving widths and horizontal positions.
+		// Every slot commits through the same undoable core move as a canvas drag.
+		const next = [...ordered];
+		next.splice(to, 0, next.splice(from, 1)[0]);
+		moving.current = true;
+		try {
+			let complete = true;
+			const commit = async () => {
+				let y = 24;
+				for (const w of next) {
+					if (w.y !== y && (await onMove(w.id, w.x, y)) === false) {
+						complete = false;
+						return;
+					}
+					y += w.h + 24;
+				}
+			};
+			if (history) await history.oneStep(commit);
+			else await commit();
+			if (!complete) return;
+			setNotice(
+				t('boardArrange.position', {
+					name: ordered[from].title,
+					position: to + 1,
+					count: ordered.length,
+				}),
+			);
+		} finally {
+			moving.current = false;
+		}
+	}
+	const drag = useRef<{ id: string; y: number } | null>(null);
+	function drop(clientY: number) {
+		const start = drag.current;
+		drag.current = null;
+		if (!start || Math.abs(clientY - start.y) < 6) return;
+		const tiles = [
+			...(listRef.current?.querySelectorAll<HTMLElement>('[data-stacked-tile]') ?? []),
+		];
+		const target = tiles.findIndex((el) => clientY < el.getBoundingClientRect().bottom);
+		void reorder(start.id, target < 0 ? ordered.length - 1 : target);
+	}
 
 	function toggleFullScreen(id: string) {
 		returnFocusId.current = maximized === id ? id : null;
@@ -270,18 +308,90 @@ function StackedList({
 					/>
 				</div>
 			)}
-			{ordered.map((w) => (
+			<div
+				role="status"
+				style={{
+					position: 'absolute',
+					width: 1,
+					height: 1,
+					overflow: 'hidden',
+					clipPath: 'inset(50%)',
+				}}
+			>
+				{notice}
+			</div>
+			{ordered.map((w, index) => (
 				<StackedTile
 					key={w.id}
 					widget={w}
+					selected={editing && selectedId === w.id}
+					editControls={
+						editing ? (
+							<div style={EDIT_CONTROLS}>
+								<IconButton
+									icon="drag-handle"
+									variant="ghost"
+									label={t('boardArrange.drag', { name: w.title })}
+									style={{ ...TOUCH_TARGET, touchAction: 'none', cursor: 'grab' }}
+									onPointerDown={(e) => {
+										if (e.button !== 0) return;
+										e.currentTarget.setPointerCapture(e.pointerId);
+										drag.current = { id: w.id, y: e.clientY };
+									}}
+									onPointerUp={(e) => drop(e.clientY)}
+									onPointerCancel={() => {
+										drag.current = null;
+									}}
+									onKeyDown={(e) => {
+										if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+											e.preventDefault();
+											void reorder(w.id, index + (e.key === 'ArrowUp' ? -1 : 1));
+										}
+									}}
+								/>
+								<Button
+									size="sm"
+									disabled={index === 0}
+									onClick={() => void reorder(w.id, index - 1)}
+								>
+									{t('boardArrange.up')}
+								</Button>
+								<Button
+									size="sm"
+									disabled={index === ordered.length - 1}
+									onClick={() => void reorder(w.id, index + 1)}
+								>
+									{t('boardArrange.down')}
+								</Button>
+								<TileSizePresets widget={w} onResize={onResize} />
+							</div>
+						) : undefined
+					}
 					open={expanded[w.id] ?? true}
 					fullScreen={maximized === w.id}
 					hidden={maximized !== null && maximized !== w.id}
 					onToggle={() => toggle(w.id)}
 					onFullScreen={() => toggleFullScreen(w.id)}
-					onKeyDown={(e) => onTileKeyDown(e, w.id)}
+					history={history}
+					onKeyDown={(e) => {
+						if (editing && e.target === e.currentTarget) {
+							if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+								e.preventDefault();
+								void reorder(w.id, index + (e.key === 'ArrowUp' ? -1 : 1));
+							} else if (e.key === 'Delete' || e.key === 'Backspace') {
+								e.preventDefault();
+								onRemove?.(w.id);
+							} else if (e.key === 'Enter' && onSelect) {
+								// The canvas frame's own select gesture, so the Inspector reads the same here.
+								e.preventDefault();
+								onSelect(w.id);
+							}
+						}
+						onTileKeyDown(e, w.id);
+					}}
+					// An edit-mode tile is inert, as on the canvas: its body runs no command.
 					onCommand={
-						onWidgetCommand
+						!editing && onWidgetCommand
 							? (commandType, payload) => onWidgetCommand(w.id, commandType, payload)
 							: undefined
 					}
@@ -291,136 +401,5 @@ function StackedList({
 	);
 }
 
-interface StackedTileProps {
-	widget: BoardWidget;
-	open: boolean;
-	fullScreen: boolean;
-	hidden: boolean;
-	onToggle: () => void;
-	onFullScreen: () => void;
-	onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => void;
-	onCommand?: WidgetCommandHandler;
-}
-
-function StackedTile({
-	widget: w,
-	open,
-	fullScreen,
-	hidden,
-	onToggle,
-	onFullScreen,
-	onKeyDown,
-	onCommand,
-}: StackedTileProps) {
-	const { t } = useI18n();
-	const dir = useDirection();
-	const uid = useId();
-	const headingId = `${uid}-title`;
-	const bodyId = `${uid}-body`;
-	const meta = tileMetadataForWidget(w);
-	const chip = visibilityChip(w.visibility);
-	const accent = `var(${meta.accentToken})`;
-	const placeholder = w.status !== 'available';
-	const showBody = open || fullScreen;
-	// The authored height, less the header, so a tile keeps the proportions it has on the canvas.
-	const bodyHeight = Math.max(w.h - HEADER_PX, MIN_BODY_PX);
-
-	const identity = (
-		<>
-			<WidgetGlyph icon={meta.icon} size={16} color={accent} />
-			<span style={TITLE}>{w.title}</span>
-			<span style={chip.players ? CHIP_PLAYERS : CHIP_DM}>
-				<Icon name={chip.players ? 'visibility-players' : 'dm-only'} size={11} />
-				{t(chip.label)}
-			</span>
-		</>
-	);
-
-	return (
-		<div
-			role="group"
-			aria-labelledby={headingId}
-			data-testid={`widget-${w.id}`}
-			data-stacked-tile=""
-			className={meta.silhouetteClass}
-			onKeyDown={onKeyDown}
-			style={{
-				...TILE,
-				// `display` rather than the `hidden` attribute, which an inline `display` would override.
-				// The tile stays MOUNTED while another is full screen, so its widget keeps its state.
-				display: hidden ? 'none' : 'flex',
-				flex: fullScreen ? '1 1 auto' : '0 0 auto',
-				background: placeholder ? 'var(--color-surface-sunken)' : 'var(--color-surface-raised)',
-				border: `1px solid ${placeholder ? 'var(--color-border-strong)' : 'var(--color-border)'}`,
-			}}
-		>
-			{/* A BORDER, not a background, for the same reason as WidgetFrame's rail: forced-colors
-			    mode repaints backgrounds as Canvas but keeps a border. */}
-			<span
-				aria-hidden
-				data-testid="tile-accent-rail"
-				style={{ ...RAIL, borderInlineStart: `4px solid ${accent}` }}
-			/>
-			<div
-				style={{
-					...HEADER,
-					borderBottom: showBody ? '1px solid var(--color-border)' : 'none',
-				}}
-			>
-				<h3 style={HEADING}>
-					{fullScreen ? (
-						<span id={headingId} style={HEADING_ROW}>
-							{identity}
-						</span>
-					) : (
-						<button
-							type="button"
-							id={headingId}
-							aria-expanded={open}
-							aria-controls={bodyId}
-							onClick={onToggle}
-							style={{ ...HEADING_ROW, ...DISCLOSURE }}
-						>
-							<Icon
-								name={open ? 'chevron-down' : dir === 'rtl' ? 'chevron-left' : 'chevron-right'}
-								size="sm"
-							/>
-							{identity}
-						</button>
-					)}
-				</h3>
-				<IconButton
-					icon={fullScreen ? 'minimize-2' : 'maximize-2'}
-					label={
-						fullScreen
-							? t('atlas.collapseMap', { name: w.title })
-							: t('atlas.expandMap', { name: w.title })
-					}
-					variant="ghost"
-					data-stacked-fullscreen={w.id}
-					onClick={onFullScreen}
-					style={TOUCH_TARGET}
-				/>
-			</div>
-			<div
-				id={bodyId}
-				data-testid="stacked-tile-body"
-				style={{
-					...BODY,
-					display: showBody ? 'flex' : 'none',
-					...(fullScreen ? { flex: '1 1 auto' } : { height: bodyHeight }),
-				}}
-			>
-				<div style={CONTENT}>
-					<WidgetRenderSlot widget={w} onCommand={onCommand} />
-				</div>
-				{w.statusNote && (
-					<div style={STATUS_NOTE}>
-						<Icon name="warning" size={12} />
-						{w.statusNote}
-					</div>
-				)}
-			</div>
-		</div>
-	);
-}
+// RC-POL-1.2 — the tile and its size presets live in `StackedTile.tsx`.
+export { TileSizePresets } from './StackedTile';

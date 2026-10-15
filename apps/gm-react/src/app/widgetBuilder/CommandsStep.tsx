@@ -1,27 +1,21 @@
-import { useMemo } from 'react';
 import {
-	VAULT_OBJECT_SUBTYPE_KEY,
+	BOARD_COMMAND_DESCRIPTORS,
+	CORE_NAMED_WIDGET_COMMANDS,
 	WIDGET_COMMAND_EXECUTORS,
 	WIDGET_INTENT_CREATE_TARGETS,
 	WIDGET_INTENT_ROUTES,
 	WIDGET_INTENT_SETTINGS_TABS,
 	classifyWidgetCommand,
-	getContentItemsForActor,
-	listCharactersForActor,
-	listMapsForActor,
-	listScreensForActor,
 	type WidgetCommandDescriptor,
 	type WidgetCommandExecutor,
 	type WidgetConfigField,
 	type WidgetIntentCreateTarget,
 	type WidgetIntentDescriptor,
-	type WidgetIntentEntityKind,
 	type WidgetIntentRoute,
 	type WidgetIntentSettingsTab,
 	type WidgetOutputDestinationClass,
 } from '@dndtools/core';
 import { Badge, Field, Input, Select, Tooltip } from '../../ds';
-import { useRuntime } from '../../runtime/RuntimeContext';
 import { T } from '../screen-kit';
 import {
 	FieldGrid,
@@ -35,6 +29,7 @@ import {
 	type StepProps,
 } from './fields';
 import { validateIntents } from './draft';
+import { useIntentTargets, type IntentTargets } from './intentTargets';
 import {
 	CAPABILITY_LABEL,
 	CREATE_LABEL,
@@ -230,6 +225,28 @@ export const CATALOG: CatalogEntry[] = [
 	),
 ];
 
+/**
+ * RC-WID-5.7 — the table's own commands, which the core runs by name for any widget that declares
+ * them: what the GM board's initiative and map tiles do. They keep their core names (no executor and
+ * no widget-type prefix), so a widget built from them drives the same fight and the same map. The
+ * core decides who may press each, exactly as for the board's own tiles.
+ */
+const BOARD_COMMAND_LABEL: Readonly<Record<string, MessageKey>> = {
+	'combat.advance-turn': 'builder.catalog.nextTurn',
+	'combat.apply-resource': 'builder.catalog.applyHitPoints',
+	'combat.set-combatant-visibility': 'builder.catalog.hideCombatant',
+	'session.set-active-map': 'builder.catalog.stageMap',
+	'session.project-active-map': 'builder.catalog.projectMap',
+	'scene.configure-widget': 'builder.catalog.configureWidget',
+};
+
+export const BOARD_CATALOG: CatalogEntry[] = Object.entries(BOARD_COMMAND_LABEL).map(
+	([type, label]) => ({
+		label,
+		descriptor: () => ({ ...BOARD_COMMAND_DESCRIPTORS[type]! }),
+	}),
+);
+
 /** The label each executor goes by in the "Runs" picker — the catalogue chip that adds it. */
 const EXECUTOR_LABEL: Record<WidgetCommandExecutor, MessageKey> = {
 	roll: 'builder.catalog.roll',
@@ -245,8 +262,12 @@ const EXECUTOR_LABEL: Record<WidgetCommandExecutor, MessageKey> = {
 	resume: 'builder.catalog.resume',
 };
 
-const executorOptions = (t: Translate) => [
-	{ value: '', label: t('builder.commands.runsNothing') },
+/** A command the core runs by name (`timer.start`, `combat.advance-turn`…) runs without an executor. */
+const executorOptions = (t: Translate, runsByName: boolean) => [
+	{
+		value: '',
+		label: t(runsByName ? 'builder.commands.runsByName' : 'builder.commands.runsNothing'),
+	},
 	...WIDGET_COMMAND_EXECUTORS.map((value) => ({ value, label: t(EXECUTOR_LABEL[value]) })),
 ];
 
@@ -330,7 +351,7 @@ export function CommandsStep({ draft, patch, issues }: StepProps) {
 				help={t('builder.commands.catalogHelp')}
 			>
 				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
-					{CATALOG.map((catalogEntry) => {
+					{[...CATALOG, ...BOARD_CATALOG].map((catalogEntry) => {
 						const descriptor = catalogEntry.descriptor(draft.typeId || 'widget');
 						const already = draft.commands.some((command) => command.type === descriptor.type);
 						return (
@@ -395,7 +416,10 @@ export function CommandsStep({ draft, patch, issues }: StepProps) {
 									<Field label={t('builder.commands.runs')} help={t('builder.commands.runsHelp')}>
 										<Select
 											value={command.executor ?? ''}
-											options={executorOptions(t)}
+											options={executorOptions(
+												t,
+												CORE_NAMED_WIDGET_COMMANDS.includes(command.type),
+											)}
 											onChange={(e: { target: { value: string } }) => {
 												const { executor: _previous, ...rest } = command;
 												const value = e.target.value as WidgetCommandExecutor | '';
@@ -519,50 +543,6 @@ function CatalogChip({
 
 // --- RC-WID-5.1: intents -----------------------------------------------------------------------
 
-interface TargetOption {
-	value: string;
-	label: string;
-}
-
-/**
- * What an open intent can point at, read the way the author sees the vault. These are the same
- * actor-filtered reads the destinations use; the viewer's own gate is applied again at press time.
- */
-function useIntentTargets(): Record<WidgetIntentEntityKind | 'screen', TargetOption[]> {
-	const runtime = useRuntime();
-	const state = runtime.state;
-	const actorId = runtime.defaultActorId;
-	return useMemo(() => {
-		const { characters, maps, permissions, content, scenes } = state;
-		const items = getContentItemsForActor(content, permissions, actorId);
-		const byName = (a: TargetOption, b: TargetOption) => a.label.localeCompare(b.label);
-		return {
-			character: listCharactersForActor(characters, permissions, actorId).map((c) => ({
-				value: c.id,
-				label: c.name,
-			})),
-			map: listMapsForActor(maps, permissions, actorId).map((m) => ({
-				value: m.id,
-				label: m.name,
-			})),
-			note: items
-				.filter((item) => item.kind === 'note')
-				.map((item) => ({ value: item.id, label: item.title }))
-				.sort(byName),
-			quest: items
-				.filter(
-					(item) => item.kind === 'object' && item.fields[VAULT_OBJECT_SUBTYPE_KEY] === 'quest',
-				)
-				.map((item) => ({ value: item.id, label: item.title }))
-				.sort(byName),
-			screen: listScreensForActor(scenes, permissions, actorId).map((screen) => ({
-				value: screen.id,
-				label: screen.name,
-			})),
-		};
-	}, [state, actorId]);
-}
-
 /**
  * Open and create — the intents a placed copy offers (RC-WID-5.1). An intent writes nothing: it takes
  * whoever presses it to a screen, an entity, a page, a Settings tab or a creation flow, and only ever
@@ -610,7 +590,10 @@ function IntentsSection({ draft, patch, issues }: StepProps) {
 						{t(group === 'open' ? 'builder.intents.groupOpen' : 'builder.intents.groupCreate')}
 					</span>
 					<div style={{ display: 'flex', flexWrap: 'wrap', gap: T.space.two }}>
-						{INTENT_CATALOG.filter((entry) => entry.group === group).map((entry) => (
+						{INTENT_CATALOG.filter(
+							(entry) =>
+								entry.group === group && !(custom && entry.seed.kind === 'preview-participant'),
+						).map((entry) => (
 							<CatalogChip
 								key={entry.label}
 								label={t(entry.label)}
@@ -676,7 +659,7 @@ function IntentTargetField({
 }: {
 	intent: WidgetIntentDescriptor;
 	custom: boolean;
-	targets: Record<WidgetIntentEntityKind | 'screen', TargetOption[]>;
+	targets: IntentTargets;
 	onChange: (next: WidgetIntentDescriptor) => void;
 }) {
 	const { t } = useI18n();
@@ -730,6 +713,23 @@ function IntentTargetField({
 							label: t(SETTINGS_TAB_LABEL[tab]),
 						}))}
 						onChange={onValue((value) => ({ ...intent, tab: value as WidgetIntentSettingsTab }))}
+					/>
+				</Field>
+			);
+		case 'preview-participant':
+			// RC-SES-7.3 — a fixed participant, or (the default) the one each row of the list names.
+			return (
+				<Field label={t('builder.intents.participant')}>
+					<Select
+						value={intent.targetId ?? ''}
+						options={[
+							{ value: '', label: t('builder.intents.eachRowParticipant') },
+							...targets.participant,
+						]}
+						onChange={onValue((value) => {
+							const { targetId: _previous, ...rest } = intent;
+							return value === '' ? rest : { ...rest, targetId: value };
+						})}
 					/>
 				</Field>
 			);

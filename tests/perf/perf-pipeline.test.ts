@@ -186,6 +186,16 @@ describe('shared runner performance', () => {
 				);
 			writeFileSync(input, JSON.stringify(run));
 			expect(invoke('--write-baseline').status).toBe(0);
+			const recorded = JSON.parse(readFileSync(baseline, 'utf8'));
+			expect(recorded.budgets).toHaveLength(22);
+			expect(
+				recorded.budgets.filter((entry: { budgetId: string }) => entry.budgetId.endsWith(':large')),
+			).toHaveLength(11);
+			expect(
+				recorded.budgets.every(
+					(entry: { observedValue: number | null }) => entry.observedValue !== null,
+				),
+			).toBe(true);
 			const compared = invoke('--json', output);
 			expect(compared.status, compared.stdout + compared.stderr).toBe(0);
 			expect(compared.stdout).toContain('0 without a baseline');

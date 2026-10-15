@@ -110,6 +110,9 @@ export function createPlatformServiceRegistry(
 	};
 }
 
+// eslint-disable-next-line no-control-regex -- the full ASCII range, control characters included.
+const NON_ASCII = /[^\u0000-\u007f]/;
+
 /**
  * Measure a payload against its byte limit: `null` when it is not JSON-serializable, otherwise
  * whether it fits and, when it does not, its exact UTF-8 size for the error.
@@ -131,6 +134,13 @@ function measurePayload(
 	// over the limit is encoded to count its bytes exactly: encoding a full copy of every persisted
 	// state just to read its length was most of a durable commit's boundary cost.
 	if (serialized.length * 3 <= limit) return { fits: true };
+	// All ASCII (the usual vault): one byte per unit, so the length is the exact size. A regex scan
+	// costs a fraction of encoding a multi-megabyte copy (RC-ENG-3.2).
+	if (!NON_ASCII.test(serialized)) {
+		return serialized.length > limit
+			? { fits: false, sizeBytes: serialized.length }
+			: { fits: true };
+	}
 	// Count UTF-8 bytes so multi-byte content is measured accurately against the limit.
 	const sizeBytes =
 		typeof TextEncoder !== 'undefined'

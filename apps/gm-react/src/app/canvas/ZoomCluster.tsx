@@ -1,4 +1,7 @@
-import { Button } from '../../ds';
+import { useCallback, useEffect, useRef, type ReactNode } from 'react';
+import type { LayoutHistory } from './useLayoutHistory';
+import { srOnly } from '../screen-kit';
+import { Button, IconButton } from '../../ds';
 import { ZoomBtn } from './frameParts';
 import { useI18n } from '../../i18n';
 import { ZOOM_PRESETS, ZOOM_PRESET_KEY, type ZoomPreset } from '../SceneBoardModel';
@@ -104,8 +107,7 @@ function PresetBtn({
 /**
  * The bounded board's named zoom steps, drawn in the host's toolbar (RC-CAN-3.1) where they cannot
  * scroll away with the canvas they apply to. Moved here from `screens/Board.tsx` (RC-CAN-5.4) so the
- * phone can offer a subset: a phone in edit mode never paints the board at Fit, where tile text
- * would drop under 12px.
+ * phone board can hold editing at Fit while a touched tile opens in a readable loupe.
  */
 export function ZoomPresetGroup({
 	value,
@@ -143,6 +145,160 @@ export function ZoomPresetGroup({
 					{t(ZOOM_PRESET_KEY[preset])}
 				</Button>
 			))}
+		</div>
+	);
+}
+
+/** Keep token text at a painted 12px minimum inside the transformed Fit layer at every tier. */
+export function FitTextFloor() {
+	return (
+		<style>{`.board-fit-floor [style*="--scene-board-scale"]:not([style*="--scene-board-scale: 1;"]) {
+ --fit-text-min: calc(12px / var(--scene-board-scale));
+ ${Object.entries({
+		'2xs': 0.625,
+		xs: 0.75,
+		sm: 0.8125,
+		base: 0.9375,
+		md: 1.0625,
+		lg: 1.25,
+		xl: 1.5,
+		'2xl': 1.875,
+		'3xl': 2.25,
+ })
+		.map(([name, rem]) => `--text-${name}: max(${rem}rem, calc(12px / var(--scene-board-scale)));`)
+		.join('')}
+ }`}</style>
+	);
+}
+
+/** RC-CAN-8.6 — `fitEditing`: a phone arranges its Layout at Fit, with a loupe around the touched
+ *  tile, and `fitFloor` lets that Fit go as small as the board needs. The reading zoom is left
+ *  alone, so Done returns to it however editing was entered (`?edit=1`). */
+export function phoneZoomSteps(
+	phone: boolean,
+	editing: boolean,
+	zoom: ZoomPreset,
+	fitEditing = false,
+) {
+	if (!phone) return { canvas: zoom, pressed: zoom, presets: ZOOM_PRESETS, fitFloor: undefined };
+	const reading = zoom === 'fit' ? ('comfortable' as ZoomPreset) : zoom;
+	if (editing && fitEditing)
+		return {
+			canvas: 'fit' as ZoomPreset,
+			pressed: 'fit' as ZoomPreset,
+			presets: ['fit'] as const,
+			fitFloor: 0.01,
+		};
+	return {
+		canvas: reading,
+		pressed: editing ? reading : zoom,
+		presets: editing ? (['comfortable', 'detail'] as const) : ZOOM_PRESETS,
+		fitFloor: undefined,
+	};
+}
+
+/** History stays available after removing the tile that was open in the phone loupe. */
+export function PhoneEditHistory({ history }: { history?: LayoutHistory }) {
+	if (!history) return null;
+	return (
+		<>
+			<div data-testid="canvas-history-controls" style={{ display: 'flex', gap: 'var(--space-1)' }}>
+				<Button size="sm" disabled={!history.canUndo} onClick={() => void history.undo()}>
+					{history.undoLabel ? `Undo ${history.undoLabel.toLowerCase()}` : 'Undo'}
+				</Button>
+				<Button size="sm" disabled={!history.canRedo} onClick={() => void history.redo()}>
+					{history.redoLabel ? `Redo ${history.redoLabel.toLowerCase()}` : 'Redo'}
+				</Button>
+			</div>
+			<div role="status" style={srOnly}>
+				{history.announcement && (
+					<span key={history.announcement.seq}>{history.announcement.text}</span>
+				)}
+			</div>
+		</>
+	);
+}
+
+/** A local magnifier: tile menus and dialogs retain their own focus and escape layers. */
+/** Runs `open` after the tap's own click, swallowing that click so it cannot land on what `open` mounts. */
+export function useAfterTapClick() {
+	const cancel = useRef(() => {});
+	useEffect(() => () => cancel.current(), []);
+	return useCallback((open: () => void) => {
+		cancel.current();
+		const run = (event?: Event) => {
+			event?.preventDefault();
+			event?.stopPropagation();
+			cancel.current();
+			open();
+		};
+		const timer = window.setTimeout(run, 500);
+		window.addEventListener('click', run, true);
+		cancel.current = () => {
+			window.clearTimeout(timer);
+			window.removeEventListener('click', run, true);
+		};
+	}, []);
+}
+export function PhoneEditLoupe({
+	open,
+	onClose,
+	title,
+	children,
+}: {
+	open: boolean;
+	onClose: () => void;
+	title: string;
+	children: ReactNode;
+}) {
+	const { t } = useI18n();
+	const ref = useRef<HTMLDivElement>(null);
+	useEffect(() => {
+		if (!open) return;
+		const trigger = document.activeElement as HTMLElement | null;
+		ref.current?.focus();
+		return () => {
+			if (trigger?.isConnected) trigger.focus();
+		};
+	}, [open]);
+	if (!open) return null;
+	return (
+		<div
+			ref={ref}
+			role="region"
+			aria-label={title}
+			tabIndex={-1}
+			onKeyDown={(e) => {
+				if (
+					e.key === 'Escape' &&
+					!e.defaultPrevented &&
+					e.currentTarget.contains(e.target as Node)
+				) {
+					e.stopPropagation();
+					onClose();
+				}
+			}}
+			style={{
+				position: 'absolute',
+				inset: 0,
+				zIndex: 1,
+				background: 'var(--color-surface-raised)',
+				border: '1px solid var(--color-border)',
+				borderRadius: 'var(--radius-lg)',
+				overflow: 'auto',
+				padding: 'var(--space-2)',
+			}}
+		>
+			<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+				<strong>{title}</strong>
+				<IconButton
+					icon="close"
+					label={t('common.action.close')}
+					onClick={onClose}
+					style={{ width: 44, height: 44 }}
+				/>
+			</div>
+			{children}
 		</div>
 	);
 }

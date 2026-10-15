@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
 	WIDGET_COUNTER_EXECUTORS,
 	classifyWidgetCommand,
@@ -14,11 +13,12 @@ import {
 	type WidgetDefinition,
 	type WidgetIntentDescriptor,
 } from '@dndtools/core';
-import { Button, Toaster } from '../../../ds';
+import { Button } from '../../../ds';
 import { useI18n, type MessageKey } from '../../../i18n';
 import { useRuntime } from '../../../runtime/RuntimeContext';
 import type { BoardWidget } from '../../board-helpers';
 import { decideIntent } from '../hostBridge';
+import { useFollowIntent } from './HubIntent';
 import {
 	ComputedFields,
 	TemplateEmpty,
@@ -267,9 +267,8 @@ function LiveIntents({
 	definition: WidgetDefinition;
 	intents: WidgetIntentDescriptor[];
 }) {
-	const { t } = useI18n();
 	const runtime = useRuntime();
-	const navigate = useNavigate();
+	const follow = useFollowIntent();
 	const state = runtime.state;
 	const actorId = runtime.activeActorId;
 	const followable = useMemo(
@@ -294,21 +293,18 @@ function LiveIntents({
 					key={intent.id}
 					intent={intent}
 					inertReason={null}
-					onPress={() => {
-						const decision = decideIntent(
-							widget.id,
-							definition,
-							{ intentId: intent.id },
-							[],
-							runtime.state,
-							runtime.activeActorId,
-						);
-						if (decision.destination) {
-							navigate(decision.destination.path, { state: decision.destination.state });
-						} else {
-							Toaster.error(t('widgetTemplate.intentUnavailable'));
-						}
-					}}
+					onPress={() =>
+						follow(
+							decideIntent(
+								widget.id,
+								definition,
+								{ intentId: intent.id },
+								[],
+								runtime.state,
+								runtime.activeActorId,
+							).destination,
+						)
+					}
 				/>
 			))}
 		</>

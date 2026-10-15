@@ -181,6 +181,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Live > desktop live · ari
 - text: No handouts delivered yet.
 - heading "Now playing" [level=2]
 - text: Nothing playing. Start ambience from the Audio library.
+- button "Scene cards"
 - heading "Stage" [level=2]
 - text: Everyone
 - text: Every player and observer, and anyone who joins later. Choose a scene for one player below to make an exception.
@@ -223,6 +224,11 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Live > desktop live · ari
 - heading "Table roster" [level=2]
 - text: Host
 - text: No live table yet. Use in the top bar to open your table — players appear here as they connect.
+- heading "What players see" [level=2]
+- button "Demo Player Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Sera Duskwhisper Preview"
+- button "Demo Player 2 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Brother Calloway Preview"
+- button "Demo Player 3 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Tormund Ironfist Preview"
+- button "Demo Observer Observer · Offline · Stage: Nothing projected · Handouts: 5 · No full sheets Preview"
 - heading "Party" [level=2]
 - text: Brother Calloway
 - text: /31
@@ -316,6 +322,9 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Live > desktop live · dom
     "Now playing"
   <svg aria-hidden="true">
   "Nothing playing. Start ambience from the Audio library."
+  <button type="button">
+    <svg aria-hidden="true">
+    "Scene cards"
 <section>
   <h2>
     "Stage"
@@ -446,6 +455,32 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Live > desktop live · dom
   "No live table yet. Use"
   "Host"
   "in the top bar to open your table — players appear here as they connect."
+<h2>
+  "What players see"
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Player"
+  "Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Sera Duskwhisper"
+  "Preview"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Player 2"
+  "Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Brother Calloway"
+  "Preview"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Player 3"
+  "Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Tormund Ironfist"
+  "Preview"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Observer"
+  "Observer · Offline · Stage: Nothing projected · Handouts: 5 · No full sheets"
+  "Preview"
+  <svg aria-hidden="true">
 <section>
   <h2>
     "Party"
@@ -486,6 +521,7 @@ button Roll
 textbox 
 textbox 
 button Push to players
+button Scene cards
 combobox Scene shown to everyone
 combobox Active map
 combobox Scene projected to Demo Player
@@ -497,7 +533,11 @@ textbox
 textbox 
 button Set date
 button Edit calendar
-button 10 recent changes to review"
+button 10 recent changes to review
+button Demo Player Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Sera Duskwhisper Preview
+button Demo Player 2 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Brother Calloway Preview
+button Demo Player 3 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Tormund Ironfist Preview
+button Demo Observer Observer · Offline · Stage: Nothing projected · Handouts: 5 · No full sheets Preview"
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, Live > desktop live · headings 1`] = `
@@ -513,6 +553,7 @@ h2 Campaign date
 h2 Prep & recap
 h2 End-of-session capture
 h2 Table roster
+h2 What players see
 h2 Party
 h2 Schedule next session"
 `;
@@ -561,6 +602,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Prep > desktop prep · ari
 - text: No handouts delivered yet.
 - heading "Now playing" [level=2]
 - text: Nothing playing. Start ambience from the Audio library.
+- button "Scene cards"
 - heading "Stage" [level=2]
 - text: Everyone
 - text: Every player and observer, and anyone who joins later. Choose a scene for one player below to make an exception.
@@ -603,6 +645,11 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Prep > desktop prep · ari
 - heading "Table roster" [level=2]
 - text: Host
 - text: No live table yet. Use in the top bar to open your table — players appear here as they connect.
+- heading "What players see" [level=2]
+- button "Demo Player Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Sera Duskwhisper Preview"
+- button "Demo Player 2 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Brother Calloway Preview"
+- button "Demo Player 3 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Tormund Ironfist Preview"
+- button "Demo Observer Observer · Offline · Stage: Nothing projected · Handouts: 5 · No full sheets Preview"
 - heading "Party" [level=2]
 - text: Brother Calloway
 - text: /31
@@ -694,6 +741,9 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Prep > desktop prep · dom
     "Now playing"
   <svg aria-hidden="true">
   "Nothing playing. Start ambience from the Audio library."
+  <button type="button">
+    <svg aria-hidden="true">
+    "Scene cards"
 <section>
   <h2>
     "Stage"
@@ -824,6 +874,32 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Prep > desktop prep · dom
   "No live table yet. Use"
   "Host"
   "in the top bar to open your table — players appear here as they connect."
+<h2>
+  "What players see"
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Player"
+  "Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Sera Duskwhisper"
+  "Preview"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Player 2"
+  "Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Brother Calloway"
+  "Preview"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Player 3"
+  "Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Tormund Ironfist"
+  "Preview"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Observer"
+  "Observer · Offline · Stage: Nothing projected · Handouts: 5 · No full sheets"
+  "Preview"
+  <svg aria-hidden="true">
 <section>
   <h2>
     "Party"
@@ -863,6 +939,7 @@ button Roll
 textbox 
 textbox 
 button Push to players
+button Scene cards
 combobox Scene shown to everyone
 combobox Active map
 combobox Scene projected to Demo Player
@@ -874,7 +951,11 @@ textbox
 textbox 
 button Set date
 button Edit calendar
-button 10 recent changes to review"
+button 10 recent changes to review
+button Demo Player Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Sera Duskwhisper Preview
+button Demo Player 2 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Brother Calloway Preview
+button Demo Player 3 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Tormund Ironfist Preview
+button Demo Observer Observer · Offline · Stage: Nothing projected · Handouts: 5 · No full sheets Preview"
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, Prep > desktop prep · headings 1`] = `
@@ -890,6 +971,7 @@ h2 Campaign date
 h2 Prep & recap
 h2 End-of-session capture
 h2 Table roster
+h2 What players see
 h2 Party
 h2 Schedule next session"
 `;
@@ -938,6 +1020,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Recap with the rest timeli
 - text: No handouts delivered yet.
 - heading "Now playing" [level=2]
 - text: Nothing playing. Start ambience from the Audio library.
+- button "Scene cards"
 - heading "Stage" [level=2]
 - text: Everyone
 - text: Every player and observer, and anyone who joins later. Choose a scene for one player below to make an exception.
@@ -1006,6 +1089,11 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Recap with the rest timeli
 - heading "Table roster" [level=2]
 - text: Host
 - text: No live table yet. Use in the top bar to open your table — players appear here as they connect.
+- heading "What players see" [level=2]
+- button "Demo Player Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Sera Duskwhisper Preview"
+- button "Demo Player 2 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Brother Calloway Preview"
+- button "Demo Player 3 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Tormund Ironfist Preview"
+- button "Demo Observer Observer · Offline · Stage: Nothing projected · Handouts: 5 · No full sheets Preview"
 - heading "Party" [level=2]
 - text: Brother Calloway
 - text: /31
@@ -1103,6 +1191,9 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Recap with the rest timeli
     "Now playing"
   <svg aria-hidden="true">
   "Nothing playing. Start ambience from the Audio library."
+  <button type="button">
+    <svg aria-hidden="true">
+    "Scene cards"
 <section>
   <h2>
     "Stage"
@@ -1277,6 +1368,32 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Recap with the rest timeli
   "No live table yet. Use"
   "Host"
   "in the top bar to open your table — players appear here as they connect."
+<h2>
+  "What players see"
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Player"
+  "Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Sera Duskwhisper"
+  "Preview"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Player 2"
+  "Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Brother Calloway"
+  "Preview"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Player 3"
+  "Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Tormund Ironfist"
+  "Preview"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Observer"
+  "Observer · Offline · Stage: Nothing projected · Handouts: 5 · No full sheets"
+  "Preview"
+  <svg aria-hidden="true">
 <section>
   <h2>
     "Party"
@@ -1335,6 +1452,7 @@ button Roll
 textbox 
 textbox 
 button Push to players
+button Scene cards
 combobox Scene shown to everyone
 combobox Active map
 combobox Scene projected to Demo Player
@@ -1364,7 +1482,11 @@ checkbox Dockworkers’ Union
 checkbox The Drowning of Saltreach
 checkbox The party makes landfall
 checkbox The Hollow King stirs
-textbox Follow-ups"
+textbox Follow-ups
+button Demo Player Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Sera Duskwhisper Preview
+button Demo Player 2 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Brother Calloway Preview
+button Demo Player 3 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Tormund Ironfist Preview
+button Demo Observer Observer · Offline · Stage: Nothing projected · Handouts: 5 · No full sheets Preview"
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, Recap with the rest timeline > desktop recap · headings 1`] = `
@@ -1380,6 +1502,7 @@ h2 Campaign date
 h2 Prep & recap
 h2 End-of-session capture
 h2 Table roster
+h2 What players see
 h2 Party
 h2 Rests this session
 h2 Schedule next session"
@@ -1429,6 +1552,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, desktop > desktop
 - text: No handouts delivered yet.
 - heading "Now playing" [level=2]
 - text: Nothing playing. Start ambience from the Audio library.
+- button "Scene cards"
 - heading "Stage" [level=2]
 - text: Everyone
 - text: Every player and observer, and anyone who joins later. Choose a scene for one player below to make an exception.
@@ -1471,6 +1595,11 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, desktop > desktop
 - heading "Table roster" [level=2]
 - text: Host
 - text: No live table yet. Use in the top bar to open your table — players appear here as they connect.
+- heading "What players see" [level=2]
+- button "Demo Player Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Sera Duskwhisper Preview"
+- button "Demo Player 2 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Brother Calloway Preview"
+- button "Demo Player 3 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Tormund Ironfist Preview"
+- button "Demo Observer Observer · Offline · Stage: Nothing projected · Handouts: 5 · No full sheets Preview"
 - heading "Party" [level=2]
 - text: Brother Calloway
 - text: /31
@@ -1562,6 +1691,9 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, desktop > desktop
     "Now playing"
   <svg aria-hidden="true">
   "Nothing playing. Start ambience from the Audio library."
+  <button type="button">
+    <svg aria-hidden="true">
+    "Scene cards"
 <section>
   <h2>
     "Stage"
@@ -1692,6 +1824,32 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, desktop > desktop
   "No live table yet. Use"
   "Host"
   "in the top bar to open your table — players appear here as they connect."
+<h2>
+  "What players see"
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Player"
+  "Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Sera Duskwhisper"
+  "Preview"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Player 2"
+  "Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Brother Calloway"
+  "Preview"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Player 3"
+  "Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Tormund Ironfist"
+  "Preview"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Observer"
+  "Observer · Offline · Stage: Nothing projected · Handouts: 5 · No full sheets"
+  "Preview"
+  <svg aria-hidden="true">
 <section>
   <h2>
     "Party"
@@ -1732,6 +1890,7 @@ button Roll
 textbox 
 textbox 
 button Push to players
+button Scene cards
 combobox Scene shown to everyone
 combobox Active map
 combobox Scene projected to Demo Player
@@ -1743,7 +1902,11 @@ textbox
 textbox 
 button Set date
 button Edit calendar
-button 10 recent changes to review"
+button 10 recent changes to review
+button Demo Player Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Sera Duskwhisper Preview
+button Demo Player 2 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Brother Calloway Preview
+button Demo Player 3 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Tormund Ironfist Preview
+button Demo Observer Observer · Offline · Stage: Nothing projected · Handouts: 5 · No full sheets Preview"
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, desktop > desktop standby · headings 1`] = `
@@ -1759,6 +1922,7 @@ h2 Campaign date
 h2 Prep & recap
 h2 End-of-session capture
 h2 Table roster
+h2 What players see
 h2 Party
 h2 Schedule next session"
 `;
@@ -1807,6 +1971,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
 - text: No handouts delivered yet.
 - heading "Now playing" [level=2]
 - text: Nothing playing. Start ambience from the Audio library.
+- button "Scene cards"
 - heading "Stage" [level=2]
 - text: Everyone
 - text: Every player and observer, and anyone who joins later. Choose a scene for one player below to make an exception.
@@ -1849,6 +2014,11 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
 - heading "Table roster" [level=2]
 - text: Host
 - text: No live table yet. Use in the top bar to open your table — players appear here as they connect.
+- heading "What players see" [level=2]
+- button "Demo Player Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Sera Duskwhisper Preview"
+- button "Demo Player 2 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Brother Calloway Preview"
+- button "Demo Player 3 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Tormund Ironfist Preview"
+- button "Demo Observer Observer · Offline · Stage: Nothing projected · Handouts: 5 · No full sheets Preview"
 - heading "Party" [level=2]
 - text: Brother Calloway
 - text: /31
@@ -1940,6 +2110,9 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
     "Now playing"
   <svg aria-hidden="true">
   "Nothing playing. Start ambience from the Audio library."
+  <button type="button">
+    <svg aria-hidden="true">
+    "Scene cards"
 <section>
   <h2>
     "Stage"
@@ -2070,6 +2243,32 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
   "No live table yet. Use"
   "Host"
   "in the top bar to open your table — players appear here as they connect."
+<h2>
+  "What players see"
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Player"
+  "Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Sera Duskwhisper"
+  "Preview"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Player 2"
+  "Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Brother Calloway"
+  "Preview"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Player 3"
+  "Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Tormund Ironfist"
+  "Preview"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Observer"
+  "Observer · Offline · Stage: Nothing projected · Handouts: 5 · No full sheets"
+  "Preview"
+  <svg aria-hidden="true">
 <section>
   <h2>
     "Party"
@@ -2110,6 +2309,7 @@ button Roll
 textbox 
 textbox 
 button Push to players
+button Scene cards
 combobox Scene shown to everyone
 combobox Active map
 combobox Scene projected to Demo Player
@@ -2121,7 +2321,11 @@ textbox
 textbox 
 button Set date
 button Edit calendar
-button 10 recent changes to review"
+button 10 recent changes to review
+button Demo Player Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Sera Duskwhisper Preview
+button Demo Player 2 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Brother Calloway Preview
+button Demo Player 3 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Tormund Ironfist Preview
+button Demo Observer Observer · Offline · Stage: Nothing projected · Handouts: 5 · No full sheets Preview"
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > phone standby · headings 1`] = `
@@ -2137,6 +2341,7 @@ h2 Campaign date
 h2 Prep & recap
 h2 End-of-session capture
 h2 Table roster
+h2 What players see
 h2 Party
 h2 Schedule next session"
 `;
@@ -2185,6 +2390,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
 - text: No handouts delivered yet.
 - heading "Now playing" [level=2]
 - text: Nothing playing. Start ambience from the Audio library.
+- button "Scene cards"
 - heading "Stage" [level=2]
 - text: Everyone
 - text: Every player and observer, and anyone who joins later. Choose a scene for one player below to make an exception.
@@ -2227,6 +2433,11 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
 - heading "Table roster" [level=2]
 - text: Host
 - text: No live table yet. Use in the top bar to open your table — players appear here as they connect.
+- heading "What players see" [level=2]
+- button "Demo Player Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Sera Duskwhisper Preview"
+- button "Demo Player 2 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Brother Calloway Preview"
+- button "Demo Player 3 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Tormund Ironfist Preview"
+- button "Demo Observer Observer · Offline · Stage: Nothing projected · Handouts: 5 · No full sheets Preview"
 - heading "Party" [level=2]
 - text: Brother Calloway
 - text: /31
@@ -2318,6 +2529,9 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
     "Now playing"
   <svg aria-hidden="true">
   "Nothing playing. Start ambience from the Audio library."
+  <button type="button">
+    <svg aria-hidden="true">
+    "Scene cards"
 <section>
   <h2>
     "Stage"
@@ -2448,6 +2662,32 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
   "No live table yet. Use"
   "Host"
   "in the top bar to open your table — players appear here as they connect."
+<h2>
+  "What players see"
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Player"
+  "Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Sera Duskwhisper"
+  "Preview"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Player 2"
+  "Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Brother Calloway"
+  "Preview"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Player 3"
+  "Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Tormund Ironfist"
+  "Preview"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Observer"
+  "Observer · Offline · Stage: Nothing projected · Handouts: 5 · No full sheets"
+  "Preview"
+  <svg aria-hidden="true">
 <section>
   <h2>
     "Party"
@@ -2488,6 +2728,7 @@ button Roll
 textbox 
 textbox 
 button Push to players
+button Scene cards
 combobox Scene shown to everyone
 combobox Active map
 combobox Scene projected to Demo Player
@@ -2499,7 +2740,11 @@ textbox
 textbox 
 button Set date
 button Edit calendar
-button 10 recent changes to review"
+button 10 recent changes to review
+button Demo Player Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Sera Duskwhisper Preview
+button Demo Player 2 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Brother Calloway Preview
+button Demo Player 3 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Tormund Ironfist Preview
+button Demo Observer Observer · Offline · Stage: Nothing projected · Handouts: 5 · No full sheets Preview"
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > rail standby · headings 1`] = `
@@ -2515,6 +2760,7 @@ h2 Campaign date
 h2 Prep & recap
 h2 End-of-session capture
 h2 Table roster
+h2 What players see
 h2 Party
 h2 Schedule next session"
 `;
@@ -2575,6 +2821,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
 - text: No handouts delivered yet.
 - heading "Now playing" [level=2]
 - text: Nothing playing. Start ambience from the Audio library.
+- button "Scene cards"
 - heading "Stage" [level=2]
 - text: Everyone
 - text: Every player and observer, and anyone who joins later. Choose a scene for one player below to make an exception.
@@ -2618,6 +2865,11 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
 - heading "Table roster" [level=2]
 - text: Host
 - text: No live table yet. Use in the top bar to open your table — players appear here as they connect.
+- heading "What players see" [level=2]
+- button "Demo Player Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Sera Duskwhisper Preview"
+- button "Demo Player 2 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Brother Calloway Preview"
+- button "Demo Player 3 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Tormund Ironfist Preview"
+- button "Demo Observer Observer · Offline · Stage: Nothing projected · Handouts: 5 · No full sheets Preview"
 - heading "Party" [level=2]
 - text: Brother Calloway
 - text: /31
@@ -2770,6 +3022,9 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
     "Now playing"
   <svg aria-hidden="true">
   "Nothing playing. Start ambience from the Audio library."
+  <button type="button">
+    <svg aria-hidden="true">
+    "Scene cards"
 <section>
   <h2>
     "Stage"
@@ -2902,6 +3157,32 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
   "No live table yet. Use"
   "Host"
   "in the top bar to open your table — players appear here as they connect."
+<h2>
+  "What players see"
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Player"
+  "Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Sera Duskwhisper"
+  "Preview"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Player 2"
+  "Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Brother Calloway"
+  "Preview"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Player 3"
+  "Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Tormund Ironfist"
+  "Preview"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Observer"
+  "Observer · Offline · Stage: Nothing projected · Handouts: 5 · No full sheets"
+  "Preview"
+  <svg aria-hidden="true">
 <section>
   <h2>
     "Party"
@@ -2959,6 +3240,7 @@ button Roll
 textbox 
 textbox 
 button Push to players
+button Scene cards
 combobox Scene shown to everyone
 combobox Active map
 combobox Scene projected to Demo Player
@@ -2970,7 +3252,11 @@ textbox
 textbox 
 button Set date
 button Edit calendar
-button 10 recent changes to review"
+button 10 recent changes to review
+button Demo Player Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Sera Duskwhisper Preview
+button Demo Player 2 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Brother Calloway Preview
+button Demo Player 3 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Tormund Ironfist Preview
+button Demo Observer Observer · Offline · Stage: Nothing projected · Handouts: 5 · No full sheets Preview"
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and phone > desktop live combat · headings 1`] = `
@@ -2985,6 +3271,7 @@ h2 Campaign date
 h2 Prep & recap
 h2 End-of-session capture
 h2 Table roster
+h2 What players see
 h2 Party
 h2 Schedule next session"
 `;
@@ -3045,6 +3332,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
 - text: No handouts delivered yet.
 - heading "Now playing" [level=2]
 - text: Nothing playing. Start ambience from the Audio library.
+- button "Scene cards"
 - heading "Stage" [level=2]
 - text: Everyone
 - text: Every player and observer, and anyone who joins later. Choose a scene for one player below to make an exception.
@@ -3088,6 +3376,11 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
 - heading "Table roster" [level=2]
 - text: Host
 - text: No live table yet. Use in the top bar to open your table — players appear here as they connect.
+- heading "What players see" [level=2]
+- button "Demo Player Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Sera Duskwhisper Preview"
+- button "Demo Player 2 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Brother Calloway Preview"
+- button "Demo Player 3 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Tormund Ironfist Preview"
+- button "Demo Observer Observer · Offline · Stage: Nothing projected · Handouts: 5 · No full sheets Preview"
 - heading "Party" [level=2]
 - text: Brother Calloway
 - text: /31
@@ -3240,6 +3533,9 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
     "Now playing"
   <svg aria-hidden="true">
   "Nothing playing. Start ambience from the Audio library."
+  <button type="button">
+    <svg aria-hidden="true">
+    "Scene cards"
 <section>
   <h2>
     "Stage"
@@ -3372,6 +3668,32 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
   "No live table yet. Use"
   "Host"
   "in the top bar to open your table — players appear here as they connect."
+<h2>
+  "What players see"
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Player"
+  "Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Sera Duskwhisper"
+  "Preview"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Player 2"
+  "Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Brother Calloway"
+  "Preview"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Player 3"
+  "Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Tormund Ironfist"
+  "Preview"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Demo Observer"
+  "Observer · Offline · Stage: Nothing projected · Handouts: 5 · No full sheets"
+  "Preview"
+  <svg aria-hidden="true">
 <section>
   <h2>
     "Party"
@@ -3429,6 +3751,7 @@ button Roll
 textbox 
 textbox 
 button Push to players
+button Scene cards
 combobox Scene shown to everyone
 combobox Active map
 combobox Scene projected to Demo Player
@@ -3440,7 +3763,11 @@ textbox
 textbox 
 button Set date
 button Edit calendar
-button 10 recent changes to review"
+button 10 recent changes to review
+button Demo Player Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Sera Duskwhisper Preview
+button Demo Player 2 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Brother Calloway Preview
+button Demo Player 3 Player · Offline · Stage: Nothing projected · Handouts: 5 · Sheets: Tormund Ironfist Preview
+button Demo Observer Observer · Offline · Stage: Nothing projected · Handouts: 5 · No full sheets Preview"
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and phone > phone live combat · headings 1`] = `
@@ -3455,6 +3782,7 @@ h2 Campaign date
 h2 Prep & recap
 h2 End-of-session capture
 h2 Table roster
+h2 What players see
 h2 Party
 h2 Schedule next session"
 `;

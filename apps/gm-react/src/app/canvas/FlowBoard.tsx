@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '../../ds';
+import { useI18n } from '../../i18n';
 import {
 	boardWidgetPresentation,
 	flowColumnsFor,
@@ -14,13 +15,12 @@ import {
 import { srOnly, T } from '../screen-kit';
 
 import type { FlowBoardProps, FlowDrag } from '../SceneBoardModel';
-import { HistoryBtn, redoLabel, undoLabel } from './frameParts';
+import { HistoryBtn } from './frameParts';
 import { flowPartGap, useBlankTiles } from './FlowPart';
 import { canvasSurfaceProps, OperationLiveRegion, useOperationNotice } from './surfaceA11y';
-import { AUTHORING_COLUMNS } from './FlowTileMenu';
 import { FlowTile, FlowViewTile } from './FlowTile';
-import { useI18n } from '../../i18n';
 export { FlowViewTile } from './FlowTile';
+import { AUTHORING_COLUMNS } from './FlowTileMenu';
 
 /**
  * FlowBoard — ADR-041's FLOW layout policy, the responsive counterpart to `SceneBoardCanvas`.
@@ -46,6 +46,9 @@ export { FlowViewTile } from './FlowTile';
  * home screen's parts through it and through the same placement, so a part looks the same on `/`,
  * at `/screen/:id`, and copied onto any other flow screen.
  */
+
+/* RC-CAN-8.7 — every word a flow screen shows or announces comes out of the message catalog
+ * (`boardCanvas.flow.*`); `canvas-copy.test.ts` fails on any string literal here that carries language. */
 
 export function FlowBoard({
 	widgets,
@@ -139,7 +142,7 @@ export function FlowBoard({
 			// The announcement names the AUTHORING grid, because that is what the span was written
 			// against — at rail and phone the tier clamps the tile narrower than the number says.
 			announce(
-				t('boardCanvas.flow.span', { title: w.title, span: next, columns: AUTHORING_COLUMNS }),
+				t('boardCanvas.flow.spanNotice', { title: w.title, span: next, count: AUTHORING_COLUMNS }),
 			);
 		},
 		[announce, onResize, t],
@@ -276,7 +279,7 @@ export function FlowBoard({
 	return (
 		<div
 			data-testid="scene-board-flow"
-			{...canvasSurfaceProps('flow', editing, placements.length)}
+			{...canvasSurfaceProps('flow', editing, placements.length, t)}
 			data-flow-columns={columns}
 			tabIndex={history ? -1 : undefined}
 			onKeyDown={boardKeyDown}
@@ -304,7 +307,7 @@ export function FlowBoard({
 			{history && editing && (
 				<div
 					role="toolbar"
-					aria-label={t('boardCanvas.history.toolbar')}
+					aria-label={t('boardCanvas.flow.toolbar')}
 					data-testid="flow-history-controls"
 					style={{
 						position: 'sticky',
@@ -324,13 +327,21 @@ export function FlowBoard({
 					</span>
 					<HistoryBtn
 						icon="undo"
-						label={undoLabel(t, history)}
+						label={
+							history.undoLabel
+								? t('boardCanvas.flow.undoNamed', { action: history.undoLabel.toLowerCase() })
+								: t('boardCanvas.flow.undo')
+						}
 						disabled={!history.canUndo}
 						onClick={() => void history.undo()}
 					/>
 					<HistoryBtn
 						icon="redo"
-						label={redoLabel(t, history)}
+						label={
+							history.redoLabel
+								? t('boardCanvas.flow.redoNamed', { action: history.redoLabel.toLowerCase() })
+								: t('boardCanvas.flow.redo')
+						}
 						disabled={!history.canRedo}
 						onClick={() => void history.redo()}
 					/>

@@ -3,6 +3,7 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Simulate } from 'react-dom/test-utils';
 import { describe, expect, it } from 'vitest';
+import { WIDGET_TEMPLATE_KINDS } from '@dndtools/core';
 import { I18nProvider } from '../../i18n';
 import { emptyDraft } from './draft';
 import { IdentityStep, iconMeaning } from './IdentityStep';
@@ -63,6 +64,25 @@ describe('Identity disclosure', () => {
 });
 
 describe('template layout defaults', () => {
+	it.each(WIDGET_TEMPLATE_KINDS)(
+		'switches to and from %s while preserving custom sizes',
+		(template) => {
+			const initial = emptyDraft();
+			const selected = { ...initial, ...templateLayoutPatch(initial, { template }) };
+			expect(selected.defaultSize.width).toBeGreaterThanOrEqual(selected.minSize.width);
+			expect(selected.defaultSize.height).toBeGreaterThanOrEqual(selected.minSize.height);
+			const restored = {
+				...selected,
+				...templateLayoutPatch(selected, { template: initial.template }),
+			};
+			expect(restored.defaultSize).toEqual(initial.defaultSize);
+			const custom = { ...selected, defaultSize: { width: 700, height: 500 } };
+			expect(
+				{ ...custom, ...templateLayoutPatch(custom, { template: initial.template }) }.defaultSize,
+			).toEqual(custom.defaultSize);
+		},
+	);
+
 	it('adapts an untouched canvas size but preserves an explicit size', () => {
 		expect(templateLayoutPatch(emptyDraft(), { template: 'data-table' }).defaultSize).toEqual(
 			TEMPLATE_SIZES['data-table'],

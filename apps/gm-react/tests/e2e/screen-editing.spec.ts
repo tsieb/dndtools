@@ -139,8 +139,12 @@ test('a tile opens the shared inspector with bindings and transform controls', a
 	await tile.press('Enter');
 	await expect(page.getByRole('tab', { name: 'Binding', exact: true })).toBeVisible();
 	await page.getByRole('tab', { name: 'Transform', exact: true }).click();
-	await expect(page.getByRole('button', { name: 'Small', exact: true })).toBeVisible();
-	await page.getByRole('button', { name: 'Small', exact: true }).click();
+	// The Inspector's preset: a phone's list posture also offers each tile's own size presets (RC-CAN-8.6).
+	const small = page
+		.getByTestId('widget-inspector')
+		.getByRole('button', { name: 'Small', exact: true });
+	await expect(small).toBeVisible();
+	await small.click();
 	await expect
 		.poll(() =>
 			page.evaluate(

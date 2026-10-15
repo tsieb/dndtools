@@ -173,6 +173,26 @@ describe('PLAT-007 AC2: oversized payloads are rejected before business logic', 
 		expect(atLimit.ok).toBe(true);
 	});
 
+	it('sizes an all-ASCII payload by its length, exactly at and just over the limit', () => {
+		const registry = createPlatformServiceRegistry([
+			{
+				method: 'storage.persistFullState',
+				requestSchema: z.object({ blob: z.string() }).strict(),
+				maxPayloadBytes: 20,
+			},
+		]);
+		// `{"blob":"…"}` is 11 bytes of wrapper: nine characters reach 20 exactly, ten exceed it.
+		expect(
+			validatePlatformRequest(registry, 'storage.persistFullState', { blob: 'x'.repeat(9) }).ok,
+		).toBe(true);
+		const over = validatePlatformRequest(registry, 'storage.persistFullState', {
+			blob: 'x'.repeat(10),
+		});
+		expect(over.ok).toBe(false);
+		if (over.ok) throw new Error('expected rejection');
+		expect(over.error.sizeBytes).toBe(21);
+	});
+
 	it('size check runs before schema validation (oversized invalid payload reports size)', () => {
 		const registry = createPlatformServiceRegistry([
 			{

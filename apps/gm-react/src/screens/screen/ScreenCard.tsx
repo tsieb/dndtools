@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { ScreenListEntry } from '@dndtools/core';
-import { Badge, Card, Chip, IconButton } from '../../ds';
+import { Badge, Button, Card, Chip } from '../../ds';
 import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { T } from '../../app/screen-kit';
@@ -20,11 +20,22 @@ export interface ScreenCardActions {
 	}) => Promise<string | null>;
 }
 
+/** RC-CAN-8.7 — a card action is a labelled button at the touch-target floor, never a bare glyph. */
+const ACTION_STYLE = {
+	flex: '1 1 auto',
+	minHeight: 'var(--touch-target-min)',
+	justifyContent: 'center',
+} as const;
+
 /**
  * One screen in the library: a thumbnail of its layout, its name (the link that opens it), its
  * visibility named for what it is, the live and pinned markers, and — for the GM — pin, rename,
  * duplicate and delete. The thumbnail and the name are one link, so a screen is a single tab stop to
  * open, followed by its actions.
+ *
+ * RC-CAN-8.7 — the actions carry their word as well as their icon ("Pin", "Rename", …) and meet the
+ * 44px touch floor: four 16px glyphs left the GM guessing which one deletes. Each button's accessible
+ * name still names the screen ("Rename Ford ambush") and starts with its visible word.
  */
 export function ScreenCard({
 	entry,
@@ -129,41 +140,56 @@ export function ScreenCard({
 					<div
 						role="group"
 						aria-label={t('screens.actionsFor', { name })}
+						data-testid={`screen-actions-${entry.id}`}
+						// The buttons size to their words and wrap: two to a row in a library column, all
+						// four in one on a phone's full-width card, in whatever lengths the locale has.
 						style={{ display: 'flex', flexWrap: 'wrap', gap: T.space.one, marginTop: 'auto' }}
 					>
-						<IconButton
+						<Button
 							icon="pin"
-							label={t(entry.pinned ? 'screens.unpinNamed' : 'screens.pinNamed', { name })}
+							aria-label={t(entry.pinned ? 'screens.unpinNamed' : 'screens.pinNamed', { name })}
 							aria-pressed={entry.pinned}
 							variant={entry.pinned ? 'accent' : 'ghost'}
 							size="sm"
 							disabled={busy}
 							onClick={actions.onTogglePin}
-						/>
-						<IconButton
+							style={ACTION_STYLE}
+						>
+							{t(entry.pinned ? 'screens.action.unpin' : 'screens.action.pin')}
+						</Button>
+						<Button
 							icon="edit"
-							label={t('screens.renameNamed', { name })}
+							aria-label={t('screens.renameNamed', { name })}
 							aria-expanded={renaming}
 							variant="ghost"
 							size="sm"
 							onClick={actions.onToggleRename}
-						/>
-						<IconButton
+							style={ACTION_STYLE}
+						>
+							{t('screens.action.rename')}
+						</Button>
+						<Button
 							icon="duplicate"
-							label={t('screens.duplicateNamed', { name })}
+							aria-label={t('screens.duplicateNamed', { name })}
 							variant="ghost"
 							size="sm"
 							disabled={busy}
 							onClick={actions.onDuplicate}
-						/>
-						<IconButton
+							style={ACTION_STYLE}
+						>
+							{t('screens.action.duplicate')}
+						</Button>
+						<Button
 							icon="delete"
-							label={t('screens.deleteNamed', { name })}
+							aria-label={t('screens.deleteNamed', { name })}
 							variant="ghost"
 							size="sm"
 							disabled={busy}
 							onClick={actions.onDelete}
-						/>
+							style={ACTION_STYLE}
+						>
+							{t('screens.action.delete')}
+						</Button>
 					</div>
 				)}
 				{renaming && (

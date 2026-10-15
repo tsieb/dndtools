@@ -585,6 +585,8 @@ export type {
 	HomeWidgetType,
 	SessionScreenLane,
 	SessionScreenPart,
+	// RC-WID-5.7 — the GM board's tools.
+	BoardToolWidgetType,
 } from './state/widget-package-state';
 export {
 	ALL_HOST_PERMISSIONS,
@@ -594,6 +596,11 @@ export {
 	ALL_WIDGET_HUB_QUERY_SOURCES,
 	WIDGET_DATA_QUERY_SOURCES,
 	ALL_WIDGET_TEMPLATE_KINDS,
+	// RC-WID-5.7 — the GM board's tools as public sources and template kinds.
+	ALL_WIDGET_BOARD_QUERY_SOURCES,
+	BOARD_TOOL_WIDGET_TYPES,
+	BOARD_WIDGET_TEMPLATE_KINDS,
+	WIDGET_TEMPLATE_KINDS,
 	DEFAULT_WIDGET_SURFACES,
 	EMPTY_WIDGET_PACKAGE_STATE,
 	SYSTEM_WIDGET_PACKAGE_STATE,
@@ -633,6 +640,8 @@ export {
 	widgetTemplateReadsQueries,
 	// RC-WID-6.1 — declared command executors and the per-instance state they keep.
 	CORE_NAMED_WIDGET_COMMANDS,
+	// RC-WID-5.7 — the GM board's commands a widget runs by name.
+	BOARD_COMMAND_DESCRIPTORS,
 	WIDGET_COMMAND_EXECUTORS,
 	WIDGET_COUNTER_EXECUTORS,
 	WIDGET_COUNTER_RESTORE_COMMAND,
@@ -659,7 +668,12 @@ export type {
 	WidgetCommandAvailabilityInput,
 	WidgetCommandUnavailableReason,
 } from './commands/widget-command';
-export { buildWidgetCommandInverse, widgetCommandAvailability } from './commands/widget-command';
+export {
+	buildWidgetCommandInverse,
+	widgetCommandAvailability,
+	// RC-WID-5.7 — the dispatch gate, shared with the `widget-timer` query source.
+	widgetInstanceReachesActor,
+} from './commands/widget-command';
 
 export type {
 	ActorId,
@@ -1695,8 +1709,15 @@ export type {
 	PlayerViewControllerSceneOption,
 	PlayerViewControllerTableView,
 	SessionTableView,
+	PlayerViewSummaryParticipant,
+	PlayerViewSummaryQueryResult,
 } from './queries/player-view-control';
-export { canShowSceneToTable, getPlayerViewController } from './queries/player-view-control';
+export {
+	PLAYER_SUMMARY_WIDGET,
+	canShowSceneToTable,
+	getPlayerViewController,
+	getPlayerViewSummary,
+} from './queries/player-view-control';
 
 // UX-CMD-003 / UX-CMD-012 — the viewer-gated Command Center home read model: the glanceable session
 // status strip + the role-differentiated home decision (the single no-leak choke point for `/`).
@@ -3610,6 +3631,8 @@ export type {
 	WikilinkDomains,
 	WikilinkRenamePropagation,
 } from './queries/wikilink-graph';
+// RC-ENG-3.2: the graph reads' note-parse memo; a host clears it when it replaces the vault's content.
+export { clearParsedNoteCache } from './queries/parsed-note-cache';
 export {
 	applyLinkRepairForActor,
 	buildWikilinkCandidatesForActor,
@@ -3914,11 +3937,14 @@ export type {
 	GraphVizFacets,
 	GraphVizFilter,
 	GraphVizNode,
+	GraphVisualizationBase,
 } from './queries/graph-visualization-query';
 export {
 	CONTENT_KIND_WORDS,
 	GRAPH_RELATIONSHIP_KINDS,
+	buildGraphVisualizationBase,
 	emptyGraphVisualization,
+	filterGraphVisualization,
 	getGraphVisualizationForActor,
 	kindWordFor,
 } from './queries/graph-visualization-query';

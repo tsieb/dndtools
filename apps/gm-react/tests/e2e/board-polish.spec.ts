@@ -1,7 +1,14 @@
 import AxeBuilder from '@axe-core/playwright';
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
-import { dispatch, enterPreview, exitPreview, gotoRoute, markOnboarded } from './_helpers';
+import {
+	dispatch,
+	enterPreview,
+	exitPreview,
+	gotoRoute,
+	markOnboarded,
+	preferPhoneCanvas,
+} from './_helpers';
 
 // RC-POL-1.2 — the GM Screen board's polish pass (§20.2–§20.5). Runs on both the desktop-chromium
 // and mobile-chromium projects: axe over the route and every overlay it opens in all five themes, a
@@ -40,8 +47,15 @@ async function axe(page: Page, label: string) {
 	expect(found, label).toEqual([]);
 }
 
-/** Open the GM Screen (it resolves `/board` to its `/screen/:id`) in `theme`; returns its scene. */
-async function openBoard(page: Page, theme: Theme = 'tavern', locale?: string) {
+/** Open the GM Screen in `theme`. A phone reads the panel list by default (RC-CAN-5.1); `canvas`
+ *  saves the Layout preference first, as a GM who chose the spatial board would have. */
+async function openBoard(
+	page: Page,
+	theme: Theme = 'tavern',
+	locale?: string,
+	{ canvas = true }: { canvas?: boolean } = {},
+) {
+	if (canvas) await preferPhoneCanvas(page);
 	await page.emulateMedia({ reducedMotion: 'reduce' });
 	await page.addInitScript(
 		([applied, language]) => {
@@ -137,6 +151,18 @@ for (const theme of THEMES) {
 		await page.getByRole('button', { name: /^Use a scene template/ }).click();
 		await expect(page.getByRole('dialog', { name: 'Start from a template' })).toBeVisible();
 		await axe(page, `${theme}: template picker`);
+	});
+}
+
+for (const theme of THEMES) {
+	test(`a phone’s panel list and its edit mode are axe clean — ${theme}`, async ({ page }) => {
+		test.skip(!test.info().project.name.includes('mobile'), 'the panel list is the phone posture');
+		await openBoard(page, theme, undefined, { canvas: false });
+		await expect(page.getByTestId('stacked-board')).toBeVisible();
+		await axe(page, `${theme}: phone list`);
+		await editLayout(page).click();
+		await expect(main(page).getByRole('button', { name: 'Done', exact: true })).toBeVisible();
+		await axe(page, `${theme}: phone list, editing`);
 	});
 }
 

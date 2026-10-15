@@ -115,6 +115,9 @@ test('the gallery header offers templates on an empty scene, including a saved l
 	await gotoRoute(page, `/screen/${sceneId}`);
 	await page.getByRole('button', { name: 'Edit layout' }).click();
 	await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
+	// RC-CAN-8.6 — a phone edits in the list posture; these steps drive the canvas (Layout).
+	if (await page.getByTestId('stacked-board').isVisible())
+		await page.getByRole('button', { name: 'Layout', exact: true }).click();
 	await page.getByRole('button', { name: 'Add', exact: true }).click();
 	const header = page.getByTestId('gallery-start-header');
 	await expect(header).toBeVisible();

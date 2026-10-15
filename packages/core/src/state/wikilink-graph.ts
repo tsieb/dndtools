@@ -81,6 +81,28 @@ export type WikilinkResolution =
 	| { status: 'source-unavailable'; targetId: string };
 
 /**
+ * Resolve a batch against one fixed actor-filtered candidate snapshot. The first candidate
+ * mentioning a normalized title or alias wins, exactly as in resolveWikilink. Build a new
+ * resolver for every calculation; never reuse it across candidate mutations or actor changes.
+ * Availability and section rules remain owned by the canonical resolver below.
+ */
+export function createWikilinkResolver(
+	candidates: readonly WikilinkTarget[],
+): (link: Pick<ParsedWikilink, 'target' | 'section'>) => WikilinkResolution {
+	const byName = new Map<string, WikilinkTarget>();
+	for (const candidate of candidates) {
+		for (const name of [candidate.title, ...candidate.aliases]) {
+			const key = normalizeName(name);
+			if (!byName.has(key)) byName.set(key, candidate);
+		}
+	}
+	return (link) => {
+		const candidate = byName.get(normalizeName(link.target));
+		return resolveWikilink(link, candidate ? [candidate] : []);
+	};
+}
+
+/**
  * CONTENT-006 — RESOLVE one parsed wikilink against the actor-filtered candidate index. Matches the link's
  * target against each candidate's title + aliases (case-insensitive, trimmed). When the link names a
  * `#section`, the matched target's `sections` are checked: a present section sets `matchedSection`; an absent

@@ -1,3 +1,5 @@
+import { openImportHub } from '../../app/importHub/registry';
+import { useImportLaunch } from '../../app/importHub/useImportLaunch';
 import { SettingsSection } from './Experience';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -215,6 +217,9 @@ export function SettingsVault() {
 	];
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.four }}>
+			<Button variant="secondary" icon="import" onClick={openImportHub}>
+				{t('importHub.open')}
+			</Button>
 			<VaultIntegrity />
 			<MarkdownFolderPanel />
 			<SettingsSection gateKey="settings.vault.title">
@@ -264,12 +269,7 @@ export function SettingsVault() {
 									: 'settings.vault.emptyBody',
 							)}
 							action={
-								<Button
-									variant="secondary"
-									size="sm"
-									icon="import"
-									onClick={() => navigate('/knowledge')}
-								>
+								<Button variant="secondary" size="sm" icon="import" onClick={openImportHub}>
 									{t('settings.vault.openSources')}
 								</Button>
 							}
@@ -367,7 +367,7 @@ function MarkdownFolderPanel() {
 	const [includeDmOnly, setIncludeDmOnly] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const actor = runtime.state.permissions.actors[runtime.defaultActorId];
-	if (!actor || !hasDmAuthority(actor.role)) return null;
+	const canImport = !!actor && hasDmAuthority(actor.role) && !runtime.readOnly;
 	const run = async (action: () => Promise<void>) => {
 		setBusy(true);
 		try {
@@ -378,6 +378,23 @@ function MarkdownFolderPanel() {
 			setBusy(false);
 		}
 	};
+	const importZip = () =>
+		run(async () => {
+			const picked = await pickMarkdownZip();
+			if (!picked) return;
+			const count = await importMarkdownZip(runtime, picked);
+			Toaster.success(t('settings.folder.imported', { count }));
+		});
+	useImportLaunch('markdown-zip', () => void importZip(), canImport);
+	const importFolder = () =>
+		run(async () => {
+			const root = await pickMarkdownDirectory();
+			if (!root) return;
+			const count = await importMarkdownFolder(runtime, await readMarkdownFolder(root));
+			Toaster.success(t('settings.folder.imported', { count }));
+		});
+	useImportLaunch('markdown-folder', () => void importFolder(), canImport && isFsSourceSupported());
+	if (!canImport) return null;
 	return (
 		<SettingsSection gateKey="settings.folder.title">
 			<Panel title={t('settings.folder.title')}>
@@ -439,14 +456,7 @@ function MarkdownFolderPanel() {
 						size="sm"
 						icon="import"
 						disabled={busy}
-						onClick={() =>
-							void run(async () => {
-								const picked = await pickMarkdownZip();
-								if (!picked) return;
-								const count = await importMarkdownZip(runtime, picked);
-								Toaster.success(t('settings.folder.imported', { count }));
-							})
-						}
+						onClick={() => void importZip()}
 					>
 						{t('settings.folder.importZip')}
 					</Button>
@@ -456,14 +466,7 @@ function MarkdownFolderPanel() {
 							size="sm"
 							icon="import"
 							disabled={busy}
-							onClick={() =>
-								void run(async () => {
-									const root = await pickMarkdownDirectory();
-									if (!root) return;
-									const count = await importMarkdownFolder(runtime, await readMarkdownFolder(root));
-									Toaster.success(t('settings.folder.imported', { count }));
-								})
-							}
+							onClick={() => void importFolder()}
 						>
 							{t('settings.folder.importFolder')}
 						</Button>

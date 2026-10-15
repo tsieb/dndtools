@@ -33,6 +33,15 @@ export interface WindowGestureContext {
 	setGuides: Dispatch<SetStateAction<(DragGuides & { id: string }) | null>>;
 }
 
+/** Capture a pointer that starts a canvas gesture, so its moves keep arriving off the tile. */
+export function capturePointer(e: React.PointerEvent) {
+	try {
+		e.currentTarget.setPointerCapture(e.pointerId);
+	} catch {
+		/* a pointer that has already ended cannot be captured — the listeners still cover us */
+	}
+}
+
 /**
  * RC-POL-1.2 — the canvas's window-level pointer listeners, out of `SceneBoardCanvas.tsx`. A gesture
  * the canvas started (move, resize, pan, scroll-pan or a marquee) is followed on the window, so it

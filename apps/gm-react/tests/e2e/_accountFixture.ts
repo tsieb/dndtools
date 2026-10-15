@@ -11,7 +11,9 @@ export type AccountFixtureMode = 'preview' | 'checkout' | 'offline' | 'loading';
 // Call before the first navigation.
 export async function serveAccountFixture(page: Page, mode: AccountFixtureMode): Promise<void> {
 	await page.route('**/src/cloud/entitlements.ts', async (route) => {
-		const response = await route.fetch();
+		// A local dev-server connection can reset during concurrent visual runs. Retry only
+		// that transport error; HTTP responses are not retried, and exhausted retries fail.
+		const response = await route.fetch({ maxRetries: 2 });
 		const source = await response.text();
 		const reactUrl = source.match(/from "([^"]*\/react\.js[^"]*)"/)?.[1];
 		if (!reactUrl)

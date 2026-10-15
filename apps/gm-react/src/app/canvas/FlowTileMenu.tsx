@@ -12,7 +12,7 @@ import {
 	type BoardWidget,
 } from '../board-helpers';
 import { T } from '../screen-kit';
-import { useEditWidget } from '../../screens/extensions/WidgetBuilder';
+import { useEditWidget } from '../../screens/extensions/useEditWidget';
 import type { MenuHandle, Point } from './menuParts';
 
 // RC-POL-1.2 — the flow grid's tile menu, out of `TileActionMenu.tsx`.
@@ -88,7 +88,6 @@ export function FlowTileMenu({
 	onSpan,
 	onRemove,
 }: FlowTileMenuProps) {
-	const { t } = useI18n();
 	const anchorRef = useRef<HTMLDivElement | null>(null);
 	const panelRef = useRef<HTMLDivElement | null>(null);
 	// The tile's DURABLE span, not `placement.span`: the placement is clamped to the current tier and
@@ -97,7 +96,8 @@ export function FlowTileMenu({
 	const authoredSpan = flowSpanOf(w, AUTHORING_COLUMNS);
 	const [box, setBox] = useState<{ top: number; left: number } | null>(null);
 	const edit = useEditWidget(w.id, w.type);
-	const label = t('boardCanvas.menu.actions', { title: w.title });
+	const { t } = useI18n();
+	const label = t('boardCanvas.tileMenu.actions', { title: w.title });
 	const close = () => setBox(null);
 	// Under the trigger, or at the pointer for a right-click or long-press (RC-CAN-8.3).
 	const show = (at?: Point) => {
@@ -160,31 +160,31 @@ export function FlowTileMenu({
 						>
 							<FlowMenuRow
 								icon="arrow-up"
-								label={t('boardCanvas.menu.moveToStart')}
+								label={t('boardCanvas.flow.moveToStart')}
 								disabled={index === 0}
 								onSelect={() => run(() => onMoveTo(0))}
 							/>
 							<FlowMenuRow
 								icon="arrow-left"
-								label={t('boardCanvas.menu.moveBack')}
+								label={t('boardCanvas.flow.moveBack')}
 								disabled={index === 0}
 								onSelect={() => run(() => onMoveTo(index - 1))}
 							/>
 							<FlowMenuRow
 								icon="arrow-right"
-								label={t('boardCanvas.menu.moveForward')}
+								label={t('boardCanvas.flow.moveForward')}
 								disabled={index >= count - 1}
 								onSelect={() => run(() => onMoveTo(index + 1))}
 							/>
 							<FlowMenuRow
 								icon="arrow-down"
-								label={t('boardCanvas.menu.moveToEnd')}
+								label={t('boardCanvas.flow.moveToEnd')}
 								disabled={index >= count - 1}
 								onSelect={() => run(() => onMoveTo(count - 1))}
 							/>
 							<div
 								role="group"
-								aria-label={t('boardCanvas.menu.width')}
+								aria-label={t('boardCanvas.flow.width')}
 								style={{
 									borderTop: `1px solid ${T.bd}`,
 									marginTop: T.space.one,
@@ -193,8 +193,8 @@ export function FlowTileMenu({
 							>
 								{FLOW_SPAN_PRESETS.map((preset) => (
 									<FlowMenuRow
-										key={preset.label}
-										label={t(preset.label)}
+										key={preset.labelKey}
+										label={t(preset.labelKey)}
 										checked={authoredSpan === preset.span}
 										disabled={!resizable}
 										onSelect={() => run(() => onSpan(preset.span))}
@@ -205,7 +205,7 @@ export function FlowTileMenu({
 								<div style={{ borderTop: `1px solid ${T.bd}`, marginTop: T.space.one }}>
 									<FlowMenuRow
 										icon="edit"
-										label={t('boardCanvas.menu.edit')}
+										label={t('boardCanvas.tileMenu.edit')}
 										onSelect={() => run(() => void edit.open())}
 									/>
 								</div>
@@ -214,7 +214,7 @@ export function FlowTileMenu({
 								<div style={{ borderTop: `1px solid ${T.bd}`, marginTop: T.space.one }}>
 									<FlowMenuRow
 										icon="trash"
-										label={t('boardCanvas.menu.remove')}
+										label={t('boardCanvas.tileMenu.remove')}
 										onSelect={() => run(onRemove)}
 									/>
 								</div>

@@ -2,7 +2,7 @@ import type React from 'react';
 import { useScreens } from '../screen/useScreens';
 import './sceneEditor.css';
 import { BoardEmptyState, useBoardPreviouslyFilled } from '../board/BoardPlayerNotice';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type SyntheticEvent } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
 	findWidgetDefinition,
@@ -11,7 +11,7 @@ import {
 	type ScreenLayoutPolicy,
 	type WidgetPackageDefinition,
 } from '@dndtools/core';
-import { Icon, Toaster } from '../../ds';
+import { Icon } from '../../ds';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { SceneBoardCanvas } from '../../app/SceneBoardCanvas';
 import { FlowBoard } from '../../app/canvas/FlowBoard';
@@ -28,7 +28,7 @@ import { WidgetBuilder } from '../extensions/WidgetBuilder';
 import { Inspector } from './Inspector';
 import { useI18n } from '../../i18n';
 import { usePreviewActions } from '../../app/ViewAsControl';
-import { PlayerPreviewOverlay, type PlayerPreviewOverlayProps } from './PlayerPreviewOverlay';
+import { PlayerPreviewOverlay } from './PlayerPreviewOverlay';
 import { readPlayerPreview } from './playerPreview';
 import { SceneToolbar } from './SceneToolbar';
 import { SceneUnavailable } from './SceneUnavailable';
@@ -481,157 +481,5 @@ function TemplateSceneEditor() {
 				/>
 			)}
 		</div>
-	);
-}
-
-/**
- * While a bounded screen's layout is edited the frame owns the keys, and each tile's scroll region
- * leaves the tab order. Clip those regions instead of leaving scrollers a keyboard cannot reach
- * (axe scrollable-region-focusable): "N more lines" still shows, and Done brings scrolling back.
- */
-const EDIT_CLIP =
-	'[data-testid="scene-board-bounded"][role="application"] [data-widget-region]{overflow:hidden!important}';
-export function ScreenEditClip() {
-	return <style>{EDIT_CLIP}</style>;
-}
-
-/**
- * The preview overlay on a screen. Its phone list scrolls within the board stage, which is shorter
- * than the old editor's, so the host gives a list that has no tab stop of its own one to scroll by
- * keyboard (axe scrollable-region-focusable). The wrapper is `display: contents`, so the overlay
- * still covers the stage.
- */
-export function ScreenPreviewOverlay(props: PlayerPreviewOverlayProps) {
-	const host = useRef<HTMLDivElement>(null);
-	useLayoutEffect(() => {
-		const list = host.current?.querySelector<HTMLElement>(
-			'[data-testid="player-preview-overlay"] > ul',
-		);
-		if (list && !list.hasAttribute('tabindex')) list.tabIndex = 0;
-	});
-	return (
-		<div ref={host} style={{ display: 'contents' }}>
-			<PlayerPreviewOverlay {...props} />
-		</div>
-	);
-}
-
-/**
- * The inspector covers the whole board on a phone, so a tile the Add gallery just placed there is
- * selected with the inspector held shut (`id`). A pointer press or Enter on that tile wakes it, as
- * for any other tile; its menu trigger does not.
- */
-export function useQuietPlacement() {
-	const [id, setId] = useState<string | null>(null);
-	return {
-		id,
-		placed: (placedId: string, phone: boolean) => setId(phone ? placedId : null),
-		clear: () => setId(null),
-		wake: (e: SyntheticEvent) => {
-			if (!id || ('key' in e && e.key !== 'Enter')) return;
-			const target = e.target as Element;
-			if (target.closest('[data-testid="tile-actions-trigger"]')) return;
-			if (target.closest(`[data-testid="widget-${id}"]`)) setId(null);
-		},
-	};
-}
-
-/** The screen board borrows the editor's drawers, with its own dispatch and undo stack. */
-export function ScreenInspector({
-	sceneId,
-	widgets,
-	selectedId,
-	metaOpen,
-	phone,
-	history,
-	dispatch,
-	onMove,
-	onResize,
-	onRemove,
-	onClose,
-}: {
-	sceneId: string;
-	widgets: BoardWidget[];
-	selectedId: string | null;
-	metaOpen: boolean;
-	phone: boolean;
-	history: ReturnType<typeof useSceneCommands>['history'];
-	dispatch: (command: Parameters<ReturnType<typeof useRuntime>['dispatch']>[0]) => Promise<boolean>;
-	onMove: (id: string, x: number, y: number) => Promise<boolean>;
-	onResize: (id: string, w: number, h: number) => Promise<boolean>;
-	onRemove: (id: string) => Promise<void>;
-	onClose: () => void;
-}) {
-	const runtime = useRuntime();
-	const { t } = useI18n();
-	const configQueue = useRef(Promise.resolve());
-	const actorId = runtime.defaultActorId;
-	const scene = runtime.state.scenes.scenes[sceneId];
-	const instance = scene?.widgets.find((widget) => widget.id === selectedId);
-	const widget = widgets.find((widget) => widget.id === selectedId);
-	usePanelFocusReturn(metaOpen || !!widget);
-	if (!scene) return null;
-	function configure(key: string, value: unknown) {
-		configQueue.current = configQueue.current.then(async () => {
-			const latest = runtime.state.scenes.scenes[sceneId]?.widgets.find((w) => w.id === selectedId);
-			if (!latest) return;
-			await dispatch({
-				type: 'scene.configure-widget',
-				actorId,
-				payload: {
-					sceneId,
-					widgetInstanceId: latest.id,
-					configuration: { ...latest.configuration, [key]: value },
-				},
-			});
-		});
-		return configQueue.current;
-	}
-	if (metaOpen)
-		return (
-			<SceneMetaPanel
-				key={sceneId}
-				scene={scene}
-				name={scene.name}
-				description={scene.description}
-				tags={scene.tags}
-				phone={phone}
-				onSave={async (meta) => {
-					if (
-						await dispatch({
-							type: 'scene.update-metadata',
-							actorId,
-							payload: { sceneId, ...meta },
-						})
-					) {
-						Toaster.success(t('sceneEditor.detailsSaved'));
-						onClose();
-					}
-				}}
-				onClose={onClose}
-			/>
-		);
-	if (!widget || !instance) return null;
-	return (
-		<Inspector
-			key={instance.id}
-			widget={widget}
-			phone={phone}
-			history={history}
-			focusOrder={instance.layout.focusOrder}
-			onVisibility={(value) => configure('visibility', value)}
-			onConfigure={configure}
-			onMove={(x, y) => onMove(instance.id, x, y)}
-			onResize={(w, h) => onResize(instance.id, w, h)}
-			onFocusOrder={(focusOrder) =>
-				dispatch({
-					type: 'scene.set-focus-order',
-					actorId,
-					payload: { sceneId, widgetInstanceId: instance.id, focusOrder },
-				})
-			}
-			onRemove={() => onRemove(instance.id)}
-			onClose={onClose}
-		/>
 	);
 }

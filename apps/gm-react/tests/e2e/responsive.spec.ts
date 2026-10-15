@@ -329,7 +329,7 @@ for (const viewport of [
 		// Exercise the lazy-route loading frame even with warm Vite caches. The shell heading
 		// is ready before this module; measuring it as though the canvas were ready is a race.
 		let sceneModuleDelivered = false;
-		await page.route('**/src/screens/sceneEditor/index.tsx*', async (route) => {
+		await page.route('**/src/screens/Board.tsx*', async (route) => {
 			const response = await route.fetch();
 			await new Promise((resolve) => setTimeout(resolve, 1000));
 			sceneModuleDelivered = true;

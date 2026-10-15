@@ -210,8 +210,8 @@ rendered. Source: [AddWidgetGallery](../../apps/gm-react/src/app/canvas/AddWidge
 ### 2.2.2 Live Initiative tile (refreshed 2026-09-22)
 
 What BD-21's tile draws once combat runs. Source:
-[InitiativeBody](../../apps/gm-react/src/app/widgets/builtin/InitiativeBody.tsx) delegates the phone
-tier to [InitiativeTrackerCompact](../../apps/gm-react/src/app/widgets/builtin/InitiativeTracker.tsx),
+[InitiativeBody](../../apps/gm-react/src/app/widgets/templates/board/Initiative.tsx) delegates the phone
+tier to [InitiativeTrackerCompact](../../apps/gm-react/src/app/widgets/templates/board/InitiativeCompact.tsx),
 which dispatches `combat.apply-resource` and `combat.set-combatant-visibility` directly through the
 runtime. The shared keypad is [HpKeypadSheet](../../apps/gm-react/src/app/combat/HpKeypadSheet.tsx).
 Evidence: `refresh-board-combat-{live,edit,preview}-*` at all nine combinations and
@@ -627,7 +627,7 @@ Stated plainly so CAN-7.6 and CAN-7.8 do not mistake silence for coverage.
 Inspected locally on 2026-09-19, and on 2026-09-23 for the `2fb670a4` recapture; tests below were read, not rerun for a product change. The retained harnesses were run separately:
 
 - [Widget region](../../apps/gm-react/src/app/widgets/WidgetRenderSlot.tsx) (`WidgetRegion`, numbered label),
-  [timer body](../../apps/gm-react/src/app/widgets/builtin/TimerBody.tsx),
+  [timer body](../../apps/gm-react/src/app/widgets/templates/board/Countdown.tsx),
   [scene surfaces spec](../../apps/gm-react/tests/e2e/scene-surfaces.spec.ts).
 - [Command Center](../../apps/gm-react/src/screens/CommandCenter.tsx),
   [Board](../../apps/gm-react/src/screens/Board.tsx),
@@ -645,7 +645,7 @@ Inspected locally on 2026-09-19, and on 2026-09-23 for the `2fb670a4` recapture;
   [Sheet focus tests](../../apps/gm-react/src/ds/components/overlay/Sheet.test.ts).
 - [Combat spec](../../apps/gm-react/tests/e2e/combat.spec.ts) (concentration, death saves, timed
   conditions), [combat tile spec](../../apps/gm-react/tests/e2e/combat-tile.spec.ts),
-  [NextTurnControl](../../apps/gm-react/src/app/widgets/builtin/NextTurnControl.tsx),
+  [NextTurnControl](../../apps/gm-react/src/app/widgets/templates/board/NextTurnControl.tsx),
   [widget data projection](../../apps/gm-react/src/app/widgets/dataEnvironment.ts),
   [widget command reducer](../../packages/core/src/commands/widget-command.ts),
   [Sheet](../../apps/gm-react/src/ds/components/overlay/Sheet.tsx).

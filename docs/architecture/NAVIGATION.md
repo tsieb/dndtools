@@ -69,6 +69,15 @@ with undo), and `/screen/:id` renders any screen by its layout policy with a hea
 `/board` resolves to the GM screen's `/screen/:id` and `/scenes` to `/screens`, each by replacing
 the history entry, so a switch from the library, the switcher or the palette is one push.
 
+As of RC-CAN-8.7 the library has no heading of its own (the top bar titles it) and lists the GM's
+screens first, under "<GM> screens", and the screens shared with players after them, under "Player
+scenes". Visibility draws that line, nothing else. The atmosphere scene cards left the library for
+their own page, `/scene-cards`, a `sceneCards` pseudo-section titled by `activeSectionId` like the
+screens. Three places link to it, all for the GM only: the library's player section, which a filter
+matching no screen does not hide; the Session screen's Now playing panel; and the atmosphere
+(`audio`) widget in view mode (`SceneCardsShortcut` in `app/widgets/builtin/AudioBody.tsx`; the path
+is `SCENE_CARDS_PATH` in `app/nav.ts`).
+
 As of RC-CAN-7.9 no Run route renders a surface of its own. `/` reads the default `command-center`
 screen and `/session` the default `session` screen, each provisioned on first visit
 (`command-center.ensure-home`) and drawn in reading mode from the flow policy's own placement and

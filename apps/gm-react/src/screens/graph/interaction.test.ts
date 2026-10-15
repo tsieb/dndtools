@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { indexConnections, showNodeLabel, walkNode } from './interaction';
+import { indexConnections, limitCanvasNodes, showNodeLabel, walkNode } from './interaction';
 import type { GraphVisualization } from '@dndtools/core';
 
 describe('graph interaction', () => {
@@ -32,5 +32,21 @@ describe('graph interaction', () => {
 		expect(showNodeLabel(25, false, false)).toBe(false);
 		expect(showNodeLabel(13, true, false)).toBe(false);
 		expect(showNodeLabel(1000, true, true)).toBe(true);
+	});
+	it('draws every node up to the canvas limit, then pins and ranks by degree in list order', () => {
+		const nodes = [
+			{ id: 'a', degree: 1 },
+			{ id: 'b', degree: 5 },
+			{ id: 'c', degree: 0 },
+			{ id: 'd', degree: 5 },
+			{ id: 'e', degree: 3 },
+		];
+		expect(limitCanvasNodes(nodes, new Set(), 5)).toBe(nodes);
+		expect(limitCanvasNodes(nodes, new Set(), 3).map((n) => n.id)).toEqual(['b', 'd', 'e']);
+		expect(limitCanvasNodes(nodes, new Set(['c']), 3).map((n) => n.id)).toEqual(['b', 'c', 'd']);
+		expect(limitCanvasNodes(nodes, new Set(['a', 'c', 'e', 'x']), 2).map((n) => n.id)).toEqual([
+			'a',
+			'c',
+		]);
 	});
 });

@@ -1266,3 +1266,12 @@ async function seedStagedProposal(
 		},
 	});
 }
+
+/** Explicit performance/demo snapshot profile; ordinary first-run seeding remains unchanged.
+ * Importing the large generator is deferred so normal startup does not pay for testing helpers.
+ */
+export async function buildDemoSeedProfile(profile: 'large'): Promise<CoreStateSlice> {
+	if (profile !== 'large') throw new Error(`Unknown demo profile: ${String(profile)}`);
+	const { buildLargeVault } = await import('@dndtools/core/testing');
+	return buildLargeVault();
+}

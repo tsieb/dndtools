@@ -1,3 +1,4 @@
+import { useImportLaunch } from '../../app/importHub/useImportLaunch';
 import { useI18n } from '../../i18n';
 import {
 	deliveredMapIdsForActor,
@@ -55,6 +56,8 @@ export function useAtlas() {
 	// New-map create form (DM authoring) — the DS MapCreationForm (name, scale/unit, projection,
 	// default visibility) dispatching a real `map.create`.
 	const [creating, setCreating] = useState(false);
+	const [importMapOpen, setImportMapOpen] = useState(false);
+	const [importAfterCreate, setImportAfterCreate] = useState(false);
 
 	// Create-intent handoff from "New map" launchers (home hub, ⌘K): open the create form on
 	// arrival. Consumed once, then cleared.
@@ -135,6 +138,17 @@ export function useAtlas() {
 	// Selection falls back to the first visible map and clears if the selected map is no longer visible.
 	const selectedId = mapId && maps.some((mp) => mp.id === mapId) ? mapId : (maps[0]?.id ?? null);
 	const selectedEntry = maps.find((mp) => mp.id === selectedId) ?? null;
+	useImportLaunch(
+		'maps',
+		() => {
+			if (selectedId) setImportMapOpen(true);
+			else {
+				setImportAfterCreate(true);
+				setCreating(true);
+			}
+		},
+		!loading && isDm,
+	);
 
 	// RC-MAP-2.3 — asking for the view WITH the running combat is what puts the fight's tokens on the
 	// Atlas preview. The core does the filtering (`getMapViewForActor` applies the combat tracker's own
@@ -256,6 +270,10 @@ export function useAtlas() {
 			);
 			if (created?.mapId) setMapId(created.mapId);
 			setCreating(false);
+			if (importAfterCreate) {
+				setImportAfterCreate(false);
+				setImportMapOpen(true);
+			}
 		} else if (res) {
 			fail(res.rejection.message);
 		}
@@ -446,6 +464,8 @@ export function useAtlas() {
 		busy,
 		notice,
 		setNotice,
+		importMapOpen,
+		setImportMapOpen,
 		builder,
 		setBuilder,
 		selPoiId,
@@ -454,6 +474,10 @@ export function useAtlas() {
 		setSelTokenId,
 		creating,
 		setCreating,
+		cancelCreate: () => {
+			setCreating(false);
+			setImportAfterCreate(false);
+		},
 		delivered,
 		maps,
 		mapHierarchy,

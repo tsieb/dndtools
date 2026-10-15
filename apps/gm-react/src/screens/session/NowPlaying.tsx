@@ -1,7 +1,9 @@
+import { useNavigate } from 'react-router-dom';
 import { getSessionAudioView } from '@dndtools/core';
 import { Badge, Button, Icon, Slider } from '../../ds';
 import { useI18n } from '../../i18n';
 import { Panel, T } from '../../app/screen-kit';
+import { SCENE_CARDS_PATH } from '../../app/nav';
 
 type SessionAudioView = ReturnType<typeof getSessionAudioView>;
 
@@ -113,6 +115,30 @@ export function AudioPanel({
 					)}
 				</div>
 			)}
+			{/* RC-CAN-8.7 — the scene cards, one click from the Session screen. */}
+			{isDm && !previewing && (
+				<div style={{ marginTop: T.space.three }}>
+					<SceneCardsButton />
+				</div>
+			)}
 		</Panel>
+	);
+}
+
+/** RC-CAN-8.7 — the scene cards left the Screens library for a page of their own (`/scene-cards`). */
+function SceneCardsButton() {
+	const navigate = useNavigate();
+	const { t } = useI18n();
+	return (
+		<Button
+			style={{ minHeight: 'var(--space-12)' }}
+			variant="secondary"
+			size="sm"
+			icon="scene"
+			data-testid="session-scene-cards"
+			onClick={() => navigate(SCENE_CARDS_PATH)}
+		>
+			{t('sceneCards.title')}
+		</Button>
 	);
 }

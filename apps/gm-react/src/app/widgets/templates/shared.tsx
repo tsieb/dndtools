@@ -1,6 +1,6 @@
 import { createContext, useContext, type ReactNode } from 'react';
 import {
-	ALL_WIDGET_TEMPLATE_KINDS,
+	WIDGET_TEMPLATE_KINDS,
 	widgetTemplateReadsQueries,
 	type WidgetDefinition,
 	type WidgetTemplateKind,
@@ -59,7 +59,7 @@ const TEMPLATE_TEST_ID_PREFIX = 'widget-template-';
 function kindOfTestId(testId: string): WidgetTemplateKind | null {
 	if (!testId.startsWith(TEMPLATE_TEST_ID_PREFIX)) return null;
 	const kind = testId.slice(TEMPLATE_TEST_ID_PREFIX.length);
-	return (ALL_WIDGET_TEMPLATE_KINDS as readonly string[]).includes(kind)
+	return (WIDGET_TEMPLATE_KINDS as readonly string[]).includes(kind)
 		? (kind as WidgetTemplateKind)
 		: null;
 }
