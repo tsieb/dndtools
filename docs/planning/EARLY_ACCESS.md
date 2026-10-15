@@ -31,11 +31,12 @@ polish.
 
 **M2.5 does not pass on `ef42291b`.** Gates 1 and 3 pass. Gates 2, 4 and 5 fail:
 
-- the review found four high findings and no critical one: the palette sends a typed section name to
+- the review found five high findings and no critical one: the palette sends a typed section name to
   the Import hub (A-1); the default Start session goes live on the DM-only home screen and tells the
   GM that players see it (B-1); on the rail at Fit the overflow footer covers the Initiative tracker's
-  Next turn (B-2); and a PC built in the wizard lacks the ancestry bonus, hit dice, initiative and
-  save proficiencies the wizard shows (C-1);
+  Next turn (B-2); a PC built in the wizard lacks the ancestry bonus, hit dice, initiative and
+  save proficiencies the wizard shows (C-1); and a finished map import leaves the open editor saying
+  the map's image is missing (D-1);
 - four DEBT.md entries are open on primary surfaces: DEBT-2026-004 (Maps), -006 (Characters), -007
   (Characters and the companion in Spanish) and -008 (screens and Session in parchment);
 - two primary FEATURE-GAPS rows carry a limit outside the §2.1 four: Characters (History has no
@@ -46,8 +47,8 @@ Each failure is filed as a story in [§7](#7-blocking-stories), added to RC-ENG-
 roadmap, and created in the dispatcher as `proposed`. M2.5 is re-audited once they land.
 
 This file records a failed gate. RC-ENG-8.3 is not complete while M2.5 fails: the story closes only
-when a re-run on the application commit that carries RC-ENG-8.5 to 8.13 passes all five gates. Until
-the operator copies those nine into the dispatcher's stored dependencies, nothing there holds this
+when a re-run on the application commit that carries RC-ENG-8.5 to 8.14 passes all five gates. Until
+the operator copies those ten into the dispatcher's stored dependencies, nothing there holds this
 task behind them ([§7](#7-blocking-stories)).
 
 What holds: the five golden journeys (first run, prep, Standby to live, knowledge capture, a player
@@ -85,22 +86,24 @@ does not scan parchment for text contrast, which is why DEBT-2026-008 (§5) does
 ## 4. The review
 
 Three passes of the project's `ux-ui-reviewer` agent (`.claude/agents/ux-ui-reviewer.md`), one per
-group of routes, each in its own detached worktree at `ef42291b` with its own dev server, and a
-fourth for the one state group B missed (below). Each drove the app with the repo's Playwright
+group of routes, each in its own detached worktree at `ef42291b` with its own dev server, a fourth
+for the one state group B missed, and a fifth (D) for the five actions groups A and C did not reach
+(both below). Each drove the app with the repo's Playwright
 through scratch probe specs built on `tests/e2e/_helpers.ts`, at 1440×900 (desktop, mouse), 834×1112
 (rail, touch) and 390×844 (phone, touch), default theme, English. The brief gave them the severity
 scale above, told them to treat FRICTIONLESS.md's open items as known and re-check them, and
 required every critical or high finding to reproduce in two separate runs. I re-read the source
 behind each high finding before accepting it. The parent session restarted twice during the review,
 and the passes resumed from their saved probes and evidence. Screenshots, ARIA snapshots, per-state
-metrics and the four reports stay in the audit's scratch directory and are not committed.
+metrics and the five reports stay in the audit's scratch directory and are not committed.
 
-| Group | Routes                                                                                                | Critical | High | Medium | Low |
-| ----- | ----------------------------------------------------------------------------------------------------- | -------- | ---- | ------ | --- |
-| A     | Onboarding, Command Center (fresh, seeded, demo, live), the shell, palette and Help, `/screens`       | 0        | 1    | 7      | 6   |
-| B     | `/screen/:id` (home and four templates, view and edit), `/scene/:id`, `/session`, Session as a screen | 0        | 2    | 5      | 7   |
-| C     | Characters and the builder, Atlas and the map editor, Notes, `/play` joined over the fake LAN         | 0        | 1    | 14     | 11  |
-| BP    | `/scene/:id` template editor on the phone (completes group B; see below)                              | 0        | 0    | 5      | 6   |
+| Group | Routes                                                                                                       | Critical | High | Medium | Low |
+| ----- | ------------------------------------------------------------------------------------------------------------ | -------- | ---- | ------ | --- |
+| A     | Onboarding, Command Center (fresh, seeded, demo, live), the shell, palette and Help, `/screens`              | 0        | 1    | 7      | 6   |
+| B     | `/screen/:id` (home and four templates, view and edit), `/scene/:id`, `/session`, Session as a screen        | 0        | 2    | 5      | 7   |
+| C     | Characters and the builder, Atlas and the map editor, Notes, `/play` joined over the fake LAN                | 0        | 1    | 14     | 11  |
+| BP    | `/scene/:id` template editor on the phone (completes group B; see below)                                     | 0        | 0    | 5      | 6   |
+| D     | Help's shortcut list; in the map editor token drag, fog, POI placement and a full import (completes A and C) | 0        | 1    | 7      | 5   |
 
 Every route was loaded at all three tiers, with the gaps listed in [§8](#8-not-checked). No page
 overflowed horizontally at any tier.
@@ -117,6 +120,21 @@ two and the reviewer's last five. The other three failed on probe selectors, not
 two clicked the "Dice & Timers" filter instead of "Add Dice" and left the Add sheet open, and the
 reviewer's first looked for the template picker in the wrong dialog. The pass found no critical or
 high finding; its findings are BP-1 to BP-11 below.
+
+Groups A and C left five primary-route actions unreached: the shortcut list behind Help (a selector
+miss), and in the map editor dragging a placed token, drawing fog, placing a POI with the editor's
+own tool, and a map import past its first step. Pass D covered them on 2026-10-15 (about
+12:08–12:40Z, interrupted twice by parent-session restarts and resumed from its transcript) on this
+branch's checkout, whose application tree equals `ef42291b`, with the same brief and the same three
+tiers. It opened the shortcut list from Help on every tier and with `?`; on a fresh map it placed a
+token and dragged it (mouse on desktop, touch on rail and phone) and reloaded to read the position
+back from the core; it drew a fog rectangle, a brush stroke and a conceal rectangle and undid one;
+it placed a POI with the POI tool and named it; and it took `tests/e2e/fixtures/import-map.png`
+through all six import steps (source, grid, scale, walls, preview, result) and reopened the map.
+Each action ran twice per tier. Every action completed at every tier, with the state matching what
+the screen said, apart from D-1 below. Not reached: the camera QR join (no camera on this machine)
+and re-importing a `.dd2vtt` the editor had just exported, which the reviewer added beyond the
+brief and dropped when an Escape after the download closed the editor.
 
 ### High
 
@@ -158,6 +176,17 @@ high finding; its findings are BP-1 to BP-11 below.
   ancestry concept. A Dwarf built from the standard array is stored with CON 14. The Review card's
   INIT +1 becomes "—" on the sheet, a level 1 Fighter shows hit dice "0/0 d8", and saves carry no
   class proficiency. Reproduced 3 times (Human on every tier; Dwarf twice on desktop and phone).
+- **D-1 · map editor, every tier · A finished import says the map's image is missing.** The import's
+  result step reads "Image recorded · Grid set to 8 squares across… · 2 traced walls added", but after
+  Done the open editor draws no image and shows "This map's image isn't on this device — showing
+  shapes only". Closing and reopening the map from Atlas shows the image, so the bytes were stored.
+  The commit dispatches `map.import-asset` before `putAssetBytes` writes the bytes
+  (`apps/gm-react/src/app/map/useImportMap.ts:210-252`); the canvas resolves the new asset id once,
+  finds nothing, and its effect depends on the id alone, so it never looks again
+  (`apps/gm-react/src/platform/assetUrl.ts:42-64`); the editor then shows the missing-image notice
+  (`apps/gm-react/src/app/map/canvas/MapCanvas.tsx:186-208`). A GM who has just been told the
+  import worked sees an error state and will import again or give up. Reproduced 6 of 6 (two runs on
+  each tier); I re-read the three files and the order is as described.
 
 ### Medium
 
@@ -218,6 +247,27 @@ None of these blocks M2.5. They are recorded for the operator to file or fold in
   empty state's Apply a template.
 - **BP-5** The phone edit canvas's Undo, Redo, zoom and Flow tile-menu buttons are 28×28, the resize
   handle 24×24. This is FRICTIONLESS M2 on the phone; the header controls are now at least 44px.
+- **D-2** Dragging a token just placed, with the Token tool still active, places a second token on
+  desktop and does nothing on touch; markers take pointer input only under Select & move
+  (`apps/gm-react/src/app/map/canvas/MapMarkers.tsx:86`), where the drag works and persists on every
+  tier.
+- **D-3** The keyboard alternative to dragging: Enter on a selected token toggles it off without a
+  word (`MapMarkers.tsx:72`); a second Enter re-selects it and the arrows then move it a tenth of
+  the map per press.
+- **D-4** On the rail the Fog of war flyout covers the wrapped options bar's Rect, Polygon and Brush;
+  collapsing the group frees them. `map-editor.spec.ts:586` checks only the Water tool at 1280px.
+- **D-5** A new map has no fog and the tool defaults to Reveal, so the first stroke changes nothing a
+  player would see while the announcement says "Fog revealed."; there is no cover-the-whole-map
+  action, and brush strokes draw as a thin dashed centre line.
+- **D-6** The POI and token inspectors' Label field saves on blur only: Enter does nothing and Escape
+  loses the name (`apps/gm-react/src/app/map/dock/MarkerInspectors.tsx:48-53,158-163`), while the
+  list view's field saves on Enter.
+- **D-7** On the phone the editor's tool-group strip holds 492px of buttons in 298px: Tokens sits
+  under Show list, and Combat, Notes and Generate are off the edge with no scroll cue. The group
+  holding Point of interest, Route and Label is called "Notes", the name of the Notes library.
+- **D-8** Under 44px on rail and phone, widening C-12 and A-4: the token marker 30×30, the POI
+  popover's Close 28×28 and visibility options 24px tall, the phone Panels button 28×28, the
+  "Import map…" item 31px tall, and the shortcut list's Close 30×30.
 
 ### Low
 
@@ -238,7 +288,11 @@ mostly empty grids · C-26 Atlas states its counts ambiguously · BP-6 the "Prev
 outlives the preview · BP-7 the preview banner says "Press Escape" on a phone · BP-8 an applied
 template lands at 100% with tiles off the right edge · BP-9 a one-finger pan on empty canvas did not
 move the view (possibly a probe artefact) · BP-10 only the details panel says a scene is a template ·
-BP-11 the template picker's thumbnails clip their labels.
+BP-11 the template picker's thumbnails clip their labels · D-9 focus falls to the body when the
+import's result step appears · D-10 the shortcut list says "Scene canvas" and "scene card" (M1/M3)
+and is offered on touch-only phones · D-11 the editor tour says "Hover over a tool" on touch · D-12
+the phone list view cuts off its Position and Actions columns · D-13 Help opens with focus on Import
+hub.
 
 ### FRICTIONLESS.md items, re-checked
 
@@ -246,8 +300,9 @@ L4 is raised to high (B-2). M2 is wider than recorded: A-8, B-5, C-12 and C-13 f
 sub-44px targets outside edit mode and on Session, Maps, Characters and Notes. M7 is wider too: the
 companion's rail sheet has 24×24 slot and condition controls, and "Clear Poisoned" is 24×24 at 390,
 which the 48dp gate (`companion-frame.spec.ts`) does not catch. M5 still holds at 834, and the keys
-typed before the GM taps the body are dropped. M1, M3, M6, L1, L2, L3, L5, L6, L10 and L12 still
-hold as recorded; M3's two labels are asserted literally by `screen-editing.spec.ts:39-40`, so the
+typed before the GM taps the body are dropped. L3 holds in one row of the shortcut list: "Open the
+command palette — search the whole vault" (`settings.a11y.shortcutPalette`, re-checked by pass D).
+M1, M3, M6, L1, L2, L5, L6, L10 and L12 still hold as recorded; M3's two labels are asserted literally by `screen-editing.spec.ts:39-40`, so the
 fix has to change that spec. None of these were found fixed.
 
 ## 5. DEBT.md
@@ -301,14 +356,15 @@ The English residues are listed for RC-ENG-7.3, which audits §2.3.
 ## 7. Blocking stories
 
 Each failure is one story in the ENG-8 epic of [RC_ROADMAP.md](RC_ROADMAP.md#epic-eng-8--early-access-primary-paths-before-platform-depth-p2p3),
-P3, with no dependency of its own. RC-ENG-8.3's `Deps:` now lists all nine, in the story text and in
+P3, with no dependency of its own. RC-ENG-8.3's `Deps:` now lists all ten, in the story text and in
 §23. The stories were also created in the dispatcher with `task.create`, which files them as
 `proposed`; approving them is the operator's call. RC-ENG-8.3 was running when its dependencies
 changed, and the dispatcher refuses `task.update` on a running task, so its stored dependencies still
-need the operator to pick up the roadmap change. A read-only look at the store at 12:00Z on
+need the operator to pick up the roadmap change. A read-only look at the store at 12:07Z on
 2026-10-15 shows RC-ENG-8.3 `running` with its original 20 dependencies and RC-ENG-8.5 to 8.13
-`proposed`. Until the nine are added there, the dispatcher does not hold this task behind them,
-and approving it would mark the exit audit done while the gate fails.
+`proposed`; a second read at 12:41Z, after RC-ENG-8.14 was created from pass D, shows it
+`proposed` too and RC-ENG-8.3 unchanged. Until the ten are added there, the dispatcher does not
+hold this task behind them, and approving it would mark the exit audit done while the gate fails.
 
 | Story       | Size | Finding                    | What it closes                                                                                                             |
 | ----------- | ---- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
@@ -321,9 +377,10 @@ and approving it would mark the exit audit done while the gate fails.
 | RC-ENG-8.11 | S    | DEBT-2026-004 (b)          | Atlas uses the DS layer components; the import flow is reconciled with the DS wizard.                                      |
 | RC-ENG-8.12 | M    | FEATURE-GAPS Characters    | Character history records rests, combats and level-ups.                                                                    |
 | RC-ENG-8.13 | S    | FEATURE-GAPS Player app    | The push limit moves to the Settings row, where its copy renders.                                                          |
+| RC-ENG-8.14 | S    | D-1                        | An imported map's image renders in the open editor as soon as the import finishes.                                         |
 
-When all nine land, RC-ENG-8.3 runs again: the five golden runs, the a11y gate, the three reviews
-on the new commit, and DEBT.md and FEATURE-GAPS.md re-read.
+When all ten land, RC-ENG-8.3 runs again: the five golden runs, the a11y gate, the reviews over
+every primary route at the three tiers on the new commit (including the actions pass D added), and DEBT.md and FEATURE-GAPS.md re-read.
 
 ## 8. Not checked
 
@@ -331,20 +388,21 @@ on the new commit, and DEBT.md and FEATURE-GAPS.md re-read.
 - Themes other than the default, except through the contrast gate; Spanish and the pseudo-locale
   beyond the specs that assert them.
 - A screen reader. Accessible names come from ARIA snapshots and axe.
-- In the review: the shortcut list behind Help (the probe's selector missed its row, so FRICTIONLESS
-  L3's shortcut wording was not re-checked); dragging a placed map token, drawing fog, placing a POI
-  in the editor, and a map import past its first step; the camera QR join.
+- In the review: the camera QR join (no camera on this machine; the companion was joined over the
+  fake LAN), and re-importing a `.dd2vtt` export (the map import was covered with an image).
 - In the phone template-editor pass (BP): the rail and desktop again (group B covered them) and
   pinch zoom.
 - The review is a model reviewer driving the app, with findings checked against source. It is not a
   usability test with people.
 
-Because of the Help shortcut list and the unexercised map-editor actions above, the three-tier review
-is not complete. The re-audit in §7 should cover them.
+With pass D, the actions the earlier passes missed have been reviewed at all three tiers, so the
+review now covers every primary route on `ef42291b`, with the exclusions above. Its result is the
+gate 2 failure in §1: five high findings, D-1 among them.
 
 ## 9. Reproducing the run, and integration
 
-The review probes were scratch specs and are not committed; the gates are. From a clean checkout,
+The review probes were scratch specs and are not committed; they are kept with the evidence. The
+gates are committed. From a clean checkout,
 with `<dir>` a scratch path and `<port>` a free port:
 
 ```sh
@@ -364,6 +422,6 @@ the source they cite.
 This audit holds for the application tree of `ef42291b`. On top of it the branch adds only
 documentation: this file, the planning-index link, the roadmap stories, the run journal, and one
 re-anchored FEATURE-GAPS.md limit (the Shells row cites a roadmap line that the new stories moved
-from 4109 to 4206; `pnpm feature-audit` reports 0 stale anchors after it). Before
+from 4109 to 4216; `pnpm feature-audit` reports 0 stale anchors after it). Before
 citing this verdict for another commit, run `git diff --stat ef42291b <commit> -- . ':!docs' ':!state'`.
 Empty output means the same application code; anything else means the gates run again.

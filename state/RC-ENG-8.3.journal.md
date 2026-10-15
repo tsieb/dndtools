@@ -151,3 +151,43 @@ diff --stat ef42291b HEAD -- . ':!docs' ':!state'` empty). p1/p2 failed on a pro
   Shells anchor (`RC_ROADMAP.md:4206`) and failed `pnpm feature-audit`. Rewritten to keep the story's
   line count; re-run: 48 declared limits, 0 stale, 0 inventory issues. Docs link audit (`auditDocs`):
   310 files, 465 links, 0 problems. Prettier `--check` on the changed files: clean.
+
+## Attempt 3 (2026-10-15, after independent review rejected eb654710)
+
+- Review findings: (1) the M2.5 failures need application fixes outside this docs-only task; the
+  verdict stays "not passed". (2) RC-ENG-8.3's stored deps still lack RC-ENG-8.5–8.13. Re-read
+  read-only at 12:07Z: RC-ENG-8.3 `running`/`implement`, 20 deps; 8.5–8.13 `proposed`, 0 deps.
+  This is control state, so it's not mine to change; left for the operator again. (3) the review
+  missed five primary actions (Help shortcut list, token drag, fog drawing, POI placement, map
+  import past step 1). That one is actionable here.
+- 12:08Z: started review pass D (`ux-ui-reviewer`, the same shared brief, assignment
+  `~/.cache/rc-eng-8-3-evidence/review-d/assignment.md`). It covers those five actions at all three
+  tiers, on this checkout (app tree == `ef42291b`), port 5493, with scratch probes under
+  `apps/gm-react/tests/e2e/zz-eng83-d/` that are removed afterwards.
+- ~12:18Z: the parent session restarted and pass D stopped part-way, at about 11:18Z after ~10 min. Its
+  scratch probes, its evidence and its dev server on 5493 were still present. Resumed it from its
+  transcript with the same assignment. The gate retry flagged the scratch probes and this journal
+  edit as uncommitted work. The probes are removed when the pass ends; the journal is committed
+  with the result.
+- ~12:40Z: pass D finished. It found 0 critical, 1 high (D-1), 7 medium (D-2..D-8) and 5 low
+  (D-9..D-13). All five actions are covered at all three tiers, two runs each. Not reached: the
+  camera QR join (no camera) and the reviewer's own optional `.dd2vtt` re-import. The agent could
+  not write files, so I saved its report as `review-d/REPORT.md`; the probes are in `review-d/probes/`.
+  It deleted the scratch dir `zz-eng83-d/`, created no `test-results/`, and stopped its server on
+  5493 (port checked free).
+- D-1 re-read in source: `useImportMap.ts:210-231` dispatches `map.import-asset` and only then calls
+  `putAssetBytes` (:252); `useAssetObjectUrl` (`platform/assetUrl.ts:42-64`) depends on `[assetId]`
+  alone; `MapCanvas.tsx:186-208` renders `mapEditor.imageMissing`. Confirmed. The audio import
+  already writes the bytes first (`runtime/audio-import.ts:208`).
+- Filed RC-ENG-8.14 (S, P3) in the ENG-8 epic. RC-ENG-8.3 `Deps:` gets 8.14 in the story text and in
+  §23; header 390 (S 138, P3 129, open 80); the §3.2 note now says 8.5 to 8.14. `task.create` exit 0;
+  read-only check at 12:41Z: 8.14 `proposed`, RC-ENG-8.3 still `running` with 20 deps (operator).
+- EARLY_ACCESS.md: verdict stays "not passed", now with five highs; D row, intro, D-1, D-2..D-8 and
+  D-9..D-13 added to §4; L3 re-checked; §7 now has ten stories; §8 keeps only the camera QR join and
+  the `.dd2vtt` re-import as review exclusions and states that the review now covers every primary
+  route.
+- Validation: the new story moved the FEATURE-GAPS Shells anchor's row (RC-PLT-1.1) from 4206 to
+  4216, so I re-anchored it (one token, same width). `pnpm feature-audit`: 48 declared limits, 0
+  stale, 0 inventory issues. `auditDocs`: 310 files, 465 links, 0 problems. `parse_roadmap` parses
+  RC-ENG-8.14 (S, P3, deps none) and RC-ENG-8.3's deps through 8.14. Prettier `--check` on the
+  changed files: clean.
