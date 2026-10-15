@@ -20,9 +20,18 @@ it('routes every browser install outside the Playwright image through the compos
 			}
 		}
 	}
-	// ADR-043: ci.yml's browser legs, release.yml and promote-production.yml run in (or rely on)
-	// the pinned Playwright image; only the perf capture and the nightly harness still install.
-	expect(callers.sort()).toEqual(['nightly.yml', 'perf.yml']);
+	// Normal releases rely on CI's pinned browser legs (ADR-043). The explicit RC rehearsal
+	// additionally runs the complete checklist on the packaging host, like perf and nightly.
+	expect(callers.sort()).toEqual(['nightly.yml', 'perf.yml', 'release.yml']);
+	const release = YAML.parse(fs.readFileSync('.github/workflows/release.yml', 'utf8'));
+	const rcSetup = Object.values(release.jobs).flatMap(
+		(job) =>
+			(job as { steps?: { uses?: string; if?: string }[] }).steps?.filter(
+				(step) => step.uses === './.github/actions/setup-e2e',
+			) ?? [],
+	);
+	expect(rcSetup).toHaveLength(1);
+	expect(rcSetup[0].if).toBe("env.RELEASE_CHANNEL == 'rc'");
 	const action = YAML.parse(fs.readFileSync(`${actionDir}/action.yml`, 'utf8'));
 	expect(action.runs.using).toBe('composite');
 	expect(action.runs.steps.map((step: { run: string }) => step.run)).toEqual([

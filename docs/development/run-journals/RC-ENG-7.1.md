@@ -474,3 +474,30 @@ play-polish.spec.ts golden-routes.spec.ts --project=visual-rail --project=visual
 - These focused passes verify compatibility with existing baselines. They do not prove that
   the prior full-suite timing condition was reproduced or that the full suite now passes.
   Central full validation/review and post-integration RC-tag evidence remain outstanding.
+
+## Tooling gate repair: base-first verification
+
+- Read original central tooling log `113ddb75-6d2e-4985-bff4-c5f837bb9c43`: two failures,
+  stale feature-inventory line anchors and the browser-setup caller allowlist.
+- Before editing, temporarily checked out the current task base
+  `ef42291be703cf9712044a3b2c8827c50ab83a91` detached in the clean worktree and ran
+  `pnpm exec vitest run tests/unit/feature-audit.test.ts tests/unit/setup-e2e.test.ts`:
+  11 passed, exit 0 (`/tmp/rc-eng-7.1-tooling-base.log`). Restored the task branch at
+  `c58d535421d88179e72e2b6a2383502ec751fd43` and reran the same command: nine passed,
+  two failed, exit 1 (`/tmp/rc-eng-7.1-tooling-candidate.log`). Original outputs inspected.
+  Neither failure is inherited.
+- Refreshed the two FEATURE-GAPS evidence lines shifted by bridge imports (capabilities 167,
+  Electron CSP 290). Kept the evidence strings and audit assertions intact.
+- Updated the setup-e2e guardrail to recognize the explicit RC end-to-end rehearsal as a
+  browser-setup caller, and assert there is exactly one release setup step guarded by
+  `env.RELEASE_CHANNEL == 'rc'`. Normal release channels still reuse CI browser evidence;
+  no workflow behavior or broader setup allowance changed.
+- Changes use companion inventory/test paths. Headroom unavailable; no push, promotion,
+  dispatcher state edits, additional agents or loops. Full tooling verification in progress.
+- Validation complete: `pnpm test:tooling` passed all 260 tests in 32 files; original log
+  `/tmp/rc-eng-7.1-tooling-fixed.log` read with exit 0. `pnpm gates` passed six gates and docs
+  checks with existing size warnings (`/tmp/rc-eng-7.1-tooling-gates.log`). Targeted ESLint,
+  Prettier and `git diff --check` passed.
+- Also read the original central visual log `79ab579f-3a70-4410-8e6a-a8770d65ec54`:
+  588 passed (14.6m) on the preceding candidate. This is not new exact-HEAD validation.
+  No app or visual code changed in this repair. Central review and RC-tag evidence remain pending.
