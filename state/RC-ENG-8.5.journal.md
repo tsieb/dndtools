@@ -10,3 +10,9 @@
 - Targeted ESLint: exit 0, no errors; existing `flat` hook-dependency warning remains. Original output: `/tmp/rc-eng-8.5-eslint.log`.
 - Prettier applied; diff whitespace check passed. App TypeScript check passed (exit 0); original output: `/tmp/rc-eng-8.5-types-final.log`.
 - Central gates and independent review remain the operator's responsibility.
+
+## Gate follow-up
+
+- Read the original failed App tests log at `/home/trinkle/Programming/agent-dispatcher/.state/attempts/2b03efef-bac9-4243-a593-e2c1bf3d791f/output.log`. Its sole failure was `pseudo.test.ts` catalog equality: generated `importHub.keywords` retained the removed section nouns (197 files passed, one failed).
+- Regenerated with `pnpm exec tsx scripts/i18n-catalog.ts pseudo`. The only derived change is `apps/gm-react/src/i18n/dev/qps-ploc.ts`'s import keywords. This generated companion to the owned English catalog is required to satisfy the gate; no test assertion weakened.
+- Full `pnpm test:app` rerun passed (exit 0): 198 files, 2389 tests. Prettier and `git diff --check` also passed; original output retained at `/tmp/rc-eng-8.5-app-followup.log`.
