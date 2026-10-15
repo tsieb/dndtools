@@ -77,3 +77,20 @@ promotion.
 - Validation: history core 15/15; related combat/resource/advancement tests 84/84; History browser
   tests 6/6 across desktop/mobile; changed-file ESLint exit 0; core and gm-react typechecks exit 0; pinned container
   player-polish visual suite 15/15 with --update-snapshots=none; git diff --check exit 0. No dispatcher state, push, promotion or additional agents.
+
+## Attempt 4 — claim-gate response
+
+- Compared the three flagged paths with base 68040135933bfc815fd1ae471682f1ba8cfc65c8.
+- Restored `packages/core/src/commands/character-journal.ts` exactly to that base: its error-message
+  improvement is optional; the owned journal reducer still rejects automatic-entry deletion.
+- Retained `packages/core/src/commands/combat.ts`: the removal handler must preserve a character's
+  participation before deleting the combatant. The end-event collector cannot reconstruct the lost
+  character ID and departure HP afterward. Reverting this restores independent review finding 1.
+- Retained `apps/gm-react/src/screens/player/Journal.tsx`: this is the actual Delete/Undo affordance
+  consuming automatic entries. Hiding Delete there is required for the review-requested prevention
+  approach; History.tsx does not own this UI. Reverting exposes an unusable Delete action, and
+  allowing deletion again restores independent review finding 2.
+- These two paths remain outside the claim. This commit explicitly requests the operator's claim
+  decision; it does not widen the claim or assert that the candidate passed the claim gate.
+- Validation after the revert: character-history-events.test.ts 15/15, exit 0. No UI or combat
+  behavior changed in this attempt; prior browser/visual results are not new runs on this commit.
