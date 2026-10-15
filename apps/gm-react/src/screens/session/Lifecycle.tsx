@@ -8,6 +8,7 @@ import { useI18n, type MessageKey } from '../../i18n';
 export function SessionHeader({
 	workflow,
 	sceneName,
+	tableSceneName = null,
 	sessionTitle,
 	previewing,
 	isDm,
@@ -20,6 +21,7 @@ export function SessionHeader({
 }: {
 	workflow: string;
 	sceneName: string | null;
+	tableSceneName?: string | null;
 	/** RC-SES-1.3 — the name the start flow gave this session, or null for an unnamed one. */
 	sessionTitle: string | null;
 	previewing: boolean;
@@ -51,7 +53,7 @@ export function SessionHeader({
 	const allowed = new Set<string>(allowedTransitionsFrom(workflow as SessionWorkflowState));
 	// One sentence, split around the scene name so the name keeps its emphasis and the sentence
 	// keeps its locale's word order.
-	const scene = sceneName ?? t('session.header.theScene');
+	const scene = tableSceneName ?? 'nothing yet';
 	const playersSee = t('session.header.playersSee', { scene });
 	const [playersSeeBefore, playersSeeAfter = ''] = playersSee.split(scene);
 	// Previewing as a player (or being a player at all) has to block the rail as well as the core.
@@ -301,7 +303,7 @@ function StartSessionForm({
 	const { t } = useI18n();
 	const continueScene = scenes.find((scene) => scene.id === continueSceneId) ?? null;
 	const [mode, setMode] = useState<'continue' | 'new'>(continueScene ? 'continue' : 'new');
-	const [sceneId, setSceneId] = useState(continueScene?.id ?? scenes[0]?.id ?? '');
+	const [sceneId, setSceneId] = useState(scenes.find((scene) => scene.shareable)?.id ?? '');
 	const [title, setTitle] = useState('');
 	const [sharingChoices, setSharingChoices] = useState<Record<string, boolean>>({});
 	const chosenSceneId = mode === 'continue' && continueScene ? continueScene.id : sceneId;
@@ -309,7 +311,7 @@ function StartSessionForm({
 	// disabled and the dialog says what to do instead rather than firing a core rejection.
 	const chosenScene = scenes.find((scene) => scene.id === chosenSceneId);
 	const showToTable = !!chosenScene?.shareable && (sharingChoices[chosenSceneId] ?? true);
-	const canConfirm = chosenSceneId !== '';
+	const canConfirm = !!chosenScene;
 	return (
 		<Dialog
 			open
@@ -392,6 +394,9 @@ function StartSessionForm({
 							label={t('session.start.showToTable', { scene: chosenScene.name })}
 							checked={showToTable}
 							disabled={!chosenScene.shareable}
+							title={
+								!chosenScene.shareable ? 'DM-only scenes cannot be shown to the table.' : undefined
+							}
 							onChange={(checked) =>
 								setSharingChoices((choices) => ({ ...choices, [chosenSceneId]: checked }))
 							}

@@ -34,12 +34,12 @@ async function setWorkflow(page: Page, workflow: string): Promise<void> {
 		const state = rt.state as unknown as {
 			session: { activeSceneId: string | null };
 			commandCenter: { homeSceneId: string | null };
-			scenes: { scenes: Record<string, { id: string; isTemplate?: boolean }> };
+			scenes: { scenes: Record<string, { id: string; isTemplate?: boolean; visibility?: string }> };
 		};
 		const sceneId =
 			state.session.activeSceneId ??
-			state.commandCenter.homeSceneId ??
-			Object.values(state.scenes.scenes).find((s) => !s.isTemplate)?.id;
+			Object.values(state.scenes.scenes).find((s) => !s.isTemplate && s.visibility !== 'dm-only')
+				?.id;
 		return rt.dispatch({
 			type: 'session.set-workflow',
 			actorId: rt.defaultActorId,

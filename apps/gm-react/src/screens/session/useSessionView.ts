@@ -91,17 +91,28 @@ export function useSessionScenes() {
 	return useMemo(() => {
 		const visible = listScenesForActor(scenes, permissions, actorId);
 		const activeSceneId = session.activeSceneId;
-		// RC-CAN-7.6/7.8: the home and Session screens are the GM's own workspaces, not somewhere to
-		// run play from. The GM screen's board stays startable, as it always was.
+		// Workspace screens are never session scenes, including the legacy DM-only home board.
 		const workspaces = new Set([findHomeScreen(scenes)?.id, findSessionScreen(scenes)?.id]);
+		const startableScenes = visible
+			.filter(
+				(s) =>
+					!s.isTemplate &&
+					!workspaces.has(s.id) &&
+					!(s.id === commandCenter.homeSceneId && s.visibility === 'dm-only'),
+			)
+			.map((s) => ({ id: s.id, name: s.name, shareable: s.visibility !== 'dm-only' }));
+		const continueSceneId =
+			startableScenes.find((s) => s.id === activeSceneId && s.shareable)?.id ?? null;
+		const tableSceneId = session.tableView?.target.sceneId;
 		return {
-			startableScenes: visible
-				.filter((s) => !s.isTemplate && !workspaces.has(s.id))
-				.map((s) => ({ id: s.id, name: s.name })),
+			startableScenes,
 			activeSceneId,
 			activeSceneName: visible.find((s) => s.id === activeSceneId)?.name ?? null,
-			/** The scene a "Continue" start resumes: the session's own scene, else the GM screen. */
-			continueSceneId: activeSceneId ?? commandCenter.homeSceneId ?? null,
+			tableSceneName:
+				visible.find((s) => s.id === tableSceneId && s.visibility !== 'dm-only' && !s.isTemplate)
+					?.name ?? null,
+			continueSceneId,
+			defaultStartSceneId: continueSceneId ?? startableScenes.find((s) => s.shareable)?.id ?? null,
 		};
 	}, [scenes, permissions, commandCenter, session, actorId]);
 }

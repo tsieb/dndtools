@@ -1,7 +1,6 @@
 import {
 	allowedTransitionsFrom,
 	getPlayerViewController,
-	listScenesForActor,
 	type SessionWorkflowState,
 } from '@dndtools/core';
 import { useState } from 'react';
@@ -9,6 +8,7 @@ import { Button, Dialog, Select, StatusDot, Toaster } from '../ds';
 import { useI18n, type MessageKey } from '../i18n';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { SetRow, T } from './screen-kit';
+import { useSessionScenes } from '../screens/session/useSessionView';
 import { ContextHelp } from './help/ContextHelp';
 
 // Every core workflow state gets a spoken label so the status pill never shows a raw enum value.
@@ -47,23 +47,12 @@ export function ProjectionControl({ compact = false }: { compact?: boolean } = {
 	// bar of EVERY route, and on a phone it is one icon-only tap with no label at all.
 	const [endConfirmOpen, setEndConfirmOpen] = useState(false);
 
-	// Going live requires an active Scene (Processing-Core gate): prefer the already-active scene, then
-	// the Command Center home scene, then the first scene the DM can see.
-	function resolveActiveScene(): string | null {
-		const existing = runtime.state.session.activeSceneId ?? runtime.state.commandCenter.homeSceneId;
-		if (existing && runtime.state.scenes.scenes[existing]) return existing;
-		const first = listScenesForActor(
-			runtime.state.scenes,
-			runtime.state.permissions,
-			runtime.defaultActorId,
-		).filter((s) => !s.isTemplate)[0];
-		return first?.id ?? null;
-	}
+	const { defaultStartSceneId } = useSessionScenes();
 
 	async function setWorkflow(target: 'active' | 'idle', okMessage: string) {
 		const payload: { workflow: 'active' | 'idle'; activeSceneId?: string } = { workflow: target };
 		if (target === 'active') {
-			const sceneId = resolveActiveScene();
+			const sceneId = defaultStartSceneId;
 			if (!sceneId) {
 				Toaster.warning(t('session.goLive.needsScene'));
 				return;
