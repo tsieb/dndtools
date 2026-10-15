@@ -30,6 +30,69 @@ test.describe('command palette: the ⌘K quick-switcher', () => {
 		await page.locator('#main-content').waitFor({ state: 'attached' });
 	});
 
+	// Runs on both desktop-chromium and mobile-chromium, using Enter's default result.
+	for (const [label, route] of [
+		['Command Center', /^#\/$/],
+		['DM screen', /^#\/screen\/[^/]+$/],
+		['Session', /^#\/session$/],
+		['Characters', /^#\/characters$/],
+		['Maps', /^#\/atlas$/],
+		['Story', /^#\/campaign$/],
+		['Notes', /^#\/knowledge$/],
+	] as const) {
+		test(`full section label ${label} selects its route with Enter`, async ({ page }) => {
+			// Start elsewhere so the home assertion proves a navigation too.
+			await gotoRoute(page, '/settings');
+			await openViaKeyboard(page, 'Control+k');
+			await page.getByRole('dialog', PALETTE).getByRole('combobox').fill(label);
+			await expect(page.getByRole('option', { name: label, exact: true }).first()).toHaveAttribute(
+				'aria-selected',
+				'true',
+			);
+			await page.keyboard.press('Enter');
+			await page.waitForURL((url) => route.test(url.hash));
+			await expect(page.getByRole('dialog', PALETTE)).toHaveCount(0);
+			await expect(page.getByRole('dialog', { name: 'Bring your existing material' })).toHaveCount(
+				0,
+			);
+		});
+	}
+
+	test('a section label prefix outranks keyword-only actions', async ({ page }) => {
+		await openViaKeyboard(page, 'Control+k');
+		await page.getByRole('combobox').fill('char');
+		await expect(page.getByRole('option', { name: 'Characters', exact: true })).toHaveAttribute(
+			'aria-selected',
+			'true',
+		);
+		await page.keyboard.press('Enter');
+		await page.waitForURL((url) => url.hash === '#/characters');
+	});
+
+	for (const selection of ['Enter', 'click'] as const) {
+		test(`import opens the hub via ${selection} and returns focus to the palette opener`, async ({
+			page,
+		}) => {
+			const opener = page.getByRole('button', { name: /Search/ }).first();
+			await opener.focus();
+			await opener.click();
+			const palette = page.getByRole('dialog', PALETTE);
+			await expect(palette.getByRole('combobox')).toBeFocused();
+			await palette.getByRole('combobox').fill('import');
+			const option = palette.getByRole('option', { name: 'Import…', exact: true });
+			await expect(option).toHaveAttribute('aria-selected', 'true');
+			if (selection === 'Enter') await page.keyboard.press('Enter');
+			else await option.click();
+			const hub = page.getByRole('dialog', { name: 'Bring your existing material' });
+			await expect(hub).toBeVisible();
+			await expect(palette).toHaveCount(0);
+			await expect.poll(() => hub.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+			await page.keyboard.press('Escape');
+			await expect(hub).toHaveCount(0);
+			await expect(opener).toBeFocused();
+		});
+	}
+
 	test('Meta+K opens the palette and Escape closes it', async ({ page }) => {
 		await expect(page.getByRole('dialog', PALETTE)).toHaveCount(0);
 		await openViaKeyboard(page, 'Meta+k');

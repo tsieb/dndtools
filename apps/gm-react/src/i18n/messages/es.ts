@@ -6,8 +6,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'importHub.title': 'Trae tu material existente',
 	'importHub.open': 'Centro de importación',
 	'importHub.command': 'Importar…',
-	'importHub.keywords':
-		'importar archivos carpeta zip notas personajes D&D Beyond mapas audio copia seguridad paquete sistema',
+	'importHub.keywords': 'importar archivos carpeta zip D&D Beyond copia seguridad paquete sistema',
 	'importHub.description':
 		'Elige qué quieres traer. Cada opción abre el importador existente; debajo se explica cómo trata tu material actual.',
 	'importHub.readOnly': 'Solo un {gm} en una bóveda editable puede importar material.',

@@ -116,6 +116,15 @@ function buildSections(
 			(s) => s.items.length,
 		);
 	}
+	// Match quality outranks authored group order. Keep group ordering within each
+	// tier, including keyword-only/body hits supplied by the app's search engine.
+	if (q) {
+		const rank = (c: Command) => {
+			const label = c.label.trim().toLowerCase();
+			return label === q ? 0 : label.startsWith(q) ? 1 : 2;
+		};
+		return [0, 1, 2].flatMap((tier) => order(visible.filter((c) => rank(c) === tier)));
+	}
 	return order(visible).filter((s) => s.items.length);
 }
 
@@ -237,6 +246,12 @@ export function CommandPalette({
 	};
 	const run = (cmd: Command | undefined) => {
 		if (!cmd || cmd.disabled) return;
+		// Hand focus back before a command opens another dialog: that dialog must
+		// remember the real opener, not this palette's soon-to-be-detached input.
+		if (panelRef.current?.contains(document.activeElement)) {
+			(document.activeElement as HTMLElement).blur();
+			restoreReturnFocus(returnFocusRef.current);
+		}
 		if (cmd.run) cmd.run();
 		if (onClose) onClose();
 	};
@@ -415,9 +430,9 @@ export function CommandPalette({
 							)}
 						</div>
 					) : (
-						sections.map((sec) => (
+						sections.map((sec, sectionIndex) => (
 							<div
-								key={sec.label}
+								key={`${sectionIndex}:${sec.label}`}
 								role="group"
 								aria-label={sec.label}
 								style={{ marginBottom: 'var(--space-1)' }}

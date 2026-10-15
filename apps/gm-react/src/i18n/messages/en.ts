@@ -11,8 +11,7 @@ export const en = {
 	'importHub.title': 'Bring your existing material',
 	'importHub.open': 'Import hub',
 	'importHub.command': 'Import…',
-	'importHub.keywords':
-		'import files folder zip notes characters D&D Beyond maps audio backup system package',
+	'importHub.keywords': 'import files folder zip D&D Beyond backup system package',
 	'importHub.description':
 		'Choose what to bring in. Each option opens the existing importer; review how it treats your current material below.',
 	'importHub.readOnly': 'Only a {gm} in an editable vault can import material.',
