@@ -50,3 +50,15 @@ promotion.
   restore the `downtime` kind already has). Small follow-up for whoever owns the player journal.
 - Entry titles/bodies are English strings written by core, like the encounter-log labels. The
   History badges are localised (en/es).
+
+## Attempt 2 — visual gate
+
+- Gate run `c5d7866e` failed 16 captures. 15 were `player-history-empty--*` (player-polish, every
+  theme × desktop/rail/phone): attempt 1 reworded `character.history.emptyBody`. The 16th was
+  scene editor inspector — dungeon (desktop only), a 5s `toBeVisible` timeout on a route this story
+  does not touch: the known cold-chunk stall, which passes on re-run.
+- Fix: restored the original empty-state copy (en/es + pseudo-locale regen) instead of
+  re-baselining 15 PNGs. It still holds, because history entries are journal entries. en.ts line
+  count is unchanged, so the FEATURE-GAPS anchors still match.
+- Pinned container, `player-polish.spec.ts` + `scene-editor-polish.spec.ts`,
+  `--update-snapshots=none`: 30 passed, exit 0.
