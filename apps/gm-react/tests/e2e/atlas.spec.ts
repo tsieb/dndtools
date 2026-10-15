@@ -113,7 +113,10 @@ test.describe('atlas: layer and POI rows state their own state', () => {
 	test('DS layer rows preserve durable reorder, visibility and display controls', async ({
 		page,
 	}) => {
-		await page.getByRole('button', { name: /Western Reaches/ }).first().click();
+		await page
+			.getByRole('button', { name: /Western Reaches/ })
+			.first()
+			.click();
 		const rows = page
 			.getByRole('listitem')
 			.filter({ has: page.getByRole('switch', { name: /^Show .+ on the map$/ }) });

@@ -87,3 +87,11 @@ Operator decision required: widen the claim to include both paths, or revise the
 - `playwright test atlas.spec.ts atlas-polish.spec.ts map-editor.spec.ts --workers=2`, both
   profiles, own port: exit 0, 117 passed / 5 skipped (existing profile-specific `test.skip` guards)
   in 2.8m (`/tmp/rc-eng-8.11-r2-e2e.log`).
+
+## Format gate fix
+
+- Operator `Format (changed)` failed at `991291c6c` on `apps/gm-react/tests/e2e/atlas.spec.ts`:
+  Prettier wraps the `getByRole(...).first().click()` chain. Applied `prettier --write`; the only
+  change is whitespace in that chain.
+- `pnpm format:check:changed -- --base loop/rc`: exit 0, 7 files, "All matched files use Prettier
+  code style!" (`/tmp/rc-eng-8.11-r3-format.log`).
