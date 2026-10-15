@@ -407,3 +407,21 @@ play-polish.spec.ts golden-routes.spec.ts --project=visual-rail --project=visual
   and docs checks with existing size warnings. Original output inspected at
   `/tmp/rc-eng-7.1-claim-handoff-gates.log`. Application/browser tests were not rerun because
   executable code is unchanged.
+
+## Claim resolved: authorized HelpPanel wiring retained
+
+- The latest scheduled task explicitly includes `apps/gm-react/src/app/help/HelpPanel.tsx`
+  in owned paths and instructs retaining its changes. This supersedes the ownership block
+  recorded above; no further claim decision is needed for this path.
+- Verified the committed panel diff still consists only of the feedback component import
+  and its placement in the Help topics dialog. The Discussions template, fixed-destination
+  main/preload IPC and platform adapter are tracked and retained. Working tree was clean.
+- No executable code or visual baselines changed in this continuation, so the prior 69
+  focused tests, 14 Help browser tests and 15 pinned visual comparisons were not rerun.
+  Those are prior-run results, not new exact-HEAD central gate evidence.
+- Central gates and independent review are the next steps. Hosted category verification
+  and the tagged RC checklist run with release attachments remain post-integration evidence.
+- Headroom tools remain unavailable. No push, promotion, dispatcher state edits or agents.
+- This continuation's validation: Prettier and `git diff --check` passed; `pnpm gates`
+  passed six gates and docs checks with existing size warnings. Read original log:
+  `/tmp/rc-eng-7.1-claim-resolved-gates.log`.
