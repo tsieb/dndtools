@@ -172,10 +172,8 @@ const SCROLL_KEYS = new Set([
 	' ',
 ]);
 const GROW_PASSES = 8;
-/** The overlaid count/Grow row, and the room content keeps above it (text boxes stop short of
- * their line's leading, so a few px more keep the last line off the footer). */
-const FOOTER_HEIGHT = 22;
-const FOOTER_CLEARANCE = FOOTER_HEIGHT + 4;
+/** Extra room for text leading when growing the separate scroll region. */
+const FOOTER_CLEARANCE = 4;
 /** Above every tile's stack index (a scene's widget order) and below the edit-mode marquee. */
 const GROWN_TILE_Z = 10_000;
 
@@ -380,15 +378,13 @@ export function WidgetRegion({
 			node.removeEventListener('scroll', measure);
 		};
 	}, []);
-	// The footer overlays the region's bottom edge instead of taking a row from it, and appears only
-	// when content is really hidden (or the tile is grown): a body that fits keeps every pixel, and
-	// no body re-lays out because the footer came or went.
+	// A separate row keeps controls clear of the footer, including after scrolling to the end.
 	const footer = fit.hidden || !!onRestore;
-	const shownTo = fit.top + fit.view - (footer ? FOOTER_HEIGHT : 0);
+	const shownTo = fit.top + fit.view;
 	const below = fit.lines.filter((line) => line > shownTo + 1).length;
 	const remaining = fit.extent > shownTo + 1;
 	return (
-		<div style={{ position: 'relative', height: '100%', minHeight: 0 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
 			<section
 				ref={scrollRef}
 				aria-label={label}
@@ -406,22 +402,19 @@ export function WidgetRegion({
 					)
 						event.stopPropagation();
 				}}
-				style={{ height: '100%', overflow: 'auto' }}
+				style={{ height: '100%', flex: '1 1 auto', minHeight: 0, overflow: 'auto' }}
 			>
 				<div ref={contentRef} style={{ height: '100%' }}>
 					{children}
-					{/* Scroll room so the last line can rise clear of the overlaid footer. */}
-					{fit.hidden && <div aria-hidden style={{ height: FOOTER_CLEARANCE }} />}
 				</div>
 			</section>
 			{footer && (
 				<div
 					style={{
-						position: 'absolute',
-						left: 0,
-						right: 0,
-						bottom: 0,
-						height: FOOTER_HEIGHT,
+						position: 'relative',
+						flex: '0 0 auto',
+						pointerEvents: 'none',
+						minHeight: 22,
 						display: 'flex',
 						alignItems: 'center',
 						gap: 'var(--space-1)',
@@ -472,6 +465,11 @@ export function WidgetRegion({
 							}}
 							style={{
 								flex: '0 0 auto',
+								pointerEvents: 'auto',
+								minHeight:
+									'calc(max(44px, var(--density-touch-target, 44px)) / var(--scene-board-scale, 1))',
+								minWidth:
+									'calc(max(44px, var(--density-touch-target, 44px)) / var(--scene-board-scale, 1))',
 								font: 'inherit',
 								color: 'inherit',
 								border: '1px solid var(--color-border-strong)',
