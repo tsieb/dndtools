@@ -16,3 +16,9 @@
 - Read the original failed App tests log at `/home/trinkle/Programming/agent-dispatcher/.state/attempts/2b03efef-bac9-4243-a593-e2c1bf3d791f/output.log`. Its sole failure was `pseudo.test.ts` catalog equality: generated `importHub.keywords` retained the removed section nouns (197 files passed, one failed).
 - Regenerated with `pnpm exec tsx scripts/i18n-catalog.ts pseudo`. The only derived change is `apps/gm-react/src/i18n/dev/qps-ploc.ts`'s import keywords. This generated companion to the owned English catalog is required to satisfy the gate; no test assertion weakened.
 - Full `pnpm test:app` rerun passed (exit 0): 198 files, 2389 tests. Prettier and `git diff --check` also passed; original output retained at `/tmp/rc-eng-8.5-app-followup.log`.
+
+## Requirements audit follow-up
+
+- Read original gate output `/home/trinkle/Programming/agent-dispatcher/.state/attempts/b9717798-2d3a-4869-bb18-af65cb933ac0/output.log`: eight line-mismatch failures in English catalog honest-limit anchors.
+- The shortened import keyword value formats onto one line, moving subsequent English messages up one line. Verified all eight cited literals at their new locations, then updated only their line references in `docs/requirements/FEATURE-GAPS.md`. This dependent inventory correction is outside the listed implementation paths but required by the audit; claims and gate checks remain unchanged.
+- `pnpm feature-audit` passed: 48 declared limits, zero stale anchors, zero inventory issues. Prettier and `git diff --check` passed. Original rerun output at `/tmp/rc-eng-8.5-audit-followup.log`.
