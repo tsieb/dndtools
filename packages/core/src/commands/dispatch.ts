@@ -324,6 +324,10 @@ import {
 import { EMPTY_MAP_IMPORT_ADAPTER_REGISTRY } from '../state/map-import';
 import { classifyObserverCommand } from '../collab/observer-access';
 import { withPlayerSummaryOnNewSessionScreen } from '../queries/player-view-control';
+import { withCharacterHistory } from '../state/character-journal';
+import { restHistoryRecords } from '../state/character-resources';
+import { levelUpHistoryRecords } from '../state/character-advancement';
+import { combatHistoryRecords } from '../state/combat-tracker';
 
 export function dispatchCommand(
 	state: CoreStateSlice,
@@ -490,8 +494,13 @@ export function dispatchCommand(
 			return handlePreviousCombatTurn(state, env, command.actorId, command.payload);
 		case 'combat.apply-resource':
 			return handleApplyCombatResource(state, env, command.actorId, command.payload);
+		// RC-ENG-8.12 — ending a combat, resting and levelling up each write a character-history entry.
 		case 'combat.end':
-			return handleEndCombat(state, env, command.actorId, command.payload);
+			return withCharacterHistory(
+				env,
+				handleEndCombat(state, env, command.actorId, command.payload),
+				combatHistoryRecords,
+			);
 		// UX-SES-008 — mid-combat combatant management (DM-only; active-session + running-combat gated).
 		case 'combat.add-combatants':
 			return handleAddCombatants(state, env, command.actorId, command.payload);
@@ -729,7 +738,11 @@ export function dispatchCommand(
 		case 'character.set-spell':
 			return handleSetCharacterSpell(state, env, command.actorId, command.payload);
 		case 'character.rest':
-			return handleRestCharacter(state, env, command.actorId, command.payload);
+			return withCharacterHistory(
+				env,
+				handleRestCharacter(state, env, command.actorId, command.payload),
+				restHistoryRecords,
+			);
 		// RC-SYS-2.2 — package-driven scene recovery and resource instantiation.
 		case 'character.recover-scene':
 			return handleRecoverScene(state, env, command.actorId, command.payload);
@@ -748,10 +761,18 @@ export function dispatchCommand(
 		case 'character.set-advancement-choices':
 			return handleSetAdvancementChoices(state, env, command.actorId, command.payload);
 		case 'character.commit-advancement':
-			return handleCommitAdvancement(state, env, command.actorId, command.payload);
+			return withCharacterHistory(
+				env,
+				handleCommitAdvancement(state, env, command.actorId, command.payload),
+				levelUpHistoryRecords,
+			);
 		// RC-AI-1.4 — the whole level-up atomically (what an approved agent proposal dispatches).
 		case 'character.apply-advancement':
-			return handleApplyAdvancement(state, env, command.actorId, command.payload);
+			return withCharacterHistory(
+				env,
+				handleApplyAdvancement(state, env, command.actorId, command.payload),
+				levelUpHistoryRecords,
+			);
 		case 'character.cancel-advancement':
 			return handleCancelAdvancement(state, env, command.actorId, command.payload);
 		case 'character.award-xp':

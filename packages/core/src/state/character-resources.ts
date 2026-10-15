@@ -5,6 +5,7 @@ import { ensureCharacterProficiencies } from './character-state';
 import { createRng, normalizeSeed } from './prng';
 import type { FormulaScope, SystemPackage, SystemRecovery, SystemResource } from './system-package';
 import { evaluateFormula } from './system-package';
+import type { CharacterHistoryCollector } from './character-journal';
 
 /**
  * CHAR-007 / CHAR-008 — the STRUCTURED combat-resource and spell/resource state, plus the pure
@@ -1383,3 +1384,42 @@ export function setSpell(
 			: resources.spells.map((s, i) => (i === existingIndex ? next : s));
 	return { ok: true, resources: { ...resources, spells } };
 }
+
+// --- RC-ENG-8.12 — rests in the character history ------------------------------------------------
+
+/**
+ * The history records a `character.rest` produced: one dated entry per `character.rested` event,
+ * titled by the rest and noting the hit points and hit dice it gave back. Appended by
+ * `withCharacterHistory` (`character-journal.ts`). Pure.
+ */
+export const restHistoryRecords: CharacterHistoryCollector = (_nextState, events) =>
+	events.flatMap((event) => {
+		if (event.kind !== 'character.rested') return [];
+		const outcome = event.outcome;
+		const details: string[] = [];
+		if (outcome && outcome.hitDiceSpent > 0) {
+			details.push(
+				`Spent ${outcome.hitDiceSpent} hit ${outcome.hitDiceSpent === 1 ? 'die' : 'dice'}.`,
+			);
+		}
+		if (outcome && outcome.hpRestored > 0) {
+			details.push(`Regained ${outcome.hpRestored} hit points.`);
+		}
+		if (outcome && outcome.hitDiceRecovered > 0) {
+			details.push(
+				`Recovered ${outcome.hitDiceRecovered} hit ${outcome.hitDiceRecovered === 1 ? 'die' : 'dice'}.`,
+			);
+		}
+		if (outcome && outcome.exhaustionAfter < outcome.exhaustionBefore) {
+			details.push(`Exhaustion ${outcome.exhaustionBefore} → ${outcome.exhaustionAfter}.`);
+		}
+		return [
+			{
+				characterId: event.characterId,
+				kind: 'rest' as const,
+				title: event.rest === 'long' ? 'Long rest' : 'Short rest',
+				body: details.join(' '),
+				actorId: event.actorId,
+			},
+		];
+	});

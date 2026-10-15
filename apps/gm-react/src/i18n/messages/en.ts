@@ -2672,11 +2672,14 @@ export const en = {
 	'character.history.title': 'History ({count})',
 	'character.history.emptyTitle': 'No history yet',
 	'character.history.emptyBody':
-		'Journal entries — including downtime — appear here in order as they are written.',
+		'Rests, combats, level-ups and journal entries — including downtime — appear here as they happen.',
 	'character.history.export': 'Export as markdown',
 	'character.history.exportTitle': 'Save character history',
 	'character.history.exported': 'History exported',
 	'character.history.downtimeSummary': '{activity} — {days, plural, one {# day} other {# days}}',
+	'character.history.kind.rest': 'Rest',
+	'character.history.kind.combat': 'Combat',
+	'character.history.kind.levelUp': 'Level up',
 
 	/* Player › Equipment */
 	'player.equipment.title': 'Equipment ({count})',

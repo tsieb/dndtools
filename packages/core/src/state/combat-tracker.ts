@@ -1,6 +1,7 @@
 import type { SessionWorkflowStamp } from '../lifecycle/session-workflow';
 import type { ActorId } from './ids';
 import type { ActorRole } from './permission-state';
+import type { CharacterHistoryCollector, CharacterHistoryRecord } from './character-journal';
 import {
 	EMPTY_CONCENTRATION,
 	EMPTY_DEATH_SAVES,
@@ -873,3 +874,36 @@ export function orderForTurnModel(
 	}));
 	return { combatants: stamped, order: stamped.map((c) => c.id) };
 }
+
+// --- RC-ENG-8.12 — combats in the character history ----------------------------------------------
+
+/**
+ * The history records a `combat.end` produced: one dated entry for EVERY character that fought (a
+ * combatant linked to a character entity), with the rounds it lasted and how the character came out
+ * of it. Opponents are not named, so a hidden combatant's identity never reaches a journal. Appended
+ * by `withCharacterHistory` (`character-journal.ts`). Pure.
+ */
+export const combatHistoryRecords: CharacterHistoryCollector = (nextState, events) => {
+	const ended = events.find((event) => event.kind === 'combat.ended');
+	if (!ended) return [];
+	const combat = nextState.session.combat;
+	const rounds = Math.max(1, combat.round);
+	const seen = new Set<string>();
+	const records: CharacterHistoryRecord[] = [];
+	for (const id of [...combat.order, ...Object.keys(combat.combatants)]) {
+		const combatant = combat.combatants[id];
+		const characterId = combatant?.characterId;
+		if (!combatant || !characterId || seen.has(characterId)) continue;
+		if (!nextState.characters.characters[characterId]) continue;
+		seen.add(characterId);
+		const { hp, maxHp } = combatant.resources;
+		records.push({
+			characterId,
+			kind: 'combat',
+			title: `Fought a combat (${rounds} ${rounds === 1 ? 'round' : 'rounds'})`,
+			body: `Ended the fight at ${Math.max(0, hp)} of ${maxHp} hit points.`,
+			actorId: ended.actorId,
+		});
+	}
+	return records;
+};

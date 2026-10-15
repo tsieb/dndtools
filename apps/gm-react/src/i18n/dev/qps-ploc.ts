@@ -2763,12 +2763,15 @@ export default {
 	'character.history.title': '[Ĥíšţóŕý (~~~~{count})~]',
 	'character.history.emptyTitle': '[Ñó ĥíšţóŕý ýéţ~~~~ ~]',
 	'character.history.emptyBody':
-		'[Ĵóúŕñáľ éñţŕíéš — íñçľúďíñğ ďóŵñţíḿé — áƥƥéáŕ ĥéŕé íñ óŕďéŕ áš ţĥéý áŕé ŵŕíţţéñ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~]',
+		'[Ŕéšţš, çóḿƀáţš, ľéṽéľ-úƥš áñď ĵóúŕñáľ éñţŕíéš — íñçľúďíñğ ďóŵñţíḿé — áƥƥéáŕ ĥéŕé áš ţĥéý ĥáƥƥéñ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~]',
 	'character.history.export': '[Éẋƥóŕţ áš ḿáŕķďóŵñ~~~~ ~~~]',
 	'character.history.exportTitle': '[Šáṽé çĥáŕáçţéŕ ĥíšţóŕý~~~~ ~~~~]',
 	'character.history.exported': '[Ĥíšţóŕý éẋƥóŕţéď~~~~ ~~]',
 	'character.history.downtimeSummary':
 		'[{activity} — ~~{days, plural, one {# ďáý~~} other {# ďáýš~~~}}]',
+	'character.history.kind.rest': '[Ŕéšţ~~]',
+	'character.history.kind.combat': '[Çóḿƀáţ~~~]',
+	'character.history.kind.levelUp': '[Ľéṽéľ úƥ~~~~]',
 	'player.equipment.title': '[Éɋúíƥḿéñţ (~~~~ {count})~]',
 	'player.equipment.empty': '[Ñó éɋúíƥḿéñţ çáŕŕíéď ýéţ.~~~~ ~~~~ ]',
 	'player.equipment.equippedBadge': '[éɋúíƥƥéď~~~~]',

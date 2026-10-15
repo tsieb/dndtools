@@ -2,6 +2,7 @@ import type { ActorId } from './ids';
 import type { Character } from './character-state';
 import { recomputeResourceMaxima, resourcesOf } from './character-resources';
 import type { SystemPackage } from './system-package';
+import type { CharacterHistoryCollector } from './character-journal';
 
 /**
  * CHAR-009 — level-up / ADVANCEMENT, with VALIDATION before the character revision is FINALIZED.
@@ -399,3 +400,33 @@ export function defaultAdvancementMode(
 			return null;
 	}
 }
+
+// --- RC-ENG-8.12 — level-ups in the character history --------------------------------------------
+
+/**
+ * The history records a finalized level-up produced (`character.commit-advancement` or the atomic
+ * `character.apply-advancement`): one dated entry per `character.advancement-finalized` event, naming
+ * the new level and the class (and subclass) the character now carries. Appended by
+ * `withCharacterHistory` (`character-journal.ts`). Pure.
+ */
+export const levelUpHistoryRecords: CharacterHistoryCollector = (nextState, events) =>
+	events.flatMap((event) => {
+		if (event.kind !== 'character.advancement-finalized') return [];
+		const character = nextState.characters.characters[event.characterId];
+		if (!character) return [];
+		const className = typeof character.data['class'] === 'string' ? character.data['class'] : '';
+		const subclass =
+			typeof character.data['subclass'] === 'string' ? character.data['subclass'] : '';
+		const classLine = [className, subclass && `(${subclass})`].filter(Boolean).join(' ');
+		return [
+			{
+				characterId: event.characterId,
+				kind: 'level-up' as const,
+				title: `Reached level ${event.toLevel}`,
+				body: [classLine && `${classLine}.`, `Maximum hit points ${character.combat.maxHp}.`]
+					.filter(Boolean)
+					.join(' '),
+				actorId: event.actorId,
+			},
+		];
+	});

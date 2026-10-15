@@ -2729,11 +2729,14 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'character.history.title': 'Historial ({count})',
 	'character.history.emptyTitle': 'Todavía no hay historial',
 	'character.history.emptyBody':
-		'Las entradas del diario, incluido el tiempo libre, aparecen aquí en el orden en que se escriben.',
+		'Los descansos, combates, subidas de nivel y entradas del diario, incluido el tiempo libre, aparecen aquí a medida que ocurren.',
 	'character.history.export': 'Exportar como markdown',
 	'character.history.exportTitle': 'Guardar historial del personaje',
 	'character.history.exported': 'Historial exportado',
 	'character.history.downtimeSummary': '{activity} — {days, plural, one {# día} other {# días}}',
+	'character.history.kind.rest': 'Descanso',
+	'character.history.kind.combat': 'Combate',
+	'character.history.kind.levelUp': 'Subida de nivel',
 
 	/* Jugador › Equipo */
 	'player.equipment.title': 'Equipo ({count})',

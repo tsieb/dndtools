@@ -1,6 +1,8 @@
 import type { ActorId } from './ids';
 import type { VisibilityLevel } from '../permissions/visibility-filter';
 import { normalizeVisibilityLevel } from '../permissions/visibility-filter';
+import { singularGrantsOnEntity } from '../permissions/grant-records';
+import type { CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from '../commands/types';
 
 /**
  * CHAR-012 / CHAR-016 — the durable CHARACTER JOURNAL model: a player keeps bookmarks, NPC
@@ -28,14 +30,29 @@ export const CHARACTER_JOURNAL_SCHEMA_VERSION = 1 as const;
 /** The entity type a journal is addressed by in grants/visibility/ops (carries character data). */
 export const CHARACTER_JOURNAL_ENTITY_TYPE = 'character-journal' as const;
 
-/** The categories a journal entry can be. A free `note` covers session highlights/anything else. */
+/**
+ * The categories a journal entry can be. A free `note` covers session highlights/anything else.
+ * RC-ENG-8.12 — `rest`, `combat` and `level-up` are HISTORY kinds: the core appends them when the
+ * event happens ({@link withCharacterHistory}); they are not authorable through
+ * `character.add-journal-entry`, so a player cannot fabricate a level-up record.
+ */
 export type JournalEntryKind =
 	| 'bookmark'
 	| 'npc-impression'
 	| 'personal-quest'
 	| 'session-highlight'
 	| 'note'
-	| 'downtime';
+	| 'downtime'
+	| HistoryEntryKind;
+
+/** RC-ENG-8.12 — the journal kinds the core writes itself when a character event happens. */
+export type HistoryEntryKind = 'rest' | 'combat' | 'level-up';
+
+export const HISTORY_ENTRY_KINDS: readonly HistoryEntryKind[] = [
+	'rest',
+	'combat',
+	'level-up',
+] as const;
 
 export const JOURNAL_ENTRY_KINDS: readonly JournalEntryKind[] = [
 	'bookmark',
@@ -285,4 +302,107 @@ export function removeJournalEntry(
 		...journal,
 		entries: journal.entries.filter((e) => e.id !== entryId),
 	});
+}
+
+// --- RC-ENG-8.12 — automatic history: rests, combats and level-ups ------------------------------
+
+/**
+ * One character event the history records: which character, which kind, and the (English) title and
+ * body the entry carries. Built by the event's own module — `restHistoryRecords`
+ * (`character-resources.ts`), `levelUpHistoryRecords` (`character-advancement.ts`) and
+ * `combatHistoryRecords` (`combat-tracker.ts`) — from an ACCEPTED command result.
+ */
+export interface CharacterHistoryRecord {
+	characterId: string;
+	kind: HistoryEntryKind;
+	title: string;
+	body: string;
+	/** The actor whose command caused the event (the entry's author). */
+	actorId: ActorId;
+}
+
+/** Reads the history records an accepted command produced, from its next state and events. */
+export type CharacterHistoryCollector = (
+	nextState: CoreStateSlice,
+	events: readonly CoreEvent[],
+) => CharacterHistoryRecord[];
+
+/**
+ * The visibility a history entry gets, by the journal's own rules. It never says more than the
+ * character does and never more than a hand-written entry would:
+ *
+ *   - a character with an owner gets the journal's fail-closed default — `shared` delivered to the
+ *     owner — so the owner and the DM read it and no other player does (CHAR-016 AC1);
+ *   - a `dm-only` character, or one nobody owns (a DM-run NPC or sidekick), gets `dm-only`, so only
+ *     the DM reads it.
+ *
+ * `player-visible` is never chosen implicitly, matching {@link buildJournalEntry}. The owner or the DM
+ * may widen an entry afterwards with `character.set-journal-entry-visibility`. Pure.
+ */
+export function historyEntryVisibility(
+	characterVisibility: VisibilityLevel,
+	ownerActorId: ActorId | null,
+): VisibilityLevel {
+	if (ownerActorId === null) return 'dm-only';
+	return normalizeVisibilityLevel(characterVisibility) === 'dm-only' ? 'dm-only' : 'shared';
+}
+
+/**
+ * Append the history entries an accepted command produced (RC-ENG-8.12). Each record becomes a dated
+ * journal entry on its character, newest-first like every other entry, so it is read through the
+ * actor-scoped journal query and filtered by the same per-entry visibility. A rejected result, or one
+ * with no records, is returned untouched.
+ *
+ * No extra op is appended: the event's own op (`character.rest.*`, `character.commit-advancement`,
+ * `combat.end`, …) is the durable record and the entry rides in the same state commit, so the sync
+ * log gains no side entity. Each entry still emits `character.journal-changed` so cached journal views
+ * are invalidated exactly as for a hand-written entry (CHAR-016 AC2).
+ */
+export function withCharacterHistory(
+	env: CoreEnvironment,
+	result: CommandResult,
+	collect: CharacterHistoryCollector,
+): CommandResult {
+	if (result.status !== 'accepted') return result;
+	const records = collect(result.nextState, result.events);
+	if (records.length === 0) return result;
+	const characters = result.nextState.characters;
+	let journals = ensureCharacterJournalState(characters.journals);
+	const events: CoreEvent[] = [];
+	const now = env.clock();
+	for (const record of records) {
+		const character = characters.characters[record.characterId];
+		if (!character) continue;
+		const owner =
+			singularGrantsOnEntity(
+				result.nextState.permissions.grants,
+				'character',
+				record.characterId,
+			)[0]?.playerActorId ?? null;
+		const entry = buildJournalEntry(
+			{
+				kind: record.kind,
+				title: record.title,
+				body: record.body,
+				visibility: historyEntryVisibility(character.visibility, owner),
+			},
+			{ id: env.ids(), ownerActorId: owner ?? record.actorId, authorActorId: record.actorId, now },
+		);
+		journals = addJournalEntry(journals, record.characterId, entry);
+		events.push({
+			kind: 'character.journal-changed',
+			characterId: record.characterId,
+			entryId: entry.id,
+			visibility: entry.visibility,
+			ownerActorId: owner,
+			invalidatedActorIds: entry.visibility === 'shared' ? [...entry.sharedWith] : [],
+			actorId: record.actorId,
+		});
+	}
+	if (events.length === 0) return result;
+	return {
+		...result,
+		nextState: { ...result.nextState, characters: { ...characters, journals } },
+		events: [...result.events, ...events],
+	};
 }
