@@ -12,6 +12,10 @@ export interface LayerPanelProps extends Omit<React.HTMLAttributes<HTMLDivElemen
 	onChange?: (layers: Layer[]) => void;
 	onAddLayer?: () => void;
 	title?: string;
+	/** Controlled hosts can supply domain-specific rows without the demo mutation model. */
+	renderLayer?: (layer: Layer, index: number) => React.ReactNode;
+	emptyState?: React.ReactNode;
+	headerAction?: React.ReactNode;
 }
 
 import React from 'react';
@@ -35,10 +39,14 @@ export function LayerPanel({
 	onChange,
 	onAddLayer,
 	title = 'Layers',
+	renderLayer,
+	emptyState,
+	headerAction,
 	style,
 	...rest
 }: LayerPanelProps) {
-	const [layers, setLayers] = React.useState(initial);
+	const [localLayers, setLayers] = React.useState(initial);
+	const layers = renderLayer ? initial : localLayers;
 	const [filter, setFilter] = React.useState<string | null>(null);
 	React.useEffect(() => {
 		setLayers(initial);
@@ -111,6 +119,7 @@ export function LayerPanel({
 				>
 					{layers.length}
 				</span>
+				{headerAction}
 			</div>
 
 			{!readOnly && presentTypes.length > 1 && (
@@ -148,40 +157,47 @@ export function LayerPanel({
 				</div>
 			)}
 
-			<div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 'var(--space-1)' }}>
-				{layers.length === 0 ? (
-					<div
-						style={{
-							padding: 'var(--space-6) var(--space-4)',
-							textAlign: 'center',
-							color: 'var(--color-text-tertiary)',
-							fontFamily: 'var(--font-sans)',
-							fontSize: 'var(--text-sm)',
-						}}
-					>
-						<Icon
-							name="layers"
-							size={28}
-							style={{ opacity: 0.5, marginBottom: 'var(--space-2)' }}
-						/>
-						<div>{readOnly ? 'No layers visible to you' : 'Add your first layer'}</div>
-					</div>
-				) : (
-					layers.map((l) => (
-						<LayerRow
-							key={l.id}
-							layer={l}
-							readOnly={readOnly}
-							dimmed={filter ? l.type !== filter : false}
-							onToggleDisplay={() => patch(l.id, { dmDisplay: !l.dmDisplay })}
-							onCycleVisibility={(next) => cycleVis(l.id, next)}
-							onOpacityChange={(v) => patch(l.id, { opacity: v })}
-							onToggleLock={() => patch(l.id, { locked: !l.locked })}
-							onRename={(name) => patch(l.id, { name })}
-							onMove={(d) => move(l.id, d)}
-						/>
-					))
-				)}
+			<div
+				role={layers.length ? 'list' : undefined}
+				style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 'var(--space-1)' }}
+			>
+				{layers.length === 0
+					? (emptyState ?? (
+							<div
+								style={{
+									padding: 'var(--space-6) var(--space-4)',
+									textAlign: 'center',
+									color: 'var(--color-text-tertiary)',
+									fontFamily: 'var(--font-sans)',
+									fontSize: 'var(--text-sm)',
+								}}
+							>
+								<Icon
+									name="layers"
+									size={28}
+									style={{ opacity: 0.5, marginBottom: 'var(--space-2)' }}
+								/>
+								<div>{readOnly ? 'No layers visible to you' : 'Add your first layer'}</div>
+							</div>
+						))
+					: layers.map((l, index) =>
+							renderLayer ? (
+								<React.Fragment key={l.id}>{renderLayer(l, index)}</React.Fragment>
+							) : (
+								<LayerRow
+									key={l.id}
+									layer={l}
+									readOnly={readOnly}
+									dimmed={filter ? l.type !== filter : false}
+									onToggleDisplay={() => patch(l.id, { dmDisplay: !l.dmDisplay })}
+									onCycleVisibility={(next) => cycleVis(l.id, next)}
+									onOpacityChange={(v) => patch(l.id, { opacity: v })}
+									onToggleLock={() => patch(l.id, { locked: !l.locked })}
+									onRename={(name) => patch(l.id, { name })}
+									onMove={(d) => move(l.id, d)}
+								/>
+							),
+						)}
 			</div>
 
 			{!readOnly && (

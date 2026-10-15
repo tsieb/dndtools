@@ -23,6 +23,11 @@ export interface LayerRowProps extends Omit<
 > {
 	/** Inline styles, including CSS custom properties (the map dock re-points a colour token). */
 	style?: React.CSSProperties & Record<`--${string}`, string | number>;
+	/** Slots for summary-only hosts with a smaller set of durable domain actions. */
+	leading?: React.ReactNode;
+	description?: React.ReactNode;
+	visibilityControl?: React.ReactNode;
+	trailing?: React.ReactNode;
 	actionRef?: React.Ref<HTMLButtonElement>;
 	actionExpanded?: boolean;
 	layer: Omit<Layer, 'id'> & { id?: string };
@@ -79,6 +84,10 @@ const VIS_CYCLE: ('dm-only' | 'players' | 'shared')[] = ['dm-only', 'players', '
 
 export function LayerRow({
 	layer,
+	leading,
+	description,
+	visibilityControl,
+	trailing,
 	readOnly = false,
 	dimmed = false,
 	selected = false,
@@ -160,6 +169,7 @@ export function LayerRow({
 			}}
 			{...rest}
 		>
+			{leading}
 			{!readOnly && (
 				<span
 					aria-hidden="true"
@@ -187,27 +197,44 @@ export function LayerRow({
 				</RowBtn>
 			)}
 
-			<RowBtn
-				label={`Visibility: ${visibility}`}
-				title={vis.title}
-				onClick={() => {
-					if (readOnly || disabled) return;
-					void (
-						onCycleVisibility &&
-						onCycleVisibility(
-							VIS_CYCLE[
-								(VIS_CYCLE.indexOf(visibility as 'dm-only' | 'players' | 'shared') + 1) % 3
-							],
-						)
-					);
-				}}
-				disabled={readOnly || disabled}
-				color={vis.color}
-			>
-				<Icon name={vis.icon} size={15} />
-			</RowBtn>
+			{visibilityControl ?? (
+				<RowBtn
+					label={`Visibility: ${visibility}`}
+					title={vis.title}
+					onClick={() => {
+						if (readOnly || disabled) return;
+						void (
+							onCycleVisibility &&
+							onCycleVisibility(
+								VIS_CYCLE[
+									(VIS_CYCLE.indexOf(visibility as 'dm-only' | 'players' | 'shared') + 1) % 3
+								],
+							)
+						);
+					}}
+					disabled={readOnly || disabled}
+					color={vis.color}
+				>
+					<Icon name={vis.icon} size={15} />
+				</RowBtn>
+			)}
 
-			{editing && !readOnly ? (
+			{readOnly ? (
+				<div style={{ flex: 1, minWidth: 0 }}>
+					<div
+						style={{
+							fontFamily: 'var(--font-sans)',
+							fontSize: 'var(--text-sm)',
+							overflow: 'hidden',
+							textOverflow: 'ellipsis',
+							whiteSpace: 'nowrap',
+						}}
+					>
+						{name}
+					</div>
+					{description}
+				</div>
+			) : editing ? (
 				<input
 					autoFocus
 					value={draft}
@@ -367,6 +394,7 @@ export function LayerRow({
 					<Icon name="more" size={16} />
 				</RowBtn>
 			)}
+			{trailing}
 		</div>
 	);
 }

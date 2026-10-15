@@ -1,12 +1,21 @@
 import { type MapLayerQueryEntry, type SceneVisibility } from '@dndtools/core';
-import { EmptyState, Icon, IconButton, Skeleton, Switch, VisibilityChip } from '../../ds';
-import { Panel, T } from '../../app/screen-kit';
-import { CATEGORY_LABEL, CATEGORY_VAR, VIS_CHIP, VIS_LABEL } from '../../app/map/mapVisibility';
+import {
+	EmptyState,
+	Icon,
+	IconButton,
+	LayerPanel,
+	LayerRow,
+	Skeleton,
+	Switch,
+	VisibilityChip,
+} from '../../ds';
+import { T } from '../../app/screen-kit';
+import { CATEGORY_LABEL, VIS_CHIP, VIS_LABEL, visToDs } from '../../app/map/mapVisibility';
 import { ghostBtn } from './shared';
 import { useI18n } from '../../i18n';
 
 /** The Atlas layers rail — reorder, visibility and enabled state for the actor-visible layers of
- * the open map. Extracted from Atlas.tsx unchanged (RC-STB-2.6). */
+ * the open map. Uses DS row anatomy with Atlas-only durable actions; full editing stays in the editor dock. */
 export function LayersPanel({
 	layers,
 	hiddenMatchCount,
@@ -32,19 +41,16 @@ export function LayersPanel({
 }) {
 	const { t } = useI18n();
 	return (
-		<Panel
+		<LayerPanel
+			layers={layers.map((l) => ({ id: l.layerId, name: l.name, type: l.category }))}
+			readOnly
 			title={
-				<span style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)' }}>
-					{t('atlas.layers')}
-					<span style={{ font: `11px ${T.mono}`, color: T.ter }}>
-						{layers.length}
-						{isDm && hiddenMatchCount > 0
-							? ` · ${t('atlas.hiddenCount', { count: hiddenMatchCount })}`
-							: ''}
-					</span>
-				</span>
+				t('atlas.layers') +
+				(isDm && hiddenMatchCount > 0
+					? ` · ${t('atlas.hiddenCount', { count: hiddenMatchCount })}`
+					: '')
 			}
-			action={
+			headerAction={
 				isDm && selectedId ? (
 					<IconButton
 						icon="add"
@@ -56,75 +62,83 @@ export function LayersPanel({
 					/>
 				) : undefined
 			}
-		>
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-0-5)' }}>
-				{layers.map((l, i) => (
-					<div
+			emptyState={
+				loading ? (
+					<Skeleton height={44} />
+				) : (
+					<EmptyState
+						inset
+						icon="layers"
+						title={t('atlas.noLayers')}
+						description={isDm && selectedId ? t('atlas.addLayerHint') : undefined}
+					/>
+				)
+			}
+			renderLayer={(_, i) => {
+				const l = layers[i]!;
+				return (
+					<LayerRow
 						key={l.layerId}
-						style={{
-							display: 'flex',
-							alignItems: 'center',
-							gap: 'var(--space-2)',
-							padding: 'var(--space-2) var(--space-1-5)',
-							borderRadius: 'var(--radius-md)',
-							background: l.enabled ? 'transparent' : T.alt,
+						readOnly
+						layer={{
+							id: l.layerId,
+							name: l.name,
+							type:
+								l.category === 'terrain'
+									? 'height'
+									: l.category === 'dm-annotations'
+										? 'dm'
+										: l.category === 'player-overlay'
+											? 'player'
+											: l.category,
+							opacity: l.opacity * 100,
+							dmDisplay: l.enabled,
+							visibility: visToDs(l.visibility),
+							locked: l.locked,
 						}}
-					>
-						{isDm ? (
-							// A gap between the two: they are opposite, irreversible-ish writes stacked
-							// directly on top of each other, so touching edges make a near-miss land on
-							// the wrong one.
-							<span style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-								<button
-									type="button"
-									title={t('atlas.moveUp')}
-									aria-label={t('atlas.moveLayerUp', { name: l.name })}
-									disabled={busy || i === 0}
-									onClick={() => onReorderLayer(l.layerId, i - 1)}
-									style={{ ...ghostBtn, opacity: i === 0 ? 0.3 : 1 }}
-								>
-									<Icon name="chevron-up" size={12} color={T.ter} />
-								</button>
-								<button
-									type="button"
-									title={t('atlas.moveDown')}
-									aria-label={t('atlas.moveLayerDown', { name: l.name })}
-									disabled={busy || i === layers.length - 1}
-									onClick={() => onReorderLayer(l.layerId, i + 1)}
-									style={{ ...ghostBtn, opacity: i === layers.length - 1 ? 0.3 : 1 }}
-								>
-									<Icon name="chevron-down" size={12} color={T.ter} />
-								</button>
-							</span>
-						) : (
-							// A spacer, not a drag handle: there is no drag implementation anywhere in
-							// this screen — even the DM reorders with the Move up / Move down buttons
-							// above — so a player was shown the universal reorder affordance on a
-							// read-only list and got no response to either drag or click. Keep the
-							// width so the rows still line up under the DM's chevron column.
-							<span style={{ width: 14, flex: '0 0 auto' }} aria-hidden="true" />
-						)}
-						<span
-							style={{
-								width: 10,
-								height: 10,
-								borderRadius: 'var(--radius-sm)',
-								background: `var(${CATEGORY_VAR[l.category] ?? '--layer-base'})`,
-								flex: '0 0 auto',
-							}}
-						/>
-						<div style={{ flex: 1, minWidth: 0 }}>
-							<div
-								style={{
-									font: `12.5px ${T.sans}`,
-									color: l.enabled ? T.ink : T.ter,
-									whiteSpace: 'nowrap',
-									overflow: 'hidden',
-									textOverflow: 'ellipsis',
-								}}
-							>
-								{l.name}
-							</div>
+						style={{
+							background: l.enabled ? 'transparent' : T.alt,
+							color: l.enabled ? T.ink : T.ter,
+						}}
+						leading={
+							<>
+								{isDm ? (
+									// A gap between the two: they are opposite, irreversible-ish writes stacked
+									// directly on top of each other, so touching edges make a near-miss land on
+									// the wrong one.
+									<span style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+										<button
+											type="button"
+											title={t('atlas.moveUp')}
+											aria-label={t('atlas.moveLayerUp', { name: l.name })}
+											disabled={busy || i === 0}
+											onClick={() => onReorderLayer(l.layerId, i - 1)}
+											style={{ ...ghostBtn, opacity: i === 0 ? 0.3 : 1 }}
+										>
+											<Icon name="chevron-up" size={12} color={T.ter} />
+										</button>
+										<button
+											type="button"
+											title={t('atlas.moveDown')}
+											aria-label={t('atlas.moveLayerDown', { name: l.name })}
+											disabled={busy || i === layers.length - 1}
+											onClick={() => onReorderLayer(l.layerId, i + 1)}
+											style={{ ...ghostBtn, opacity: i === layers.length - 1 ? 0.3 : 1 }}
+										>
+											<Icon name="chevron-down" size={12} color={T.ter} />
+										</button>
+									</span>
+								) : (
+									// A spacer, not a drag handle: there is no drag implementation anywhere in
+									// this screen — even the DM reorders with the Move up / Move down buttons
+									// above — so a player was shown the universal reorder affordance on a
+									// read-only list and got no response to either drag or click. Keep the
+									// width so the rows still line up under the DM's chevron column.
+									<span style={{ width: 14, flex: '0 0 auto' }} aria-hidden="true" />
+								)}
+							</>
+						}
+						description={
 							<div style={{ font: `10.5px ${T.mono}`, color: T.ter }}>
 								{CATEGORY_LABEL[l.category] ?? l.category} · {Math.round(l.opacity * 100)}% ·{' '}
 								{t('atlas.marks', { count: l.content.length })}
@@ -133,10 +147,9 @@ export function LayersPanel({
 											    Text, not an icon: this line is already the row's status area. */}
 								{l.locked ? ` · ${t('atlas.locked')}` : ''}
 							</div>
-						</div>
-						{isDm ? (
-							<>
-								{/* compact chip = the grayscale-safe status display; the button stays the toggle */}
+						}
+						visibilityControl={
+							isDm ? (
 								<button
 									type="button"
 									title={t('atlas.visibilityToggleTitle', {
@@ -152,6 +165,12 @@ export function LayersPanel({
 								>
 									<VisibilityChip level={VIS_CHIP[l.visibility] ?? 'dm-only'} compact />
 								</button>
+							) : (
+								<VisibilityChip level={VIS_CHIP[l.visibility] ?? 'dm-only'} />
+							)
+						}
+						trailing={
+							isDm ? (
 								<Switch
 									checked={l.enabled}
 									aria-label={t('atlas.showLayer', { name: l.name })}
@@ -163,24 +182,11 @@ export function LayersPanel({
 									aria-disabled={busy || undefined}
 									onChange={() => onToggleLayerEnabled(l.layerId, l.enabled)}
 								/>
-							</>
-						) : (
-							<VisibilityChip level={VIS_CHIP[l.visibility] ?? 'dm-only'} />
-						)}
-					</div>
-				))}
-				{layers.length === 0 &&
-					(loading ? (
-						<Skeleton height={44} />
-					) : (
-						<EmptyState
-							inset
-							icon="layers"
-							title={t('atlas.noLayers')}
-							description={isDm && selectedId ? t('atlas.addLayerHint') : undefined}
-						/>
-					))}
-			</div>
-		</Panel>
+							) : undefined
+						}
+					/>
+				);
+			}}
+		/>
 	);
 }

@@ -110,6 +110,33 @@ test.describe('atlas: layer and POI rows state their own state', () => {
 		await expect(harbor).toHaveAttribute('aria-pressed', 'false');
 	});
 
+	test('DS layer rows preserve durable reorder, visibility and display controls', async ({
+		page,
+	}) => {
+		await page.getByRole('button', { name: /Western Reaches/ }).first().click();
+		const rows = page
+			.getByRole('listitem')
+			.filter({ has: page.getByRole('switch', { name: /^Show .+ on the map$/ }) });
+		const first = rows.first();
+		const initialName = await first.getAttribute('aria-label');
+		await expect(first.getByRole('button', { name: /^Move .+ up$/ })).toBeDisabled();
+		await first.getByRole('button', { name: /^Move .+ down$/ }).click();
+		await expect(rows.nth(1)).toHaveAttribute('aria-label', initialName!);
+		const moved = rows.nth(1);
+		const toggle = moved.getByRole('switch');
+		const checked = await toggle.getAttribute('aria-checked');
+		await toggle.click();
+		await expect(toggle).toHaveAttribute('aria-checked', checked === 'true' ? 'false' : 'true');
+		await expect(toggle).toBeFocused();
+		const visibility = moved.getByRole('button', { name: /visibility/i });
+		const before = await visibility.getAttribute('aria-label');
+		await visibility.click();
+		await expect(visibility).not.toHaveAttribute('aria-label', before!);
+		await expect(
+			moved.getByRole('button', { name: /Rename|opacity|actions|Unlock|Lock / }),
+		).toHaveCount(0);
+	});
+
 	// `locked` was never rendered, so the only way to discover a locked layer was to act on it and
 	// be refused ("Layer … is locked and rejects this edit").
 	test('a locked layer says so before you are refused', async ({ page }) => {
@@ -241,6 +268,10 @@ test.describe('atlas: the DM can see which map is on the players’ screens', ()
 		);
 		await expect(page.getByText('No layers are visible to you')).toHaveCount(0);
 		await expect(page.getByText(layerName).first()).toBeVisible();
+		const row = page.getByRole('listitem').filter({ hasText: layerName });
+		await expect(row).toBeVisible();
+		await expect(row.getByRole('button')).toHaveCount(0);
+		await expect(row.getByRole('switch')).toHaveCount(0);
 	});
 
 	test('marks the projected map, and only that map, after Project to players', async ({ page }) => {

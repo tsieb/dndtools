@@ -9,16 +9,26 @@ a `TODO(APP)` that survives a quarter gets an entry here before merge.
 ### DEBT-2026-004 — Design-system P2 polish
 
 - Severity: low · Owner: platform · Resolution window: 2026 Q4
-- Impact: small inconsistencies, not broken UX. (a) `screen-kit`'s `T` map omits spacing and radius
-  tokens, so screens carry one-off px paddings (worst in `screens/audio/`); (b) the map builder and
-  Atlas hand-roll layer panels and an import wizard that exist as design-package specs
-  (`LayerPanel`, `LayerRow`, `ImportWizard`); (c) a few hand-rolled toggle groups that could be the DS
-  `SegmentedControl`; (d) residual raw rgba/hex in widget map placeholder tiles.
-- Targets: `apps/gm-react/src/app/screen-kit.tsx`, `app/map/`, `screens/atlas/`,
-  `app/widgets/builtin/`.
-- Status: partial — (a) and (d) resolved by RC-DSN-1.1 (the `T` map carries spacing, radius, shadow,
-  z and duration; the raw-style lint ratchet is live). (b) and (c) remain and are picked up by the
-  polish stories for Atlas (RC-POL-1.9) and Extensions (RC-POL-1.14).
+- Impact: remaining inconsistencies are limited to secondary configuration and picker surfaces.
+- Status: re-scoped to non-primary surfaces — (a) and (d) resolved by RC-DSN-1.1; (b) resolved
+  by RC-ENG-8.11. Atlas now composes `LayerRow` inside `LayerPanel`, retaining actor filtering,
+  reorder buttons, visibility chips and the focus-preserving enabled switch. The editor dock
+  already uses `LayerRow`.
+- Import conformance: `app/map/ImportMapDialog.tsx` deliberately composes DS `Dialog`, `Stepper`,
+  `SegmentedControl`, fields and navigation buttons. DS `ImportWizard` fixes three pages, owns
+  source/adapter state internally and exposes neither file-selection nor calibration hooks;
+  the production native flow needs Source/Align/Scale/Walls/Preview/Result. `useImportMap.ts`
+  performs pure previews with the asset-size cap and adapter registry; only explicit import
+  dispatches writes. `ImportMapSteps.tsx` gates commit on a successful preview, reports dropped
+  elements and shows storage/follow-up errors. This conforms to the wizard safety contract
+  without replacing the working flow with the three-page demonstration component.
+- Remaining (c), by file (paths relative to `apps/gm-react/src/`):
+  - `app/map/generate/GeneratePanel.tsx`: optional generator category/preset pickers.
+  - `app/map/dock/AssetsPanel.tsx`: asset category/filter pickers in the secondary editor dock.
+- These remain low-priority DS consolidation work; primary Atlas/import source and calibration
+  selectors, editor mode/tool options, Compendium and Theme Studio already use DS controls.
+  Tool rails, map/POI/combatant selection, the widget definition disclosure, favorites and
+  multi-select declarations are not single-choice segmented groups and are not part of this debt.
 
 ### DEBT-2026-006 — a guided PC cannot be built from rolled ability scores
 

@@ -6,6 +6,14 @@ import { ImportPreviewPanel, ImportResultPanel, ImportSourcePanel } from './Impo
 import { STEP_LABEL } from './importWizardState';
 import { useImportMap } from './useImportMap';
 
+/** DS ImportWizard conformance (DEBT-2026-004 / RC-ENG-8.11):
+ * Keep this composition: ImportWizard has fixed Source/Preview/Result pages, internal source and
+ * adapter state, and no file-selection or calibration slots. Native imports also need Align,
+ * Scale and optional Walls. Dialog owns focus/escape; Stepper and the DS form/navigation controls
+ * provide the shared interaction patterns. useImportMap previews without writes, validates the
+ * asset cap/adapter before enabling import, and commits only on the explicit preview action.
+ * Result reports dropped elements, byte-storage failures and partial calibration failures.
+ */
 export function ImportMapDialog({
 	autoPick = false,
 	mapId,
