@@ -24,6 +24,11 @@ roadmap remains separate from this documentation filing.
 [friction budgets](FRICTION_BUDGETS.md) measured on five runs, and every remaining finding by
 severity.
 
+[`EARLY_ACCESS.md`](EARLY_ACCESS.md) is the RC-ENG-8.3 exit audit for milestone M2.5: the golden
+paths on five runs, the a11y gate, a `ux-ui-reviewer` pass over the primary routes at three tiers,
+and the primary-path reading of DEBT.md and FEATURE-GAPS.md, with the verdict and the stories its
+findings became.
+
 For what is actually built, read [`../requirements/FEATURE-GAPS.md`](../requirements/FEATURE-GAPS.md)
 and run `pnpm feature-audit`, not this folder.
 

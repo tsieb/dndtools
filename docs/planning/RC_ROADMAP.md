@@ -348,7 +348,8 @@ CAN-7.1, CAN-7.5, WID-5.4 and ENG-8.1/8.2/8.4 touch other files and can start at
 Milestone status 2026-09-11: **M0 done · M1 done · M2 88% merged** (18 P2 stories open, 13 of them
 in CAN, plus the four new P2 engineering stories) **· M3 not started · M4 not started.** M2.5 (early access, §1.6 D7) was added
 2026-09-12 and has not started. M2.6 (frictionless, §1.7) was added 2026-09-29; RC-ENG-8.3 depends on
-its gate (§1.7 D14).
+its gate (§1.7 D14). 2026-10-15: M2.6 passed ([FRICTIONLESS.md](FRICTIONLESS.md)); the first M2.5 audit did not
+([EARLY_ACCESS.md](EARLY_ACCESS.md)), and its findings are RC-ENG-8.5 to 8.13.
 
 ### 3.3 Parallel lanes and their collision map
 
@@ -3356,12 +3357,15 @@ this epic makes the primary paths releasable first and keeps them that way.
   conflicted or degraded. Acceptance: the test; the ENG-8.1 journeys see no error tile.
 - **RC-ENG-8.3 — Early-access exit audit.** `M` · P3 · Deps: CAN-7.8, CAN-7.4, CAN-5.4, CAN-5.5,
   CAN-6.4, SES-6.2, UX-3.6, UX-3.7, UX-5.2, 8.4, POL-1.1, POL-1.2, POL-1.4, POL-1.5, POL-1.8,
-  POL-1.9, POL-1.11, POL-1.18, POL-1.23, ENG-9.3 · Owns: `docs/planning/EARLY_ACCESS.md` (new). The M2.5
+  POL-1.9, POL-1.11, POL-1.18, POL-1.23, ENG-9.3, 8.5, 8.6, 8.7, 8.8, 8.9, 8.10, 8.11, 8.12, 8.13 ·
+  Owns: `docs/planning/EARLY_ACCESS.md` (new). The M2.5
   gate: golden paths green on five consecutive runs on both profiles; a `ux-ui-reviewer` pass over
   every primary route at the three tiers with zero high findings; the a11y gate clean; no open
   primary-path entry in DEBT.md; no primary FEATURE-GAPS row carrying a limit beyond the §2.1 four.
-  Findings become stories that block this one. Acceptance: EARLY_ACCESS.md records the run, the
-  review and the verdict on one commit.
+  Findings become stories that block this one. First run 2026-10-15 on `ef42291b`: not passed. The
+  golden paths and the a11y gate held; four high review findings, four DEBT entries and two
+  FEATURE-GAPS limits became RC-ENG-8.5 to 8.13, and the audit re-runs once they land. Acceptance:
+  EARLY_ACCESS.md records the run, the review and the verdict on one commit.
 - **RC-ENG-8.4 — Emphasis and display-face lint.** `S` · P2 · Owns: `scripts/emphasis-lint.ts`
   (new), `scripts/emphasis-baseline.json` (new). Two design rules the screens break today become
   checks in `pnpm lint`: the display face (Cinzel) set below 24px, and more than one accent-filled
@@ -3370,6 +3374,99 @@ this epic makes the primary paths releasable first and keeps them that way.
   a counted baseline that may only shrink, and names the offending file and line. The fixes land in
   CAN-5.5, SES-6.2 and the POL stories, none of which may raise the count. Acceptance: a fixture
   test per rule; the baseline committed; the lint wired into `pnpm lint`.
+- **RC-ENG-8.5 — A section name in the palette goes to the section.** `S` · P3 · Deps: none · Owns:
+  `apps/gm-react/src/app/CommandPalette.tsx`, `apps/gm-react/src/ds/components/command/CommandPalette.tsx`,
+  `apps/gm-react/src/i18n/messages/en.ts`, `apps/gm-react/src/i18n/messages/es.ts`,
+  `apps/gm-react/tests/e2e/command-palette.spec.ts`. Finding A-1 of the RC-ENG-8.3 audit
+  (EARLY_ACCESS.md §4): typing "maps", "characters" or "notes" and pressing Enter opens the Import hub
+  on every tier, because the import row's keywords name those sections and the Actions group ranks
+  above Go to. On desktop, Escape from the hub then leaves focus on the body. Rank an exact or prefix
+  label match above a row that matches only on keywords, drop the section nouns from the import
+  keywords, and return focus to the palette's opener after a command closes it. Acceptance: a spec
+  types every primary section's label in full on both profiles and Enter lands on that route; "import"
+  still finds the hub; focus returns to the opener after the hub closes.
+- **RC-ENG-8.6 — Start session never goes live on a DM-only workspace.** `M` · P3 · Deps: none · Owns:
+  `apps/gm-react/src/screens/session/useSessionView.ts`, `apps/gm-react/src/screens/session/Lifecycle.tsx`,
+  `apps/gm-react/src/app/ProjectionControl.tsx`, `apps/gm-react/src/app/widgets/builtin/SessionBody.tsx`,
+  `apps/gm-react/tests/e2e/session-start-default.spec.ts` (new). Finding B-1: once the home screen
+  exists, which a real first run creates, the Start dialog opens on "Continue DM screen?". The
+  "Show DM screen to the table" box is disabled without a reason, the session goes live on the
+  dm-only home screen, the header says "Players see DM screen", and players see "Your DM has not shown
+  a scene yet". The top-bar start does the same in one click. The golden path misses it because it
+  goes live before the home screen exists. Offer Continue only when the session already has an active
+  scene; otherwise open in New with the first shareable scene chosen, and never pick a dm-only
+  workspace. Have the header name what the table sees ("Players see nothing yet" when that is true).
+  The top-bar start follows the same rule. Acceptance: on a seeded vault after visiting the Command
+  Center, both starts go live on a shareable scene, the header matches the player preview, and a
+  joined player's stage shows that scene; both profiles.
+- **RC-ENG-8.7 — A tile's controls are never under its overflow footer.** `M` · P3 · Deps: none ·
+  Owns: `apps/gm-react/src/app/widgets/WidgetRenderSlot.tsx`, `apps/gm-react/tests/e2e/tile-overflow-controls.spec.ts`
+  (new). Finding B-2, which raises FRICTIONLESS.md L4 to high, and B-7: on the 834px rail at Fit, during live
+  combat on the default home screen, the "1 more line · Grow to fit" footer covers the Initiative
+  tracker's Next turn and most of the Timer's Start. A centre tap does not reach either. On desktop
+  at Fit the Map tile's Project to players sits hidden below its zoom row. The footer is an opaque
+  overlay on the body's bottom edge. Keep a body's action row clear of the footer, let the footer pass
+  pointer events except on its own button, and give Grow to fit a 44px target on touch. Acceptance: a
+  hit-test spec on the seeded live home screen at 1440, 834 and 390 where every tile button's centre
+  receives the tap; the ENG-8.1 overflow detector still passes.
+- **RC-ENG-8.8 — A built PC carries the scores and stats the builder shows.** `L` · P3 · Deps: none ·
+  Owns: `apps/gm-react/src/app/charBuilder/`, `apps/gm-react/src/screens/characters/sheet/AbilitiesPanel.tsx`,
+  `packages/core/src/state/character-draft-flow.ts`, `packages/core/src/state/character-state.ts`,
+  `packages/core/src/commands/character.ts`, `packages/core/src/schemas/commands.ts`, `DEBT.md`. Finding
+  C-1 and DEBT-2026-006. The builder lists ancestries as "+2 CON" and "+1 to all abilities" and says
+  point buy is "before racial bonuses", but no bonus is ever applied: a Dwarf built from the standard
+  array is stored with CON 14. The Review card's initiative becomes "—" on the sheet, a level 1
+  Fighter shows hit dice "0/0 d8", and saves carry no class proficiency. Separately, the core holds
+  every PC draft to the 27-point buy, so a rolled spread cannot be finalized (the DEBT entry's
+  suggested `abilityScorePool` shape). Either apply the ancestry bonus after the point-buy check and
+  show it on the scores step, or stop naming one; write the class hit die, initiative and save
+  proficiencies onto the character; accept a pool the DM witnessed. Acceptance: core tests for the
+  pool and the bonus; an e2e on both profiles that builds a Dwarf Fighter and a rolled PC whose sheets
+  match their Review cards; DEBT-2026-006 moves to Resolved.
+- **RC-ENG-8.9 — Parchment's accent pair meets AA.** `M` · P3 · Deps: none · Owns:
+  `apps/gm-react/src/styles/tokens/colors.css`, `scripts/token-contrast-lint.ts`,
+  `apps/gm-react/src/app/widget-body-kit.tsx`, `apps/gm-react/tests/e2e/session-polish.spec.ts`,
+  `apps/gm-react/tests/e2e/extensions-polish.spec.ts`, `apps/gm-react/tests/visual/__screenshots__`,
+  `DEBT.md`. DEBT-2026-008: parchment's accent on its
+  accent tint measures 4.43:1, so the Session phase control, the accent Button (Done on the screen
+  editor), the widget kit's accent Chip, Avatar initials and the accent Badge fail AA there. Darken
+  the accent or lighten the tint and re-baseline the parchment captures. Acceptance: the token lint
+  asserts the pair at 4.5:1 or more; the session-polish theme scan runs on parchment with no
+  exception, and no spec keeps a 4.43:1 exception; DEBT-2026-008 moves to Resolved.
+- **RC-ENG-8.10 — The shipped system packages speak Spanish.** `M` · P3 · Deps: none · Owns:
+  `apps/gm-react/src/i18n/vocabulary.tsx`, `apps/gm-react/src/i18n/vocabulary.test.tsx`,
+  `apps/gm-react/src/i18n/messages/es.ts`, `DEBT.md`.
+  DEBT-2026-007: package vocabulary is plain English strings, so fourteen Spanish strings on the
+  character sheet, the player vitals panel and the level-up flow render an English noun mid-sentence
+  ("Espacios de Spell"). Translate the words the two built-in packages use, per locale, where the
+  vocabulary values are produced; pass a DM-authored package through untouched. Acceptance: a test
+  renders the fourteen strings in Spanish with Spanish nouns under 5e and Generic; a custom package
+  keeps its own words; DEBT-2026-007 moves to Resolved.
+- **RC-ENG-8.11 — Atlas on the design-system layer components.** `S` · P3 · Deps: none · Owns:
+  `apps/gm-react/src/screens/atlas/LayersPanel.tsx`, `apps/gm-react/src/app/map/ImportMapDialog.tsx`,
+  `apps/gm-react/src/app/map/ImportMapSteps.tsx`, `DEBT.md`. DEBT-2026-004 part (b), still open on
+  Maps: Atlas hand-rolls its layer rows while the editor dock uses the DS `LayerRow`, and the map
+  import is assembled from DS parts rather than the DS `ImportWizard`. RC-POL-1.9 was meant to take
+  it and did not. Move Atlas's rows onto `LayerRow` inside `LayerPanel`, and either adopt
+  `ImportWizard` or record why the composed import conforms. Part (c), the hand-rolled toggle groups,
+  is listed by file. Acceptance: Atlas specs green on both profiles; DEBT-2026-004 is closed, or
+  re-scoped to surfaces that are not primary with its status saying so.
+- **RC-ENG-8.12 — Character history records rests, combats and level-ups.** `M` · P3 · Deps: none ·
+  Owns: `packages/core/src/state/character-advancement.ts`, `packages/core/src/state/character-resources.ts`,
+  `packages/core/src/state/combat-tracker.ts`, `packages/core/src/state/character-journal.ts`,
+  `apps/gm-react/src/app/character/History.tsx`, `apps/gm-react/tests/e2e/character-history.spec.ts`,
+  `docs/requirements/FEATURE-GAPS.md`. The Characters row carries "automatic rest, combat and
+  level-up history still needs event-source wiring", a limit outside the §2.1 four; RC-CHR-2.3
+  promised a feed of level-ups, rests, combats and downtime, and only journal entries appear. Have
+  each of the three events append a dated entry with the journal's visibility rules, read through the
+  actor-scoped journal query. Acceptance: core tests per event, including a player who may not see a
+  DM-only entry; the History spec shows all three on both profiles; the limit leaves FEATURE-GAPS.md.
+- **RC-ENG-8.13 — The push limit sits on the Settings row.** `S` · P3 · Deps: none · Owns:
+  `docs/requirements/FEATURE-GAPS.md`. The Player app row carries "Push delivery is unavailable",
+  but the copy renders only in the GM's Settings, under Notifications; nothing the companion renders
+  imports the push client. The limit is real and operator-owned (RC-CLD-2.3, §24); it belongs on the
+  Settings row, which is not a primary row. Move it there with its anchor. Acceptance:
+  `pnpm feature-audit` passes; the Player app row carries no limit outside the §2.1 four.
 
 ### Epic ENG-9 — Friction is measured (P3)
 
@@ -3862,7 +3959,7 @@ story; most stalls of the last week were roadmap data, not code.
 
 ## 23. Story index
 
-_380 stories. By size: L=41 · M=205 · S=134. By phase: P0=20 · P1=28 · P2=193 · P3=119 · P4=19 · rolling=1. Status (from the dispatcher store): blocked 13 · done 287 · in progress 2 · open 70 · operator 7 · skipped 1. Rendered by `tools/roadmap/sync-status.py`; the store, not this column, is the record._
+_389 stories. By size: L=42 · M=210 · S=137. By phase: P0=20 · P1=28 · P2=193 · P3=128 · P4=19 · rolling=1. Status (from the dispatcher store): blocked 13 · done 287 · in progress 2 · open 79 · operator 7 · skipped 1. Rendered by `tools/roadmap/sync-status.py`; the store, not this column, is the record._
 
 | Id          | Lane        | Story                                                                                                                                                                                                                                                                                                      | Size | Phase   | Deps                                                                                                                                                                                                   | Status               |
 | ----------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------- |
@@ -4196,8 +4293,17 @@ _380 stories. By size: L=41 · M=205 · S=134. By phase: P0=20 · P1=28 · P2=19
 | RC-UX-5.5   | UX          | Navigation review before release                                                                                                                                                                                                                                                                           | S    | P4      | CAN-7.9                                                                                                                                                                                                |                      |
 | RC-ENG-8.1  | Engineering | Golden-path journeys                                                                                                                                                                                                                                                                                       | M    | P2      | none                                                                                                                                                                                                   | done (9cf8265)       |
 | RC-ENG-8.2  | Engineering | Default content never shows an error                                                                                                                                                                                                                                                                       | S    | P2      | none                                                                                                                                                                                                   | done (c8a2c29)       |
-| RC-ENG-8.3  | Engineering | Early-access exit audit                                                                                                                                                                                                                                                                                    | M    | P3      | CAN-7.8, CAN-7.4, CAN-5.4, CAN-5.5, CAN-6.4, SES-6.2, UX-3.6, UX-3.7, UX-5.2, 8.4, POL-1.1, POL-1.2, POL-1.4, POL-1.5, POL-1.8, POL-1.9, POL-1.11, POL-1.18, POL-1.23, ENG-9.3                         |                      |
+| RC-ENG-8.3  | Engineering | Early-access exit audit                                                                                                                                                                                                                                                                                    | M    | P3      | CAN-7.8, CAN-7.4, CAN-5.4, CAN-5.5, CAN-6.4, SES-6.2, UX-3.6, UX-3.7, UX-5.2, 8.4, POL-1.1, POL-1.2, POL-1.4, POL-1.5, POL-1.8, POL-1.9, POL-1.11, POL-1.18, POL-1.23, ENG-9.3, 8.5–8.13               |                      |
 | RC-ENG-8.4  | Engineering | Emphasis and display-face lint                                                                                                                                                                                                                                                                             | S    | P2      | none                                                                                                                                                                                                   | done (66d7875)       |
+| RC-ENG-8.5  | Engineering | A section name in the palette goes to the section                                                                                                                                                                                                                                                          | S    | P3      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-8.6  | Engineering | Start session never goes live on a DM-only workspace                                                                                                                                                                                                                                                       | M    | P3      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-8.7  | Engineering | A tile's controls are never under its overflow footer                                                                                                                                                                                                                                                      | M    | P3      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-8.8  | Engineering | A built PC carries the scores and stats the builder shows                                                                                                                                                                                                                                                  | L    | P3      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-8.9  | Engineering | Parchment's accent pair meets AA                                                                                                                                                                                                                                                                           | M    | P3      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-8.10 | Engineering | The shipped system packages speak Spanish                                                                                                                                                                                                                                                                  | M    | P3      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-8.11 | Engineering | Atlas on the design-system layer components                                                                                                                                                                                                                                                                | S    | P3      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-8.12 | Engineering | Character history records rests, combats and level-ups                                                                                                                                                                                                                                                     | M    | P3      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-8.13 | Engineering | The push limit sits on the Settings row                                                                                                                                                                                                                                                                    | S    | P3      | none                                                                                                                                                                                                   |                      |
 | RC-WID-6.1  | Widgets     | Commands that cannot run are never installed                                                                                                                                                                                                                                                               | M    | P3      | WID-5.1                                                                                                                                                                                                |                      |
 | RC-WID-6.2  | Widgets     | A GM's own template widget installs enabled and lands on the screen                                                                                                                                                                                                                                        | M    | P3      | 6.1, CAN-8.5                                                                                                                                                                                           |                      |
 | RC-WID-6.3  | Widgets     | The Quick track: make a widget in three questions                                                                                                                                                                                                                                                          | L    | P3      | 6.2, WID-5.3, CAN-7.6, POL-1.1                                                                                                                                                                         |                      |

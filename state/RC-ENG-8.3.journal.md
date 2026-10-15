@@ -90,3 +90,39 @@
   footer is an opaque absolute overlay (`WidgetRenderSlot.tsx:415-430`). Accepted as high on the
   brief's "primary action hidden"; recoverable by scrolling inside the tile, which is why the golden
   detector passes it. Judgement recorded.
+- Review A finished: critical 0, high 1 (A-1), medium 7 (A-2..A-8), low 6 (A-9..A-14); report saved
+  from its final message as `review-a/REPORT.md`. A-1 re-checked: `en.ts:14-15` `importHub.keywords`
+  names "notes characters … maps"; `CommandPalette.tsx:466` `groupOrder` ranks Actions above Go to.
+  Confirmed; held high although the reviewer left the blocking call open (recorded as a judgement).
+
+## Verdict and filing
+
+- Verdict: M2.5 does not pass on `ef42291b`. Gates 1 and 3 pass; gate 2 fails (A-1, B-1, B-2, C-1),
+  gate 4 fails (DEBT-2026-004, -006, -007, -008), gate 5 fails (Characters History, Player app push).
+- Stories RC-ENG-8.5–8.13 written into the ENG-8 epic; RC-ENG-8.3's `Deps:` (story and §23) gains
+  them; §23 rows and header counts (380 → 389; L 42, M 210, S 137, P3 128, open 79); §3.2 status note.
+  `dispatcher.sources.rc.parse_roadmap` parses all nine (sizes, P3, owns, specs; 8.13 docs-only) and
+  RC-ENG-8.3's deps with no unknown token.
+- `task.create` ×9 via `python3 dispatch.py command` (operator note authorizes it), envelopes and
+  results in `~/.cache/rc-eng-8-3-evidence/task-create-{envelopes.json,results.txt}`; all exit 0;
+  store read back read-only: all nine `proposed`. RC-ENG-8.3's own stored dependencies were not
+  touched (`task.update` refuses a running task; that is the operator's to reconcile).
+
+## Validation and cleanup
+
+- `pnpm feature-audit` first FAILED: the FEATURE-GAPS Shells row anchors `RC_ROADMAP.md:4109`, which
+  the new stories moved to 4206 (same `| RC-PLT-1.1 |` row, matched exactly). Re-anchored (companion
+  path, one token, same width, no re-pad); re-run: 48 declared limits, 0 stale, 0 inventory issues.
+- Docs link audit (`auditDocs` from `scripts/validate/docs-links.ts`): 310 files, 465 links, 0
+  problems. Heading anchors used by EARLY_ACCESS.md checked by hand against GitHub slugging.
+- Prettier `--check` on the five changed files: clean (EARLY_ACCESS.md table padding was fixed with
+  `--write`).
+- `tools/loop/tests/test_rcloop.py` Parse + RelatedSpecs (7 tests, system python unittest): OK. The
+  full file was not run: its later classes exercise the retired loop's quota probes and hung past
+  three minutes; stopped.
+- ADR-031 and ADR-032 cite historical roadmap line numbers that were already stale; outside this
+  task's paths, untouched.
+- Removed: `tmp/a11y` and `apps/gm-react/test-results/` (copied to
+  `~/.cache/rc-eng-8-3-evidence/a11y-artifacts/`), the three review worktrees (probes copied to
+  `review-{a,b,c}/probes/`), `tools/loop/**/__pycache__`. Evidence stays in
+  `~/.cache/rc-eng-8-3-evidence/`, uncommitted.
