@@ -387,3 +387,23 @@ play-polish.spec.ts golden-routes.spec.ts --project=visual-rail --project=visual
 - Confirmed the requested integration SHA is an ancestor and no unmerged paths remain.
   Full central gates, independent review and post-integration RC-tag/release evidence remain
   operator steps; this run does not claim them complete.
+
+## Claim-gate handoff: HelpPanel.tsx is required
+
+- The operator's latest gate rejects `apps/gm-react/src/app/help/HelpPanel.tsx` because it is
+  outside the claim. The prior reconciliation did not authorize or widen that claim.
+- Inspected the exact diff against `ad2812a9080573bf6c4049c5b87cf5d6325ec03b`: the only changes
+  to this path are importing `BetaFeedbackAction` from the owned `HelpMenu.tsx` and rendering
+  it inside the Help topics dialog. Integration moved that dialog into `HelpPanel.tsx`.
+  `HelpMenu.tsx` now lazy-loads it with only `open` and `onClose` props; the panel exposes no
+  children/content slot. Reverting these lines removes the requested in-app feedback route.
+- Retained this required wiring under the explicit latest instruction to keep a required
+  out-of-claim path and explain why in the commit message. Operator decision required:
+  add `apps/gm-react/src/app/help/HelpPanel.tsx` to the task's owned paths. The claim has NOT
+  been widened, and the candidate remains blocked by the ownership gate.
+- No executable code, baselines or prior test results changed in this handoff. No push,
+  promotion, dispatcher control-state edit or additional agent. Headroom remains unavailable.
+- Handoff validation: Prettier and `git diff --check` passed; `pnpm gates` passed all six gates
+  and docs checks with existing size warnings. Original output inspected at
+  `/tmp/rc-eng-7.1-claim-handoff-gates.log`. Application/browser tests were not rerun because
+  executable code is unchanged.
