@@ -9,7 +9,7 @@
 import { Toaster } from '../../ds';
 import type { SceneRuntime } from '../../runtime/SceneRuntime';
 import type { ImportPlan } from '../charImport/ddbJson';
-import { eventField, type AttackRow } from './data';
+import { classSaveIds, eventField, modOf, type AttackRow } from './data';
 import type { Wizard } from './wizard';
 
 export interface CreateContext {
@@ -17,8 +17,35 @@ export interface CreateContext {
 	dmActorId: string;
 	/** The DM-facing ability block the core commands take (the wizard's effective scores). */
 	coreAbilities: Record<'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha', number>;
+	/** The scores before the ancestry bonus — what a PC draft's abilities step holds. */
+	baseAbilities: Record<'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha', number>;
+	/** The DM-witnessed pool a PC draft is held to instead of point buy, or null for point buy. */
+	abilityScorePool: number[] | null;
 	w: Wizard;
 	setError: (message: string | null) => void;
+}
+
+/**
+ * RC-ENG-8.8 — the class's hit dice (one per level) and saving-throw proficiencies, as the class step
+ * states them, through the validated proficiency command. Neither creation command carries them.
+ */
+async function applyClassProficiencies(
+	runtime: SceneRuntime,
+	dmActorId: string,
+	characterId: string,
+	w: Wizard,
+): Promise<void> {
+	const r = await runtime.dispatch({
+		type: 'character.set-proficiencies',
+		actorId: dmActorId,
+		payload: {
+			characterId,
+			saves: classSaveIds(w.clsObj),
+			hitDice: { die: w.clsObj.hd, total: w.level, spent: 0 },
+		},
+	});
+	if (r.status === 'rejected')
+		Toaster.warning(`Hit dice and saving throws weren’t saved: ${r.rejection.message}`);
 }
 
 /** Build the durable attack entries ({name, detail}) from the editor rows. */
@@ -42,7 +69,7 @@ export function attackEntries(attacks: AttackRow[]): { name: string; detail: str
  *  which `character.finalize-draft` carries onto the character) and finalizes, then the DM
  *  applies extras. */
 export async function createPc(ctx: CreateContext): Promise<string | null> {
-	const { runtime, dmActorId, coreAbilities, setError, w } = ctx;
+	const { runtime, dmActorId, baseAbilities, abilityScorePool, setError, w } = ctx;
 	const {
 		ownerId,
 		name,
@@ -58,11 +85,21 @@ export async function createPc(ctx: CreateContext): Promise<string | null> {
 		level,
 		subclass,
 		bio,
+		race,
+		ancestryOn,
+		ancestryAbilities,
+		effScores,
 	} = w;
+	// The DM creates the draft, so the pool it carries is one the DM witnessed — the owner can only
+	// rearrange it (DEBT-2026-006).
 	const created = await runtime.dispatch({
 		type: 'character.create-draft',
 		actorId: dmActorId,
-		payload: { ownerActorId: ownerId, name: name.trim() },
+		payload: {
+			ownerActorId: ownerId,
+			name: name.trim(),
+			...(abilityScorePool ? { abilityScorePool } : {}),
+		},
 	});
 	if (created.status === 'rejected') {
 		setError(created.rejection.message);
@@ -75,8 +112,20 @@ export async function createPc(ctx: CreateContext): Promise<string | null> {
 	}
 
 	const steps: [string, Record<string, unknown>][] = [
-		['identity', { name: name.trim(), background: bgId }],
-		['abilities', { ...coreAbilities }],
+		// The ancestry rides on identity; finalize adds its bonus to the BASE scores below, after the
+		// point-buy / pool check — so the character lands on the scores the wizard showed.
+		[
+			'identity',
+			{
+				name: name.trim(),
+				background: bgId,
+				...(ancestryOn ? { ancestry: race } : {}),
+				...(ancestryAbilities.length > 0
+					? { ancestryAbilities: ancestryAbilities.map((k) => k.toLowerCase()) }
+					: {}),
+			},
+		],
+		['abilities', { ...baseAbilities }],
 		['class', { class: clsId }],
 		// The OPTIONAL kit step: finalize-draft reads it tolerantly and carries AC / HP / the
 		// draft's CUSTOM ATTACKS onto the finalized character (it doesn't gate completeness).
@@ -126,6 +175,8 @@ export async function createPc(ctx: CreateContext): Promise<string | null> {
 	if (grant.status === 'rejected')
 		Toaster.warning(`The player couldn’t be given access: ${grant.rejection.message}`);
 
+	await applyClassProficiencies(runtime, dmActorId, characterId, w);
+
 	// Sheet extras through the validated field-edit surface (`data.*` holds strings; the DM may
 	// edit any field). `data.level` is the same field the CHAR-009 advancement flow maintains.
 	const FIELD_PATH_LABEL: Record<string, string> = {
@@ -136,12 +187,15 @@ export async function createPc(ctx: CreateContext): Promise<string | null> {
 		'data.level': 'Level',
 		'data.subclass': 'Subclass',
 		'data.bio': 'Bio',
+		'data.init': 'Initiative',
 	};
 	const extras: [string, string][] = [
 		['data.race', raceObj.name],
 		['data.alignment', align],
 		['data.speed', String(speed)],
 		['data.grad', String(grad)],
+		// The sheet's Init stat reads this string; the Review card showed the DEX modifier.
+		['data.init', modOf(effScores.DEX)],
 	];
 	if (level > 1) extras.push(['data.level', String(level)]);
 	if (subclass) extras.push(['data.subclass', subclass]);
@@ -180,6 +234,7 @@ export async function createOther(ctx: CreateContext): Promise<string | null> {
 		vis,
 		hp,
 		ac,
+		effScores,
 	} = w;
 	const attackRows = attackEntries(attacks);
 	const data: Record<string, unknown> = {
@@ -190,6 +245,7 @@ export async function createOther(ctx: CreateContext): Promise<string | null> {
 		level: String(level),
 		speed: String(speed),
 		grad: String(grad),
+		init: modOf(effScores.DEX),
 	};
 	if (subclass) data.subclass = subclass;
 	if (bio.trim()) data.bio = bio.trim();
@@ -217,7 +273,9 @@ export async function createOther(ctx: CreateContext): Promise<string | null> {
 		setError(result.rejection.message);
 		return null;
 	}
-	return eventField(result, 'character.created', 'characterId');
+	const characterId = eventField(result, 'character.created', 'characterId');
+	if (characterId) await applyClassProficiencies(runtime, dmActorId, characterId, w);
+	return characterId;
 }
 
 /** Execute the reviewed plan: quick-create → set-proficiencies → set-spell ×N → update-attacks. */

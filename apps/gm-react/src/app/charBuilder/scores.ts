@@ -5,7 +5,11 @@
  * An assignment maps each ability to a SLOT index in the pool (as a string, '' = unassigned), not to
  * the value itself: a rolled pool can hold the same number twice, and keying by value made the
  * second 12 disappear from every other ability's options as soon as the first was used.
+ *
+ * RC-ENG-8.8 — the ancestry bonus sits ON TOP of whichever method produced the base scores. The
+ * bonus itself comes from the core's ancestry table (`ancestryBonuses`), the same one finalize adds.
  */
+import { ABILITY_SCORE_CEILING, ancestryBonuses, getDraftAncestry } from '@dndtools/core';
 import { BUILDER, type AbilityKey } from './data';
 
 export type Assignment = Record<AbilityKey, string>;
@@ -118,4 +122,64 @@ export function assignmentComplete(pool: readonly number[], assign: Assignment):
 /** The ability currently holding `slot`, if any. */
 export function slotHolder(assign: Assignment, slot: string): AbilityKey | undefined {
 	return BUILDER.abilityKeys.find((k) => assign[k] === slot);
+}
+
+const coreId = (k: AbilityKey) => k.toLowerCase();
+
+/** The free picks an ancestry offers ("+1 to two others"), or null when it has none. */
+export function ancestryChoice(
+	raceId: string,
+): { count: number; amount: number; excluded: AbilityKey[] } | null {
+	const choice = getDraftAncestry(raceId)?.choice;
+	if (!choice) return null;
+	return {
+		count: choice.count,
+		amount: choice.amount,
+		excluded: BUILDER.abilityKeys.filter((k) =>
+			(choice.excluded as readonly string[]).includes(coreId(k)),
+		),
+	};
+}
+
+/** Whether `picks` is exactly the free choice the ancestry asks for (distinct, none excluded). */
+export function ancestryPicksLegal(raceId: string, picks: readonly AbilityKey[]): boolean {
+	const choice = ancestryChoice(raceId);
+	if (!choice) return picks.length === 0;
+	return (
+		picks.length === choice.count &&
+		new Set(picks).size === choice.count &&
+		picks.every((k) => !choice.excluded.includes(k))
+	);
+}
+
+/** The class's first abilities that the ancestry lets the free picks raise. */
+export function suggestAncestryPicks(
+	raceId: string,
+	priority: readonly AbilityKey[],
+): AbilityKey[] {
+	const choice = ancestryChoice(raceId);
+	if (!choice) return [];
+	return priority.filter((k) => !choice.excluded.includes(k)).slice(0, choice.count);
+}
+
+/** Each ability's ancestry bonus (0 when none). */
+export function ancestryBonusFor(
+	raceId: string,
+	picks: readonly AbilityKey[],
+): Record<AbilityKey, number> {
+	const bonuses = ancestryBonuses(raceId, picks.map(coreId)) as Record<string, number>;
+	return Object.fromEntries(BUILDER.abilityKeys.map((k) => [k, bonuses[coreId(k)] ?? 0])) as Record<
+		AbilityKey,
+		number
+	>;
+}
+
+/** Base scores with the bonus added, capped like the core caps them. */
+export function withAncestryBonus(
+	base: Record<AbilityKey, number>,
+	bonus: Record<AbilityKey, number>,
+): Record<AbilityKey, number> {
+	return Object.fromEntries(
+		BUILDER.abilityKeys.map((k) => [k, Math.min(ABILITY_SCORE_CEILING, base[k] + bonus[k])]),
+	) as Record<AbilityKey, number>;
 }

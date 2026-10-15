@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { BUILDER } from './data';
+import { DRAFT_ANCESTRY_OPTIONS } from '@dndtools/core';
+import { BUILDER, ancestrySummary, classSaveIds } from './data';
 import {
 	EMPTY_ASSIGNMENT,
+	ancestryBonusFor,
+	ancestryPicksLegal,
+	suggestAncestryPicks,
+	withAncestryBonus,
 	assignSlot,
 	assignedScores,
 	assignmentComplete,
@@ -89,5 +94,50 @@ describe('assignSlot', () => {
 describe('assignmentComplete', () => {
 	it('is false for a pool that has not been rolled yet', () => {
 		expect(assignmentComplete([], EMPTY_ASSIGNMENT)).toBe(false);
+	});
+});
+
+describe('ancestry bonuses (RC-ENG-8.8)', () => {
+	it('every builder race is a core ancestry, labelled from the bonus the core applies', () => {
+		const core = new Set(DRAFT_ANCESTRY_OPTIONS.map((a) => a.value));
+		for (const race of BUILDER.races) expect(core.has(race.id), race.id).toBe(true);
+		expect(Object.fromEntries(BUILDER.races.map((r) => [r.id, r.sub]))).toEqual({
+			human: '+1 to all abilities',
+			dwarf: '+2 CON',
+			elf: '+2 DEX',
+			'half-elf': '+2 CHA, +1 ×2',
+			halfling: '+2 DEX',
+			tiefling: '+2 CHA, +1 INT',
+			dragonborn: '+2 STR, +1 CHA',
+			gnome: '+2 INT',
+		});
+		expect(ancestrySummary('orc')).toBe('');
+	});
+
+	it('adds the bonus on top of the base scores', () => {
+		const base = assignedScores(
+			BUILDER.standardArray,
+			suggestAssignment(BUILDER.standardArray, priorityFor('fighter')),
+		);
+		expect(withAncestryBonus(base, ancestryBonusFor('dwarf', []))).toEqual({
+			...base,
+			CON: base.CON + 2,
+		});
+		expect(withAncestryBonus({ ...base, STR: 30 }, ancestryBonusFor('human', [])).STR).toBe(30);
+	});
+
+	it("suggests the half-elf's two picks from the class order, never CHA", () => {
+		expect(suggestAncestryPicks('half-elf', priorityFor('bard'))).toEqual(['DEX', 'CON']);
+		expect(suggestAncestryPicks('dwarf', priorityFor('bard'))).toEqual([]);
+		expect(ancestryPicksLegal('half-elf', ['DEX', 'CON'])).toBe(true);
+		expect(ancestryPicksLegal('half-elf', ['CHA', 'CON'])).toBe(false);
+		expect(ancestryPicksLegal('half-elf', ['CON', 'CON'])).toBe(false);
+		expect(ancestryPicksLegal('dwarf', [])).toBe(true);
+		expect(ancestryBonusFor('half-elf', ['DEX', 'CON'])).toMatchObject({ CHA: 2, DEX: 1, CON: 1 });
+	});
+
+	it("reads a class's save proficiencies as core ability ids", () => {
+		const fighter = BUILDER.classes.find((c) => c.id === 'fighter')!;
+		expect(classSaveIds(fighter)).toEqual(['str', 'con']);
 	});
 });

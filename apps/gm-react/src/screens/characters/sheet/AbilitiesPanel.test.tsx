@@ -50,8 +50,8 @@ describe('AbilitiesPanel bonuses', () => {
 			),
 		);
 		const text = container.textContent ?? '';
-		// Saving throws: STR +3 proficient = +5; DEX -1 unproficient = -1.
-		expect(text).toContain('Strength+5');
+		// Saving throws: STR +3 proficient = +5 (marked •); DEX -1 unproficient = -1.
+		expect(text).toContain('Strength •+5');
 		expect(text).toContain('Dexterity-1');
 		// Skills: Athletics (STR, proficient) +5; Acrobatics (DEX, expertise) -1 + 4 = +3.
 		expect(text).toContain('Athletics •+5');

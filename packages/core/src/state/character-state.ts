@@ -362,6 +362,14 @@ export interface CharacterDraft {
 	revision: number;
 	/** True once finalized into a {@link Character}; a finalized draft is read-only/archived. */
 	finalized: boolean;
+	/**
+	 * RC-ENG-8.8 — the ability scores the DM witnessed when creating the draft (a standard array, a
+	 * roll at the table). Present ⇒ the attributes step must be a permutation of it and point buy does
+	 * not apply; absent ⇒ point buy. Set only by the DM at `character.create-draft` and never by the
+	 * owner, so a player can rearrange the witnessed dice but not invent scores. Optional so a draft
+	 * saved before this field existed round-trips unchanged.
+	 */
+	abilityScorePool?: number[];
 	schemaVersion: typeof CHARACTER_STATE_SCHEMA_VERSION;
 }
 
@@ -627,6 +635,8 @@ export interface CreateDraftInput {
 	ownerActorId: ActorId;
 	name?: string;
 	visibility?: VisibilityLevel;
+	/** RC-ENG-8.8 — the DM-witnessed score pool (see {@link CharacterDraft.abilityScorePool}). */
+	abilityScorePool?: number[];
 }
 
 /**
@@ -650,6 +660,7 @@ export function buildCharacterDraft(
 		updatedAt: meta.now,
 		revision: 1,
 		finalized: false,
+		...(input.abilityScorePool ? { abilityScorePool: [...input.abilityScorePool] } : {}),
 		schemaVersion: CHARACTER_STATE_SCHEMA_VERSION,
 	};
 }

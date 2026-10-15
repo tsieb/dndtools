@@ -5300,8 +5300,11 @@ export const en = {
 		'Assign all six rolled scores before continuing (unassigned abilities would be saved as 10).',
 	'charBuilder.standardIncomplete':
 		'Assign all six standard-array values before continuing (unassigned abilities would be saved as 10).',
-	'charBuilder.pcUsesPointBuy':
-		'A guided PC is checked against point buy — each score 8–15, 27 points total — so rolled scores can’t be finalized. Roll is available for NPCs, monsters and sidekicks.',
+	'charBuilder.ancestryBonusNote': '{ancestry} {bonus} — added on top of these scores.',
+	'charBuilder.ancestryPicks': '+{amount} to:',
+	'charBuilder.ancestryPickLabel': '{ancestry} bonus {n}',
+	'charBuilder.scoreWithBonus': '{bonus} → {score}',
+	'charBuilder.scoreWithBonusSr': '{ability} {score} with the {ancestry} {bonus}',
 	'charBuilder.derivedSuggestions': 'Derived suggestions',
 	'charBuilder.initiative': 'Initiative {value}',
 	'charBuilder.unarmoredAc': 'Unarmored AC {value}',
@@ -5322,6 +5325,8 @@ export const en = {
 	'charBuilder.attackDamage': 'Attack damage',
 	'charBuilder.damageType': 'Damage type',
 	'charBuilder.damageTypePlaceholder': 'Slashing',
+	'charBuilder.reviewHitDice': 'Hit dice',
+	'charBuilder.reviewSaves': 'Saving throws',
 	'charBuilder.attacksCount': 'Attacks ({count})',
 	'charBuilder.noAttacks': 'No attacks added.',
 

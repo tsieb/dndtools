@@ -53,9 +53,11 @@ export function AbilitiesPanel({ subject }: { subject: SheetSubject }) {
 				</dl>
 			</Panel>
 			<Panel title={t('player.sheet.savingThrows')} pad={18}>
+				{/* A proficient save carries the same • the skills legend explains (RC-ENG-8.8 — a built
+				    PC now has its class's save proficiencies, and the bonus alone didn't say why). */}
 				<DefinitionList
 					items={ABILITY_IDS.map((a) => ({
-						label: ABIL_FULL[a.toUpperCase()]!,
+						label: `${ABIL_FULL[a.toUpperCase()]!}${prof.saves.includes(a) ? ' •' : ''}`,
 						value:
 							view.abilityScores[a] == null
 								? '—'

@@ -4,7 +4,7 @@
  * create.ts owns the durable commands. Closing a draft never implies that it was saved.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { getActiveSystemForActor, validateDraftStep } from '@dndtools/core';
+import { ancestryApplies, getActiveSystemForActor, validateDraftStep } from '@dndtools/core';
 import { Toaster } from '../../ds';
 import { useViewport } from '../useViewport';
 import { useRuntime } from '../../runtime/RuntimeContext';
@@ -30,12 +30,16 @@ import {
 } from './data';
 import {
 	EMPTY_ASSIGNMENT,
+	ancestryBonusFor,
+	ancestryPicksLegal,
 	assignSlot,
 	assignedScores,
 	assignmentComplete,
 	priorityFor,
 	rollAbilityScores,
+	suggestAncestryPicks,
 	suggestAssignment,
+	withAncestryBonus,
 	type Assignment,
 	type RolledScore,
 } from './scores';
@@ -127,6 +131,8 @@ export function CharBuilder({
 	const [kind, setKind] = useState<CharKind>(isKind(initialKind) ? initialKind : 'pc');
 	const [name, setName] = useState('');
 	const [race, setRace] = useState('human');
+	// The half-elf's two free +1s, as picked; falls back to a class-led suggestion while illegal.
+	const [pickedAncestryAbilities, setAncestryAbilities] = useState<AbilityKey[]>([]);
 	const [align, setAlign] = useState('Neutral good');
 	const [grad, setGrad] = useState(135);
 	const [owner, setOwner] = useState(players[0]?.id ?? '');
@@ -172,12 +178,10 @@ export function CharBuilder({
 	// Effective picks: a selection made under another kind may be illegal for a PC — fall back legal.
 	const clsId = clsChoices.some((c) => c.id === cls) ? cls : clsChoices[0].id;
 	const bgId = bgChoices.some((b) => b.id === background) ? background : bgChoices[0].id;
-	// The CORE validates a guided PC's ability scores against 27-point buy, each 8–15 (CHAR-002), and
-	// `finalize-draft` REJECTS anything else — there is no PC-side command that could carry a rolled
-	// 16 or 7, so a 4d6 roll offered here would be a dead end the user can only escape by rerolling
-	// until point buy happens to accept the dice. Roll is therefore offered for the kinds whose
-	// scores the core takes as given (NPC / monster / sidekick). DEBT-2026-006 tracks the core work.
-	const methodChoices = isPc ? BUILDER.methods.filter((m) => m.id !== 'roll') : BUILDER.methods;
+	// RC-ENG-8.8 — every method is open to a PC. Point buy is checked by the core's CHAR-002 budget;
+	// the standard array, a roll and manual scores are handed to `character.create-draft` as the
+	// DM-witnessed pool, which the core holds the draft to instead (DEBT-2026-006, resolved).
+	const methodChoices = BUILDER.methods;
 	// A method picked under another kind may not exist for this one — fall back legal, as class and
 	// background do above (switching NPC→PC with Roll selected must not strand the step).
 	const method: ScoreMethod = methodChoices.some((m) => m.id === pickedMethod)
@@ -221,19 +225,50 @@ export function CharBuilder({
 		0,
 	);
 	const pointsLeft = 27 - pointsSpent;
-	// effective scores (what the review/derived/dispatch uses)
-	const effScores: Record<AbilityKey, number> = pool ? assignedScores(pool, assign) : scores;
-	const coreAbilities = {
-		str: effScores.STR,
-		dex: effScores.DEX,
-		con: effScores.CON,
-		int: effScores.INT,
-		wis: effScores.WIS,
-		cha: effScores.CHA,
+	// base scores (what the method produced) and the ancestry bonus on top of them
+	const baseScores: Record<AbilityKey, number> = pool ? assignedScores(pool, assign) : scores;
+	// Ancestry bonuses exist only under a package whose attributes are the six 5e abilities — the
+	// same rule `finalize-draft` applies them under, so the wizard never shows a bonus it won't add.
+	const ancestryOn = ancestryApplies(systemPackage);
+	const ancestryRace = ancestryOn ? race : '';
+	const ancestryAbilities = ancestryPicksLegal(ancestryRace, pickedAncestryAbilities)
+		? pickedAncestryAbilities
+		: suggestAncestryPicks(ancestryRace, priorityFor(clsId));
+	const setAncestryAbility = (index: number, k: AbilityKey) => {
+		const next = [...ancestryAbilities];
+		const held = next.indexOf(k);
+		if (held !== -1 && held !== index) next[held] = next[index]!; // swap, like the pool selects
+		next[index] = k;
+		setAncestryAbilities(next);
 	};
-	// The CORE's own abilities-step rule (27-point buy, each 8–15) gates the PC path — surface its
-	// issues here instead of letting `finalize-draft` reject at the end.
-	const abilityValidation = isPc ? validateDraftStep('abilities', coreAbilities) : null;
+	const ancestryBonus = ancestryBonusFor(ancestryRace, ancestryAbilities);
+	// effective scores (what the review/derived/dispatch uses): base + ancestry bonus
+	const effScores = withAncestryBonus(baseScores, ancestryBonus);
+	const toCore = (s: Record<AbilityKey, number>) => ({
+		str: s.STR,
+		dex: s.DEX,
+		con: s.CON,
+		int: s.INT,
+		wis: s.WIS,
+		cha: s.CHA,
+	});
+	const coreAbilities = toCore(effScores);
+	const baseAbilities = toCore(baseScores);
+	// The pool a PC draft is held to: the array/roll being assigned, or the manual scores the DM
+	// typed in. Point buy has none — the core's 27-point budget applies instead — and neither does
+	// a system whose attributes are not these six (the core sizes a pool by the package).
+	const abilityScorePool: number[] | null =
+		!isPc || method === 'pointbuy' || systemPackage.attributes.length !== BUILDER.abilityKeys.length
+			? null
+			: pool
+				? [...pool]
+				: Object.values(baseAbilities);
+	// The CORE's own abilities-step rule gates the PC path — surface its issues here instead of
+	// letting `finalize-draft` reject at the end. It validates the BASE scores; the bonus is added at
+	// finalize, after this check.
+	const abilityValidation = isPc
+		? validateDraftStep('abilities', baseAbilities, undefined, { abilityScorePool })
+		: null;
 	// An unassigned pool ability resolves to 10 above — and all-10s passes the core's 27-point rule,
 	// so an incomplete assignment used to create a character with every ability at 10, discarding
 	// the array (or roll) it told the user to assign. That is wrong for every kind, not just PCs.
@@ -268,9 +303,9 @@ export function CharBuilder({
 		onClose();
 	}
 
-	// Manual bounds tighten to the core's legal PC range so a PC's rolled scores can finalize.
-	const scoreMin = method === 'pointbuy' || isPc ? 8 : 1;
-	const scoreMax = method === 'pointbuy' || isPc ? 15 : 30;
+	// Point buy is 8–15; manual scores are the DM's witnessed values, anything the core accepts.
+	const scoreMin = method === 'pointbuy' ? 8 : 1;
+	const scoreMax = method === 'pointbuy' ? 15 : 30;
 	const setScore = (k: AbilityKey, v: number) =>
 		setScores((s) => ({ ...s, [k]: clamp(v, scoreMin, scoreMax) }));
 	const raiseBlocked = (k: AbilityKey) => {
@@ -301,6 +336,10 @@ export function CharBuilder({
 		setGrad,
 		race,
 		setRace,
+		ancestryOn,
+		ancestryAbilities,
+		setAncestryAbility,
+		ancestryBonus,
 		ownerId,
 		setOwner,
 		setCls,
@@ -331,6 +370,7 @@ export function CharBuilder({
 		scoreMax,
 		setScore,
 		raiseBlocked,
+		baseScores,
 		effScores,
 		abilityValidation,
 		poolIncomplete,
@@ -352,7 +392,15 @@ export function CharBuilder({
 		subLine,
 		error,
 	};
-	const createContext = { runtime, dmActorId, coreAbilities, w, setError };
+	const createContext = {
+		runtime,
+		dmActorId,
+		coreAbilities,
+		baseAbilities,
+		abilityScorePool,
+		w,
+		setError,
+	};
 
 	async function create() {
 		setError(null);

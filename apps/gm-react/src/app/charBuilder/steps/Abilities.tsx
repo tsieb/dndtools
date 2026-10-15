@@ -3,15 +3,15 @@
  * core rule surfaced.
  *
  * Split out of the former single-file `app/CharBuilder.tsx` (RC-STB-2.4). RC-CHR-5.2 added the roll
- * method, the class-priority suggestion and slot swapping (`../scores`). The methods offered come
- * from the wizard, not the table: a guided PC has no roll, because the core's CHAR-002 flow refuses
- * scores the point-buy budget does not cover (DEBT-2026-006).
+ * method, the class-priority suggestion and slot swapping (`../scores`). RC-ENG-8.8 opened every
+ * method to a PC (the core holds a non-point-buy PC to the DM-witnessed pool) and shows the ancestry
+ * bonus on each score — the bonus finalize adds, after the point-buy check.
  */
 import { Button, IconButton, Select, Toaster } from '../../../ds';
 import type { DSChangeEvent } from '../../../ds';
 import { Seg, T, eb, srOnly } from '../../screen-kit';
 import { BUILDER, modOf, type ScoreMethod } from '../data';
-import { slotHolder } from '../scores';
+import { ancestryChoice, slotHolder } from '../scores';
 import type { Wizard } from '../wizard';
 import { useI18n } from '../../../i18n';
 
@@ -19,8 +19,12 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 	const { t } = useI18n();
 	const {
 		isPhone,
-		isPc,
 		clsObj,
+		raceObj,
+		ancestryOn,
+		ancestryAbilities,
+		setAncestryAbility,
+		ancestryBonus,
 		method,
 		setMethod,
 		methodChoices,
@@ -41,6 +45,8 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 		poolIncomplete,
 		setAc,
 	} = w;
+	const choice = ancestryOn ? ancestryChoice(raceObj.id) : null;
+	const signed = (n: number) => (n >= 0 ? `+${n}` : String(n));
 	const incompleteMessage =
 		method === 'roll'
 			? t(rolls ? 'charBuilder.rollIncomplete' : 'charBuilder.rollFirst')
@@ -259,6 +265,24 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 								</div>
 							</>
 						)}
+						{ancestryBonus[k] !== 0 && (
+							<span style={{ font: `var(--text-xs) ${T.mono}`, color: T.acc }}>
+								<span aria-hidden="true">
+									{t('charBuilder.scoreWithBonus', {
+										bonus: signed(ancestryBonus[k]),
+										score: effScores[k],
+									})}
+								</span>
+								<span style={srOnly}>
+									{t('charBuilder.scoreWithBonusSr', {
+										ability: k,
+										score: effScores[k],
+										bonus: signed(ancestryBonus[k]),
+										ancestry: raceObj.name,
+									})}
+								</span>
+							</span>
+						)}
 						<span
 							style={{
 								font: `var(--text-xs) ${T.mono}`,
@@ -291,11 +315,43 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 						))}
 				</ul>
 			)}
-			{/* Point buy's own method note already states the rule; every other PC method needs it said,
-			    including WHY there is no roll to pick here (the core would refuse it at finalize). */}
-			{isPc && method !== 'pointbuy' && (
-				<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
-					{t('charBuilder.pcUsesPointBuy')}
+			{/* The ancestry bonus the Identity tile named, applied on top of whichever method produced
+			    the scores above (the core adds the same bonus at finalize, after the point-buy check). */}
+			{ancestryOn && (
+				<div
+					style={{
+						display: 'flex',
+						alignItems: 'center',
+						gap: 'var(--space-2)',
+						flexWrap: 'wrap',
+						font: `var(--text-xs) ${T.sans}`,
+						color: T.ter,
+					}}
+				>
+					<span>
+						{t('charBuilder.ancestryBonusNote', { ancestry: raceObj.name, bonus: raceObj.sub })}
+					</span>
+					{choice && (
+						<>
+							<span>{t('charBuilder.ancestryPicks', { amount: choice.amount })}</span>
+							{ancestryAbilities.map((k, n) => (
+								<Select
+									key={n}
+									value={k}
+									onChange={(e: DSChangeEvent) =>
+										setAncestryAbility(n, e.target.value as (typeof BUILDER.abilityKeys)[number])
+									}
+									options={BUILDER.abilityKeys
+										.filter((a) => !choice.excluded.includes(a))
+										.map((a) => ({ value: a, label: a }))}
+									aria-label={t('charBuilder.ancestryPickLabel', {
+										ancestry: raceObj.name,
+										n: n + 1,
+									})}
+								/>
+							))}
+						</>
+					)}
 				</div>
 			)}
 			<div

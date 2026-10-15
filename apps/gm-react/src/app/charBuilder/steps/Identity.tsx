@@ -26,6 +26,7 @@ export function IdentityStep({ w }: { w: Wizard }) {
 		setAlign,
 		race,
 		setRace,
+		ancestryOn,
 		grad,
 		setGrad,
 		ownerId,
@@ -125,7 +126,7 @@ export function IdentityStep({ w }: { w: Wizard }) {
 							on={race === r.id}
 							onClick={() => setRace(r.id)}
 							title={r.name}
-							sub={r.sub}
+							sub={ancestryOn ? r.sub : undefined}
 							compact
 						/>
 					))}

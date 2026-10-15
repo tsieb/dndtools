@@ -4,8 +4,35 @@
  * Split out of the former single-file `app/CharBuilder.tsx` (RC-STB-2.4) — a pure move, no
  * behaviour change.
  */
-import { DRAFT_BACKGROUND_OPTIONS, DRAFT_CLASS_OPTIONS, type CommandResult } from '@dndtools/core';
+import {
+	ABILITY_IDS,
+	DRAFT_BACKGROUND_OPTIONS,
+	DRAFT_CLASS_OPTIONS,
+	getDraftAncestry,
+	type CommandResult,
+} from '@dndtools/core';
 import type { MessageKey } from '../../i18n';
+
+/**
+ * RC-ENG-8.8 — an ancestry's bonus as the tile states it ("+2 CON", "+1 to all abilities"), read off
+ * the core's ancestry table — the same table `finalize-draft` adds the bonus from, so the label can
+ * no longer promise a bonus nothing applies.
+ */
+export function ancestrySummary(ancestryId: string): string {
+	const ancestry = getDraftAncestry(ancestryId);
+	if (!ancestry) return '';
+	const fixed = ABILITY_IDS.map((id) => [id, ancestry.bonuses[id] ?? 0] as const).filter(
+		([, bonus]) => bonus !== 0,
+	);
+	if (fixed.length === ABILITY_IDS.length && new Set(fixed.map(([, b]) => b)).size === 1) {
+		return `+${fixed[0]![1]} to all abilities`;
+	}
+	const parts = [...fixed]
+		.sort((a, b) => b[1] - a[1])
+		.map(([id, bonus]) => `+${bonus} ${id.toUpperCase()}`);
+	if (ancestry.choice) parts.push(`+${ancestry.choice.amount} ×${ancestry.choice.count}`);
+	return parts.join(', ');
+}
 
 // ── Builder rules kit — inlined from the design prototype's `campaign-extras.js` (DNDX.builder).
 // Static 5e reference data (not campaign mock): races, classes, backgrounds, score methods, and the
@@ -50,36 +77,51 @@ export const BUILDER: {
 		{
 			id: 'human',
 			name: 'Human',
-			sub: '+1 to all abilities',
+			sub: ancestrySummary('human'),
 			traits: 'Versatile, extra skill & feat (variant).',
 		},
 		{
 			id: 'dwarf',
 			name: 'Dwarf',
-			sub: '+2 CON',
+			sub: ancestrySummary('dwarf'),
 			traits: 'Darkvision, poison resilience, stonecunning.',
 		},
-		{ id: 'elf', name: 'Elf', sub: '+2 DEX', traits: 'Darkvision, fey ancestry, trance.' },
+		{
+			id: 'elf',
+			name: 'Elf',
+			sub: ancestrySummary('elf'),
+			traits: 'Darkvision, fey ancestry, trance.',
+		},
 		{
 			id: 'half-elf',
 			name: 'Half-elf',
-			sub: '+2 CHA, +1 ×2',
+			sub: ancestrySummary('half-elf'),
 			traits: 'Darkvision, fey ancestry, two skills.',
 		},
-		{ id: 'halfling', name: 'Halfling', sub: '+2 DEX', traits: 'Lucky, brave, nimble.' },
+		{
+			id: 'halfling',
+			name: 'Halfling',
+			sub: ancestrySummary('halfling'),
+			traits: 'Lucky, brave, nimble.',
+		},
 		{
 			id: 'tiefling',
 			name: 'Tiefling',
-			sub: '+2 CHA, +1 INT',
+			sub: ancestrySummary('tiefling'),
 			traits: 'Darkvision, hellish resistance, infernal legacy.',
 		},
 		{
 			id: 'dragonborn',
 			name: 'Dragonborn',
-			sub: '+2 STR, +1 CHA',
+			sub: ancestrySummary('dragonborn'),
 			traits: 'Breath weapon, damage resistance.',
 		},
-		{ id: 'gnome', name: 'Gnome', sub: '+2 INT', traits: 'Darkvision, gnome cunning.' },
+		{
+			id: 'gnome',
+			name: 'Gnome',
+			sub: ancestrySummary('gnome'),
+			traits: 'Darkvision, gnome cunning.',
+		},
 	],
 	classes: [
 		{
@@ -231,6 +273,14 @@ export const ALIGNMENTS = [
 // at finalize, so the PC path only offers these.
 export const CORE_PC_CLASSES = new Set(DRAFT_CLASS_OPTIONS.map((o) => o.value));
 export const CORE_PC_BACKGROUNDS = new Set(DRAFT_BACKGROUND_OPTIONS.map((o) => o.value));
+
+/** The core ability ids (`str`…) a class is proficient in for saving throws — `saves: 'STR, CON'`. */
+export function classSaveIds(cls: BuilderClass): string[] {
+	return cls.saves
+		.split(',')
+		.map((save) => save.trim().toLowerCase())
+		.filter((save) => (ABILITY_IDS as readonly string[]).includes(save));
+}
 
 /** The character "portrait tone" gradient — single source for the builder's preview swatch and the
  *  roster's CharCard header (Characters.tsx imports this instead of duplicating the raw hexes). */

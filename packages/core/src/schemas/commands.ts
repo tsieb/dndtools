@@ -1716,12 +1716,16 @@ export const quickCreateCharacterInputSchema = z
 	})
 	.strict();
 
-// CHAR-013 — the DM creates a PC draft assigned to exactly one owner.
+// CHAR-013 — the DM creates a PC draft assigned to exactly one owner. RC-ENG-8.8 — optionally with the
+// ability scores the DM witnessed (a standard array, a roll at the table): the draft's attributes step
+// is then a permutation of this pool instead of point buy. The handler checks its length against the
+// active package's attributes.
 export const createCharacterDraftInputSchema = z
 	.object({
 		ownerActorId: idSchema,
 		name: z.string().default(''),
 		visibility: characterVisibilitySchema.default('dm-only'),
+		abilityScorePool: z.array(z.number().int().min(1).max(30)).min(1).max(24).optional(),
 	})
 	.strict();
 

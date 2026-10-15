@@ -16,6 +16,10 @@ import { DND5E_SYSTEM_PACKAGE } from '../systems';
  * CHAR epics (leveling, inventory) extend the flow by adding steps and rules here without reshaping
  * the draft document.
  *
+ * RC-ENG-8.8 — two rules the builder already promised now hold: an ancestry's ability bonus is added
+ * at finalize (after point buy, so a 15 can become a 17), and a DM-witnessed score POOL (a standard
+ * array or a roll at the table) replaces the point-buy budget for the draft it was created with.
+ *
  * RC-SYS-2.1 — the ATTRIBUTES step is no longer six hard-coded abilities: it is BUILT from the active
  * `SystemPackage`'s `attributes[]`. A package that declares none (the built-in Generic package) has no
  * attributes step at all, so a Generic draft is complete without ever assigning a score. The step id
@@ -63,6 +67,100 @@ export const DRAFT_BACKGROUND_OPTIONS: readonly DraftStepOption[] = Object.freez
 	{ value: 'folk-hero', label: 'Folk Hero' },
 	{ value: 'sage', label: 'Sage' },
 ]);
+
+/**
+ * RC-ENG-8.8 — the ancestries the guided flow knows, with the ability bonuses each grants (the 5e
+ * SRD racial increases). Kept as data so the builder's "+2 CON" label and the bonus finalize applies
+ * come from ONE table. `choice` is a free pick: `count` DIFFERENT abilities, none of `excluded`, each
+ * raised by `amount` (the half-elf's "+1 to two other abilities").
+ */
+export interface DraftAncestryOption extends DraftStepOption {
+	bonuses: Readonly<Partial<Record<AbilityId, number>>>;
+	choice?: { count: number; amount: number; excluded: readonly AbilityId[] };
+}
+
+export const DRAFT_ANCESTRY_OPTIONS: readonly DraftAncestryOption[] = Object.freeze([
+	{
+		value: 'human',
+		label: 'Human',
+		bonuses: { str: 1, dex: 1, con: 1, int: 1, wis: 1, cha: 1 },
+	},
+	{ value: 'dwarf', label: 'Dwarf', bonuses: { con: 2 } },
+	{ value: 'elf', label: 'Elf', bonuses: { dex: 2 } },
+	{
+		value: 'half-elf',
+		label: 'Half-elf',
+		bonuses: { cha: 2 },
+		choice: { count: 2, amount: 1, excluded: ['cha'] },
+	},
+	{ value: 'halfling', label: 'Halfling', bonuses: { dex: 2 } },
+	{ value: 'tiefling', label: 'Tiefling', bonuses: { cha: 2, int: 1 } },
+	{ value: 'dragonborn', label: 'Dragonborn', bonuses: { str: 2, cha: 1 } },
+	{ value: 'gnome', label: 'Gnome', bonuses: { int: 2 } },
+]);
+
+/** The highest score an ancestry bonus can raise an ability to (the schema's 1–30 range). */
+export const ABILITY_SCORE_CEILING = 30 as const;
+
+export function getDraftAncestry(ancestryId: unknown): DraftAncestryOption | undefined {
+	return DRAFT_ANCESTRY_OPTIONS.find((option) => option.value === ancestryId);
+}
+
+const isAbilityId = (value: unknown): value is AbilityId =>
+	typeof value === 'string' && (ABILITY_IDS as readonly string[]).includes(value);
+
+/**
+ * The bonus an ancestry grants each ability (RC-ENG-8.8), every ability present (0 when none). The
+ * free picks count only when they are legal — distinct, not excluded, at most `count` — so an
+ * illegal pick never adds anything; {@link validateDraftStep} reports it instead. An unknown or
+ * absent ancestry grants nothing. Pure.
+ */
+export function ancestryBonuses(
+	ancestryId: unknown,
+	picks: unknown = [],
+): Record<AbilityId, number> {
+	const out = Object.fromEntries(ABILITY_IDS.map((id) => [id, 0])) as Record<AbilityId, number>;
+	const ancestry = getDraftAncestry(ancestryId);
+	if (!ancestry) return out;
+	for (const id of ABILITY_IDS) out[id] += ancestry.bonuses[id] ?? 0;
+	if (ancestry.choice && Array.isArray(picks)) {
+		const legal = [...new Set(picks.filter(isAbilityId))].filter(
+			(id) => !ancestry.choice!.excluded.includes(id),
+		);
+		for (const id of legal.slice(0, ancestry.choice.count)) out[id] += ancestry.choice.amount;
+	}
+	return out;
+}
+
+/**
+ * Scores with the ancestry bonus added, capped at {@link ABILITY_SCORE_CEILING}. Abilities without a
+ * score stay without one — a bonus never invents a score. Pure.
+ */
+export function applyAncestryBonuses(
+	scores: Readonly<Partial<Record<AbilityId, number>>>,
+	ancestryId: unknown,
+	picks: unknown = [],
+): Partial<Record<AbilityId, number>> {
+	const bonuses = ancestryBonuses(ancestryId, picks);
+	const out: Partial<Record<AbilityId, number>> = {};
+	for (const id of ABILITY_IDS) {
+		const score = scores[id];
+		if (typeof score === 'number' && Number.isFinite(score)) {
+			out[id] = Math.min(ABILITY_SCORE_CEILING, score + bonuses[id]);
+		}
+	}
+	return out;
+}
+
+/**
+ * Whether ancestry bonuses mean anything under this package: its attributes must be the six 5e
+ * abilities (by alias). A system with other attributes has no "+2 CON" to apply, so it gets no
+ * ancestry field and finalize adds nothing.
+ */
+export function ancestryApplies(pkg: SystemPackage): boolean {
+	const fieldIds = new Set(pkg.attributes.map(draftAttributeFieldId));
+	return ABILITY_IDS.every((id) => fieldIds.has(id));
+}
 
 /**
  * The six legacy ability field ids in canonical order — the ids a 5e attributes step still saves
@@ -155,6 +253,19 @@ export function draftStepsForPackage(pkg: SystemPackage): DraftStepDefinition[] 
 					required: true,
 					options: [...DRAFT_BACKGROUND_OPTIONS],
 				},
+				// RC-ENG-8.8 — optional, so a draft saved before ancestries existed stays valid. Its bonus
+				// is added at finalize, AFTER the abilities step's point-buy check.
+				...(ancestryApplies(pkg)
+					? [
+							{
+								id: 'ancestry',
+								label: 'Ancestry',
+								kind: 'choice' as const,
+								required: false,
+								options: DRAFT_ANCESTRY_OPTIONS.map(({ value, label }) => ({ value, label })),
+							},
+						]
+					: []),
 			],
 		},
 		...(attributes ? [attributes] : []),
@@ -217,6 +328,32 @@ function asText(value: unknown): string {
 	return typeof value === 'string' ? value : '';
 }
 
+/**
+ * RC-ENG-8.8 — the draft-level facts a step is validated against, beyond its own values. Read off the
+ * persisted {@link CharacterDraft} (see {@link draftValidationRules}).
+ */
+export interface DraftValidationRules {
+	/**
+	 * The ability scores the DM witnessed (a standard array, a roll at the table). When present the
+	 * attributes step is valid when its scores are a PERMUTATION of this pool, and the point-buy bounds
+	 * and budget do not apply; when absent the scores are point buy.
+	 */
+	abilityScorePool?: readonly number[] | null;
+}
+
+/** The validation rules a persisted draft carries. Pure. */
+export function draftValidationRules(draft: CharacterDraft): DraftValidationRules {
+	return draft.abilityScorePool ? { abilityScorePool: draft.abilityScorePool } : {};
+}
+
+/** Whether `scores` is exactly `pool` in some order (same values, same multiplicity). Pure. */
+function isPermutationOf(scores: readonly number[], pool: readonly number[]): boolean {
+	if (scores.length !== pool.length) return false;
+	const a = [...scores].sort((x, y) => x - y);
+	const b = [...pool].sort((x, y) => x - y);
+	return a.every((value, index) => value === b[index]);
+}
+
 /** The point-buy cost of one score, or `null` when the score is out of the legal range. */
 export function pointBuyCost(score: number): number | null {
 	return POINT_BUY_COST[score] ?? null;
@@ -231,6 +368,7 @@ export function validateDraftStep(
 	stepId: string,
 	values: Record<string, unknown>,
 	pkg: SystemPackage = DND5E_SYSTEM_PACKAGE,
+	rules: DraftValidationRules = {},
 ): DraftStepValidation {
 	const step = getDraftStep(stepId, pkg);
 	if (!step) {
@@ -243,7 +381,9 @@ export function validateDraftStep(
 	const issues: DraftValidationIssue[] = [];
 	// The point-buy bounds/budget are a rule about SCORES; a system whose attributes derive nothing
 	// still declares the fields but is not scored that way (RC-SYS-2.1).
-	const budgeted = step.id === 'abilities' && usesPointBuy(pkg.attributes);
+	// A DM-witnessed pool replaces point buy outright (RC-ENG-8.8 / DEBT-2026-006).
+	const pool = step.id === 'abilities' ? (rules.abilityScorePool ?? null) : null;
+	const budgeted = step.id === 'abilities' && pool === null && usesPointBuy(pkg.attributes);
 
 	for (const field of step.fields) {
 		const raw = values[field.id];
@@ -320,6 +460,53 @@ export function validateDraftStep(
 		}
 	}
 
+	// Step-level rule: the scores are the witnessed pool, rearranged. Checked once every score is
+	// present, so a missing field reports as itself rather than as a pool mismatch.
+	if (pool !== null && issues.length === 0) {
+		const scores = step.fields.map((field) => asNumber(values[field.id]) ?? Number.NaN);
+		if (!isPermutationOf(scores, pool)) {
+			issues.push({
+				stepId: step.id,
+				fieldId: null,
+				message: `Assign each of the witnessed scores (${pool.join(', ')}) exactly once.`,
+			});
+		}
+	}
+
+	// Step-level rule: an ancestry's free picks (the half-elf's two +1s) must be legal.
+	if (step.id === 'identity' && ancestryApplies(pkg)) {
+		const ancestry = getDraftAncestry(values['ancestry']);
+		const raw = values['ancestryAbilities'];
+		const picks = Array.isArray(raw) ? raw : raw === undefined || raw === null ? [] : null;
+		if (ancestry?.choice) {
+			const { count, excluded } = ancestry.choice;
+			const legal =
+				picks !== null &&
+				picks.length === count &&
+				picks.every((pick) => isAbilityId(pick) && !excluded.includes(pick)) &&
+				new Set(picks).size === count;
+			if (!legal) {
+				issues.push({
+					stepId: step.id,
+					fieldId: 'ancestryAbilities',
+					message: `${ancestry.label} raises ${count} different abilities${
+						excluded.length > 0
+							? ` other than ${excluded.map((id) => id.toUpperCase()).join(', ')}`
+							: ''
+					}. Choose ${count}.`,
+				});
+			}
+		} else if (picks === null || picks.length > 0) {
+			issues.push({
+				stepId: step.id,
+				fieldId: 'ancestryAbilities',
+				message: ancestry
+					? `${ancestry.label} has no ability bonus to choose.`
+					: 'Choose an ancestry before choosing its ability bonuses.',
+			});
+		}
+	}
+
 	return { stepId: step.id, valid: issues.length === 0, issues };
 }
 
@@ -353,8 +540,9 @@ export function computeDraftCompleteness(
 	);
 	const definitions = draftStepsForPackage(pkg);
 
+	const rules = draftValidationRules(draft);
 	const steps = definitions.map((definition) =>
-		validateDraftStep(definition.id, valuesByStep[definition.id] ?? {}, pkg),
+		validateDraftStep(definition.id, valuesByStep[definition.id] ?? {}, pkg, rules),
 	);
 	const issues = steps.flatMap((step) => step.issues);
 	const readyToFinalize = steps.every((step) => step.valid);

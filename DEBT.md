@@ -30,29 +30,6 @@ a `TODO(APP)` that survives a quarter gets an entry here before merge.
   Tool rails, map/POI/combatant selection, the widget definition disclosure, favorites and
   multi-select declarations are not single-choice segmented groups and are not part of this debt.
 
-### DEBT-2026-006 — a guided PC cannot be built from rolled ability scores
-
-- Severity: medium · Owner: core · Resolution window: 2026 Q4
-- Impact: rolling for stats is one of the two ways 5e tables make a PC, and the app can only offer it
-  to NPCs/monsters/sidekicks. `validateDraftStep('abilities', …)` enforces the CHAR-002 prototype
-  point-buy rule — each score 8–15, 27 points — for EVERY PC draft, and `finalize-draft` rejects on
-  the same report, so an ordinary 4d6-drop-lowest spread (a 16, or a 7) can never be finalized. There
-  is no way out after the fact either: `character.edit-field` only reaches `name`, `combat.*` and
-  `data.*`, and `character.quick-create`'s `kind` enum excludes `pc` (CHAR-001). RC-CHR-5.2 therefore
-  offers Roll for the kinds whose scores the core takes as given and says why on the PC path, rather
-  than offering a method finalize would refuse.
-- Suggested shape: let the DM fix the draft's score SOURCE when they create it — an optional
-  `abilityScorePool` on `character.create-draft` (DM-only, so the owning player can only rearrange the
-  dice the DM witnessed, never invent scores), recorded on `CharacterDraft`, with the abilities step
-  valid when its scores are a permutation of that pool and the point-buy budget not applied. The
-  standard array is the same mechanism with a fixed pool. Prototyped and green locally (core suite
-  4785 passed, plus a PC-rolled-creation e2e case) but reverted: the three core files it needs sit
-  outside RC-CHR-5.2's claim, so the change needs its own core story.
-- Targets: `packages/core/src/state/character-draft-flow.ts`,
-  `packages/core/src/state/character-state.ts`, `packages/core/src/commands/character.ts`,
-  `packages/core/src/schemas/commands.ts`, `apps/gm-react/src/app/charBuilder/`.
-- Status: open — the builder side is shipped and honest; the core rule is untouched.
-
 ### DEBT-2026-008 — parchment's accent text on the accent tint is 4.43:1
 
 - Severity: medium · Owner: design system · Resolution window: 2026 Q4
@@ -105,3 +82,9 @@ a `TODO(APP)` that survives a quarter gets an entry here before merge.
 - DEBT-2026-003 — port the Svelte e2e corpus: resolved; the React suite is now 70+ specs on both
   profiles.
 - DEBT-2026-005 — preview ("view as") edges: resolved by RC-CHR-4.3.
+- DEBT-2026-006 — a guided PC cannot be built from rolled ability scores: resolved by RC-ENG-8.8.
+  `character.create-draft` takes an optional DM-only `abilityScorePool` (one score per attribute of
+  the active package), recorded on `CharacterDraft`; the abilities step is then valid as a
+  permutation of the pool and point buy does not apply. The builder passes the standard array, a
+  roll or manual scores as the pool and offers Roll to PCs. The same story applies the ancestry bonus
+  the builder names (`DRAFT_ANCESTRY_OPTIONS`, added at finalize after the point-buy check).

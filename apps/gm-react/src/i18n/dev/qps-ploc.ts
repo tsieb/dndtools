@@ -5511,8 +5511,12 @@ export default {
 		'[Áššíğñ áľľ šíẋ ŕóľľéď šçóŕéš ƀéƒóŕé çóñţíñúíñğ (úñáššíğñéď áƀíľíţíéš ŵóúľď ƀé šáṽéď áš 10).~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~]',
 	'charBuilder.standardIncomplete':
 		'[Áššíğñ áľľ šíẋ šţáñďáŕď-áŕŕáý ṽáľúéš ƀéƒóŕé çóñţíñúíñğ (úñáššíğñéď áƀíľíţíéš ŵóúľď ƀé šáṽéď áš 10).~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ]',
-	'charBuilder.pcUsesPointBuy':
-		'[Á ğúíďéď ƤÇ íš çĥéçķéď áğáíñšţ ƥóíñţ ƀúý — éáçĥ šçóŕé 8–15, 27 ƥóíñţš ţóţáľ — šó ŕóľľéď šçóŕéš çáñ’ţ ƀé ƒíñáľížéď. Ŕóľľ íš áṽáíľáƀľé ƒóŕ ÑƤÇš, ḿóñšţéŕš áñď šíďéķíçķš.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~]',
+	'charBuilder.ancestryBonusNote':
+		'[{ancestry} {bonus} — áďďéď óñ ţóƥ óƒ ţĥéšé šçóŕéš.~~~~ ~~~~ ~~~]',
+	'charBuilder.ancestryPicks': '[+~{amount} ţó:~~]',
+	'charBuilder.ancestryPickLabel': '[{ancestry} ƀóñúš ~~~{n}]',
+	'charBuilder.scoreWithBonus': '[{bonus} → ~~{score}]',
+	'charBuilder.scoreWithBonusSr': '[{ability} {score} ŵíţĥ ţĥé ~~~~{ancestry} {bonus}]',
 	'charBuilder.derivedSuggestions': '[Ďéŕíṽéď šúğğéšţíóñš~~~~ ~~~]',
 	'charBuilder.initiative': '[Íñíţíáţíṽé ~~~~ {value}]',
 	'charBuilder.unarmoredAc': '[Úñáŕḿóŕéď ÁÇ ~~~~ ~{value}]',
@@ -5532,6 +5536,8 @@ export default {
 	'charBuilder.attackDamage': '[Áţţáçķ ďáḿáğé~~~~ ~]',
 	'charBuilder.damageType': '[Ďáḿáğé ţýƥé~~~~ ]',
 	'charBuilder.damageTypePlaceholder': '[Šľášĥíñğ~~~~]',
+	'charBuilder.reviewHitDice': '[Ĥíţ ďíçé~~~~]',
+	'charBuilder.reviewSaves': '[Šáṽíñğ ţĥŕóŵš~~~~ ~]',
 	'charBuilder.attacksCount': '[Áţţáçķš (~~~~{count})~]',
 	'charBuilder.noAttacks': '[Ñó áţţáçķš áďďéď.~~~~ ~~]',
 	'charBuilder.bio': '[Ɓíó~~]',

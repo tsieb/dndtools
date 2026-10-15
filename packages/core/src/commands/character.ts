@@ -33,8 +33,12 @@ import {
 	validateFieldEdit,
 } from '../state/character-collaboration';
 import {
+	ancestryApplies,
+	ancestryBonuses,
+	ABILITY_SCORE_CEILING,
 	computeDraftCompleteness,
 	draftAttributeFieldId,
+	draftValidationRules,
 	validateDraftStep,
 } from '../state/character-draft-flow';
 import { abilityScoreKeyFor, normalizeCharacterAttributes } from '../state/character-state';
@@ -229,6 +233,26 @@ export function handleCreateCharacterDraft(
 			{ code: 'invalid-payload', message: 'A character draft can only be owned by a player.' },
 			state,
 		);
+	}
+
+	// RC-ENG-8.8 — a witnessed pool must hold one score per attribute the active system declares, or
+	// no assignment of it could ever complete the attributes step.
+	const pool = parsed.data.abilityScorePool;
+	if (pool) {
+		const attributeCount = activeSystemPackageFor(state).attributes.length;
+		if (pool.length !== attributeCount) {
+			return reject(
+				{
+					code: 'invalid-payload',
+					message:
+						attributeCount === 0
+							? 'This system has no ability scores to assign from a pool.'
+							: `An ability score pool needs ${attributeCount} scores; this one has ${pool.length}.`,
+					issues: [{ path: 'abilityScorePool', message: 'Pool size does not match the system.' }],
+				},
+				state,
+			);
+		}
 	}
 
 	const now = env.clock();
@@ -449,7 +473,12 @@ export function handleUpdateCharacterDraftStep(
 	const nextCharacters = upsertDraft(characters, updated);
 
 	const pkg = activeSystemPackageFor(state);
-	const stepValidation = validateDraftStep(parsed.data.stepId, parsed.data.values, pkg);
+	const stepValidation = validateDraftStep(
+		parsed.data.stepId,
+		parsed.data.values,
+		pkg,
+		draftValidationRules(existing),
+	);
 	const completeness = computeDraftCompleteness(updated, pkg);
 
 	const draftOp = appendOperationDraft(env, state.sync, actor.id, {
@@ -575,13 +604,24 @@ export function handleFinalizeCharacterDraft(
 	// attributes: one that aliases a fixed ability field lands there (so a 5e PC finalizes into exactly
 	// the document it always did, six keys and no `attributes` map), anything else lands in the open
 	// package-keyed map. A package with no attributes finalizes a character with neither.
+	//
+	// RC-ENG-8.8 — the identity step's ancestry bonus is added HERE, after the abilities step passed its
+	// point-buy (or pool) check, so a point-buy 15 with "+2 CON" finalizes as 17. Only under a package
+	// whose attributes are the six 5e abilities; anything else gets no bonus.
+	const bonuses = ancestryApplies(pkg)
+		? ancestryBonuses(identity['ancestry'], identity['ancestryAbilities'])
+		: null;
 	const finalizedAbilityScores: Character['abilityScores'] = {};
 	const finalizedOpenAttributes: Record<string, number> = {};
 	for (const attribute of pkg.attributes) {
 		const score = numberOrUndefined(abilities[draftAttributeFieldId(attribute)]);
 		const alias = abilityScoreKeyFor(attribute.key);
-		if (alias !== null) finalizedAbilityScores[alias] = score;
-		else if (score !== undefined) finalizedOpenAttributes[attribute.key] = score;
+		if (alias !== null) {
+			finalizedAbilityScores[alias] =
+				score === undefined || !bonuses
+					? score
+					: Math.min(ABILITY_SCORE_CEILING, score + bonuses[alias]);
+		} else if (score !== undefined) finalizedOpenAttributes[attribute.key] = score;
 	}
 	const finalizedAttributes = normalizeCharacterAttributes(finalizedOpenAttributes);
 
@@ -606,6 +646,9 @@ export function handleFinalizeCharacterDraft(
 		data: {
 			background: identity['background'] ?? null,
 			class: classStep['class'] ?? null,
+			...(bonuses && typeof identity['ancestry'] === 'string' && identity['ancestry']
+				? { ancestry: identity['ancestry'] }
+				: {}),
 			...(kitSpeed !== undefined ? { speed: kitSpeed } : {}),
 		},
 		dmOnlyFields: [],

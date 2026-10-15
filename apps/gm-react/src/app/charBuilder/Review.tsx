@@ -2,11 +2,14 @@
  * CharBuilder — Step 6 — review: the finished character as it will be created, and any create error.
  *
  * Split out of the former single-file `app/CharBuilder.tsx` (RC-STB-2.4) — a pure move, no
- * behaviour change.
+ * behaviour change. RC-ENG-8.8 — the card states what the sheet will hold: the scores WITH the
+ * ancestry bonus, initiative, the class's hit dice and its proficient saving throws.
  */
+import { derivedProficiencyBonus } from '@dndtools/core';
 import { AbilityScore, Avatar, Badge, Icon, VisibilityChip } from '../../ds';
 import { T, eb, mono } from '../screen-kit';
-import { BUILDER, KIND_LABEL, KIND_TONE, modOf } from './data';
+import { BUILDER, KIND_LABEL, KIND_TONE, classSaveIds, modOf } from './data';
+import type { AbilityKey } from './data';
 import type { Wizard } from './wizard';
 import { useI18n } from '../../i18n';
 
@@ -30,7 +33,18 @@ export function ReviewStep({ w }: { w: Wizard }) {
 		attacks,
 		bio,
 		error,
+		clsObj,
+		level,
 	} = w;
+	// The sheet derives the proficiency bonus from the level the same way (5e progression).
+	const profBonus = derivedProficiencyBonus(level);
+	const saves = classSaveIds(clsObj)
+		.map((id) => {
+			const k = id.toUpperCase() as AbilityKey;
+			const total = Math.floor((effScores[k] - 10) / 2) + profBonus;
+			return `${k} ${total >= 0 ? '+' : ''}${total}`;
+		})
+		.join(', ');
 	return (
 		<div
 			style={{
@@ -145,6 +159,28 @@ export function ReviewStep({ w }: { w: Wizard }) {
 						</div>
 					))}
 				</div>
+				<dl
+					style={{
+						display: 'flex',
+						flexWrap: 'wrap',
+						gap: 'var(--space-1) var(--space-4)',
+						margin: 'var(--space-0)',
+						font: `var(--text-xs) ${T.mono}`,
+						color: T.sub,
+					}}
+				>
+					<div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+						<dt style={eb}>{t('charBuilder.reviewHitDice')}</dt>
+						<dd style={{ margin: 'var(--space-0)' }}>
+							{level}
+							{clsObj.hd}
+						</dd>
+					</div>
+					<div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+						<dt style={eb}>{t('charBuilder.reviewSaves')}</dt>
+						<dd style={{ margin: 'var(--space-0)' }}>{saves}</dd>
+					</div>
+				</dl>
 				<div style={{ borderTop: `1px solid ${T.bd}`, paddingTop: 'var(--space-2)' }}>
 					<div style={{ ...eb, marginBottom: 'var(--space-1-5)' }}>
 						{t('charBuilder.attacksCount', {

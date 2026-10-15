@@ -5320,8 +5320,11 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Asigna las seis puntuaciones tiradas antes de continuar (las características sin asignar se guardarían como 10).',
 	'charBuilder.standardIncomplete':
 		'Asigna los seis valores de la matriz estándar antes de continuar (las características sin asignar se guardarían como 10).',
-	'charBuilder.pcUsesPointBuy':
-		'Un PJ guiado se valida con la compra por puntos — cada puntuación de 8 a 15, 27 puntos en total — así que las puntuaciones tiradas no se pueden finalizar. Tirar está disponible para PNJ, monstruos y secuaces.',
+	'charBuilder.ancestryBonusNote': '{ancestry} {bonus}: se suma a estas puntuaciones.',
+	'charBuilder.ancestryPicks': '+{amount} a:',
+	'charBuilder.ancestryPickLabel': 'Bonificador {n} de {ancestry}',
+	'charBuilder.scoreWithBonus': '{bonus} → {score}',
+	'charBuilder.scoreWithBonusSr': '{ability} {score} con el {bonus} de {ancestry}',
 	'charBuilder.derivedSuggestions': 'Sugerencias derivadas',
 	'charBuilder.initiative': 'Iniciativa {value}',
 	'charBuilder.unarmoredAc': 'CA sin armadura {value}',
@@ -5342,6 +5345,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'charBuilder.attackDamage': 'Daño del ataque',
 	'charBuilder.damageType': 'Tipo de daño',
 	'charBuilder.damageTypePlaceholder': 'Cortante',
+	'charBuilder.reviewHitDice': 'Dados de golpe',
+	'charBuilder.reviewSaves': 'Tiradas de salvación',
 	'charBuilder.attacksCount': 'Ataques ({count})',
 	'charBuilder.noAttacks': 'No se han añadido ataques.',
 

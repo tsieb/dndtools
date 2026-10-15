@@ -3,7 +3,7 @@ import { gotoRoute, markOnboarded, seedFresh } from './_helpers';
 
 /**
  * RC-CHR-5.2 — character builder step polish: the ability-score methods (standard array dealt for
- * the class, point buy, a 4d6 roll for the kinds the core takes scores from as given), the class
+ * the class, point buy, a 4d6 roll — for every kind since RC-ENG-8.8), the class
  * preview of the active package's features, the step rail's navigation semantics, and the import
  * review's diff against a same-named roster character.
  */
@@ -87,7 +87,8 @@ test('ability scores: the standard array starts dealt for the class, and a 4d6 r
 		const value = Number(await assigned(wizard, ability).textContent());
 		expect(value).toBeGreaterThanOrEqual(3);
 		expect(value).toBeLessThanOrEqual(18);
-		rolled[ability.toLowerCase()] = value;
+		// The default ancestry is Human, whose +1 to every ability is added on top (RC-ENG-8.8).
+		rolled[ability.toLowerCase()] = value + 1;
 	}
 
 	for (let s = 0; s < 3; s += 1) await cont.click(); // kit, bio, review
@@ -97,7 +98,7 @@ test('ability scores: the standard array starts dealt for the class, and a 4d6 r
 		.toEqual(rolled);
 });
 
-test('a guided PC is offered only the score methods it can finalize, and creates with them', async ({
+test('a guided PC is offered every score method, and creates with its ancestry bonus', async ({
 	page,
 }) => {
 	const wizard = await openWizard(page);
@@ -107,14 +108,12 @@ test('a guided PC is offered only the score methods it can finalize, and creates
 	await cont.click(); // class & level
 	await cont.click(); // ability scores
 
-	// The core validates a PC against point buy and finalize REFUSES anything else, so a 4d6 roll is
-	// not offered on this path — offering it would assign six scores the wizard could never create.
+	// RC-ENG-8.8 — a non-point-buy PC is held to the DM-witnessed pool, so every method is offered.
 	const methods = wizard.getByRole('radiogroup', { name: 'Ability score method' });
-	await expect(methods.getByRole('radio', { name: 'Roll', exact: true })).toHaveCount(0);
-	for (const name of ['Standard array', 'Point buy', 'Manual']) {
+	for (const name of ['Standard array', 'Point buy', 'Roll', 'Manual']) {
 		await expect(methods.getByRole('radio', { name, exact: true })).toBeVisible();
 	}
-	await expect(wizard).toContainText('Roll is available for NPCs, monsters and sidekicks');
+	await expect(wizard).toContainText('Human +1 to all abilities — added on top of these scores.');
 
 	// Each method a PC IS offered reaches a live Continue with no outstanding core issue.
 	const assignedScores: Record<string, number> = {};
@@ -123,6 +122,9 @@ test('a guided PC is offered only the score methods it can finalize, and creates
 	}
 	expect(Object.values(assignedScores).sort((a, b) => b - a)).toEqual([15, 14, 13, 12, 10, 8]);
 	await expect(wizard).not.toContainText('must be between 8 and 15');
+	// Human: +1 everywhere, added at finalize after the core's array check.
+	for (const ability of Object.keys(assignedScores))
+		assignedScores[ability] = (assignedScores[ability] ?? 0) + 1;
 	await expect(cont).not.toHaveAttribute('aria-disabled', 'true');
 
 	for (let s = 0; s < 3; s += 1) await cont.click(); // kit, bio, review
@@ -134,7 +136,7 @@ test('a guided PC is offered only the score methods it can finalize, and creates
 		.toEqual(assignedScores);
 });
 
-test('switching from an NPC roll to a PC lands on a method the PC can finalize', async ({
+test('switching from an NPC roll to a PC keeps the roll, which the PC can finalize', async ({
 	page,
 }) => {
 	const wizard = await openWizard(page);
@@ -144,16 +146,23 @@ test('switching from an NPC roll to a PC lands on a method the PC can finalize',
 	await wizard.getByRole('radio', { name: 'Roll', exact: true }).click();
 	await wizard.getByRole('button', { name: 'Roll 4d6 × 6' }).click();
 
+	const dealt: string[] = [];
+	for (const ability of ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'])
+		dealt.push((await assigned(wizard, ability).textContent()) ?? '');
+
 	// Back to Identity (the footer's back button is labelled with the step it returns to) and switch
-	// to a PC: Roll is gone, so the step must not be left on a method that no longer exists — it falls
-	// back to the standard array, already dealt and complete.
+	// to a PC: since RC-ENG-8.8 a PC can finalize a roll (the dice become the draft's witnessed
+	// pool), so the roll and its assignment survive the switch and the step stays complete.
 	await wizard.getByRole('button', { name: 'Class & level', exact: true }).click();
 	await wizard.getByRole('button', { name: 'Identity', exact: true }).click();
 	await wizard.getByRole('button', { name: 'PC', exact: true }).click();
 	await cont.click(); // class & level
 	await cont.click(); // ability scores
-	await expect(wizard.getByRole('radio', { name: 'Standard array' })).toBeChecked();
-	await expect(assigned(wizard, 'STR')).toHaveText('15');
+	await expect(wizard.getByRole('radio', { name: 'Roll', exact: true })).toBeChecked();
+	const kept: string[] = [];
+	for (const ability of ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'])
+		kept.push((await assigned(wizard, ability).textContent()) ?? '');
+	expect(kept).toEqual(dealt);
 	await expect(cont).not.toHaveAttribute('aria-disabled', 'true');
 });
 

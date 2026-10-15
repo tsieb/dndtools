@@ -36,6 +36,13 @@ export interface Wizard {
 	setGrad: Dispatch<SetStateAction<number>>;
 	race: string;
 	setRace: Dispatch<SetStateAction<string>>;
+	/** Whether the active system has ancestry bonuses at all (its attributes are the 5e six). */
+	ancestryOn: boolean;
+	/** The ancestry's free +1 picks in effect (the half-elf's two), empty when it offers none. */
+	ancestryAbilities: AbilityKey[];
+	setAncestryAbility: (index: number, k: AbilityKey) => void;
+	/** Each ability's ancestry bonus, from the core table finalize adds it from (RC-ENG-8.8). */
+	ancestryBonus: Record<AbilityKey, number>;
 	/** The owner that will actually be used (falls back to the first player). */
 	ownerId: string;
 	setOwner: Dispatch<SetStateAction<string>>;
@@ -57,7 +64,7 @@ export interface Wizard {
 
 	method: ScoreMethod;
 	setMethod: Dispatch<SetStateAction<ScoreMethod>>;
-	/** The score methods this KIND can actually finalize — a guided PC has no roll (CHAR-002). */
+	/** The score methods offered (every kind can finalize every method since RC-ENG-8.8). */
 	methodChoices: readonly BuilderMethod[];
 	scores: Record<AbilityKey, number>;
 	/** The values the standard-array / roll methods assign from; null for point buy and manual. */
@@ -75,6 +82,9 @@ export interface Wizard {
 	scoreMax: number;
 	setScore: (k: AbilityKey, v: number) => void;
 	raiseBlocked: (k: AbilityKey) => boolean;
+	/** The scores the method produced, before the ancestry bonus. */
+	baseScores: Record<AbilityKey, number>;
+	/** The scores the character is created with: base + ancestry bonus. */
 	effScores: Record<AbilityKey, number>;
 	abilityValidation: ReturnType<typeof validateDraftStep> | null;
 	/** A pool method with an ability still unassigned (it would silently be saved as 10). */
