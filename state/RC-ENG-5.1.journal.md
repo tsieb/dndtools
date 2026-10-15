@@ -213,3 +213,23 @@ tests/unit/service-worker-security.test.ts` exited 0. Native original output ins
   no reply or scope amendment received. Do not treat the previous discovery anchors or this
   regression suite as per-PR reviews. No High waived and no task completion asserted.
 - No extra agent, push, promotion, additional loop, or dispatcher control-state edits.
+
+## Owner amendment follow-up — 7380afb4d
+
+- Starting HEAD `7380afb4d91dceb6764061bc30d5dfd3977e98aa`; working tree clean. Owner amendment
+  (2026-10-15) replaces per-PR `/security-review` runs with a per-area review record.
+- Reviewed all nine areas by hand at `7380afb4d` (injection, authz, secrets, data exposure,
+  sandbox escape, update/supply chain). Report rewritten around one section per area with paths,
+  last-touching commits, checklist results, findings, severities and dispositions.
+- New findings: S-01 Medium (sandbox frame self-navigation exfiltration, source/spec-based),
+  P-01 Medium (upgrade re-enables denied/disabled/never-enabled packages and keeps review-basis
+  approvals), U-01 Low (AppImage updates: TLS + unsigned sha512), W-01 Low (hosted CSP still allows
+  `worker-src blob:`), C-01 Info (formula function lookup reaches Object.prototype; arity refuses),
+  D-01 Info (private store separated by name only). None High; S-01/P-01/W-01 need owner follow-up
+  stories; fixes are outside this task's claim.
+- P-01 confirmed with a scratch core test, C-01 with a scratch evaluation; both files deleted,
+  nothing committed from them.
+- Regression at `7380afb4d`: app 5 files/84 tests, sw-security 1/14, core 9/200, cloud 2/79; all
+  exit 0 (17 files, 377 tests). Native output inspected; no Headroom tools used.
+- README §5 updated. Prettier check and `git diff --check` pass on the changed docs.
+- No push, promotion, extra agent, loop, or dispatcher control-state edit.

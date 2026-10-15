@@ -184,20 +184,19 @@ medium findings; a follow-up on 2026-07-07 added the join PIN and scoped `browse
 was retired from the tree on 2026-09-11 and remains in git history at
 `docs/security/cloud-security-audit-2026-07.md`.
 
-The [2026-10-14 whole-app v2 assessment](app-security-review-2026-10-14.md) is RC-ENG-5.1. Its
-one High (H-01) is fixed. A custom widget declared `sandbox: 'worker'` would have run as a blob
-worker in the app's own origin, with direct IndexedDB (including the player-private store) and
-CacheStorage access that bypassed the host bridge. The app's worker factory now refuses before any
-blob URL or `Worker` exists, and such widgets show the "disabled, preserved" placeholder until a
-storage-isolated runtime exists. The service worker bypasses cache reads and writes for `/wikis` and `/api` routes and requests
-with `Authorization` or `x-wiki-password`, evicts earlier copies when responses become
-`no-store`/`private`, and retires the previous cache policy on activation. This fixes the observed
-Medium disclosure of previously authorized wiki pages during credential-free offline reads;
-the earlier residual-Low assessment was incorrect. Unknown future authenticated routes still
-need explicit cache policy. Still open: update-signature evidence and mandatory per-PR
-`/security-review` reports. The supplied review of `911d3ea9c` withheld approval for the wiki
-exposure and missing reports; this follow-up fixes the exposure, while the report's evidence
-recovery section records the remaining task-owner handoff. This is not a release sign-off.
+The [2026-10-14 whole-app v2 assessment](app-security-review-2026-10-14.md) is RC-ENG-5.1. It
+carries a per-area review of all nine scoped areas at `7380afb4d` (sandbox host, host API, package
+review, system packages, player-private store, PWA cache, auto-update signature, Stripe webhook,
+Cloud-Enhanced), which the owner accepted in place of per-PR `/security-review` runs. No High is
+open. H-01 is fixed: a custom widget declared `sandbox: 'worker'` would have run as a blob worker in
+the app's own origin, with IndexedDB (including the player-private store) and CacheStorage outside
+the host bridge; the worker factory now refuses before any blob URL or `Worker` exists. M-01 is
+fixed: the service worker no longer caches or replays `/wikis` and `/api` responses or
+credential-bearing requests. Open Mediums with owner follow-ups: S-01, a sandboxed frame can
+navigate itself to send out what it is shown, whatever its `network` permission says; P-01,
+`widget.package.upgrade` re-enables packages that were denied or disabled and keeps earlier
+approvals for replaced code; V-01, no packaged-build evidence yet that a wrongly signed update is
+rejected. Lower findings and the regression runs are in the report. This is not a release sign-off.
 
 ## 6. Open by design
 
