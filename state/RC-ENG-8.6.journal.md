@@ -46,3 +46,33 @@ App typecheck and focused ESLint exited 0. Pinned session visual coverage is run
 
 Commit contains the four implementation files, the new regression, the necessary existing
 lifecycle fixture correction, and this journal. Central gates and independent review remain pending.
+
+## App-gate repair
+
+Read the original central app-gate output (attempt 5ea3b243-e6f2-4c55-aaa9-85247755f5f7),
+not a compressed summary. It reports five failures: the shared-module parity declaration omits
+three tableView state paths, and four baseline tests still expect the unprojected active scene
+(or "the scene") where the new header correctly says "nothing yet". The baseline goLive fixture
+selects a private demo scene, so it does not establish a table projection.
+Headroom tools remain unavailable. Repair necessarily includes the parity declaration and the
+Session baseline snapshot alongside this journal; no runtime behavior or gate assertions weakened.
+
+Declaring the raw tableView paths exposed additional parity failures: those private paths are not
+available through builder query sources. Repaired the implementation instead of adding parity debt:
+SessionConsole now reads getPlayerViewController, the existing actor-scoped public query, and declares
+player-view-controller in the session widget's queries. Removed tableView reads from useSessionScenes
+so combat consumers do not inherit an unrelated projection dependency. Snapshot update reviewed:
+only ten aria/DOM text expectations change from the unprojected scene to "nothing yet".
+
+Repair validation (original logs read before recording):
+
+- Focused parity + baseline suite: 65 tests passed, exit 0, without snapshot-update mode on the
+  verification run (`/tmp/rc-eng-8.6-app-repair-focused.log`).
+- Full `pnpm test:app`: 198 files / 2391 tests passed, exit 0, 111.60s
+  (`/tmp/rc-eng-8.6-app-repair-full.log`).
+- Both-profile default-start browser regression: 4 passed, exit 0, 44.0s
+  (`/tmp/rc-eng-8.6-app-repair-e2e.log`).
+- App typecheck and focused ESLint: exit 0. Prettier check with --ignore-unknown passes (Vitest
+  owns .snap serialization; a direct Prettier invocation without that flag has no .snap parser).
+  `git diff --check` clean. No screenshot baselines changed; the central pinned visual gate on
+  the preceding candidate passed, and this repair preserves the intended header text.

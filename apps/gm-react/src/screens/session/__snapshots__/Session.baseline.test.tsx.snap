@@ -12,7 +12,7 @@ exports[`Session baselines (RC-CAN-7.8) > a player's own device > desktop player
     - text: Live
   - radio:
     - text: Recap
-- text: the scene
+- text: nothing yet
 - text: Players see
 - heading "Combat" [level=2]
 - button "Build encounter (unavailable — DM only)"
@@ -57,7 +57,7 @@ exports[`Session baselines (RC-CAN-7.8) > a player's own device > desktop player
   <button role="radio" title="Ask your DM to change the session phase." type="button" tabindex="-1" disabled="">
     "Recap"
 "Players see"
-"the scene"
+"nothing yet"
 <section>
   <h2>
     "Combat"
@@ -150,7 +150,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Live > desktop live · ari
     - text: Recap
 - button "Call a rest"
 - button "End session"
-- text: The Sunken Crypt
+- text: nothing yet
 - text: Players see
 - heading "Combat" [level=2]
 - button "Build encounter"
@@ -264,7 +264,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Live > desktop live · dom
   <svg aria-hidden="true">
   "End session"
 "Players see"
-"The Sunken Crypt"
+"nothing yet"
 <section>
   <h2>
     "Combat"
@@ -2779,7 +2779,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
     - text: Recap
 - button "Call a rest"
 - button "End session"
-- text: The Sunken Crypt
+- text: nothing yet
 - text: Players see
 - heading "Combat" [level=2]
 - button "Add"
@@ -2905,7 +2905,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
   <svg aria-hidden="true">
   "End session"
 "Players see"
-"The Sunken Crypt"
+"nothing yet"
 <section>
   <h2>
     "Combat"
@@ -3290,7 +3290,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
     - text: Recap
 - button "Call a rest"
 - button "End session"
-- text: The Sunken Crypt
+- text: nothing yet
 - text: Players see
 - heading "Combat" [level=2]
 - button "Add"
@@ -3416,7 +3416,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
   <svg aria-hidden="true">
   "End session"
 "Players see"
-"The Sunken Crypt"
+"nothing yet"
 <section>
   <h2>
     "Combat"
@@ -3799,7 +3799,7 @@ exports[`Session baselines (RC-CAN-7.8) > previewing as a player during a fight 
     - text: Live
   - radio:
     - text: Recap
-- text: the scene
+- text: nothing yet
 - text: Players see
 - heading "Combat" [level=2]
 - button "End combat"
@@ -3854,7 +3854,7 @@ exports[`Session baselines (RC-CAN-7.8) > previewing as a player during a fight 
   <button role="radio" title="Exit player preview to change the session phase." type="button" tabindex="-1" disabled="">
     "Recap"
 "Players see"
-"the scene"
+"nothing yet"
 <section>
   <h2>
     "Combat"

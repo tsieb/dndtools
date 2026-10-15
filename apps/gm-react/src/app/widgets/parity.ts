@@ -281,6 +281,7 @@ export const BUILTIN_PARITY: Readonly<Record<BuiltinWidgetType, BuiltinBodyParit
 		queries: [
 			'session-state',
 			'session-status',
+			'player-view-controller',
 			'party',
 			'resume',
 			'rollable-tables',

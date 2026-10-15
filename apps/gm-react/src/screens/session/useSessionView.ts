@@ -103,14 +103,10 @@ export function useSessionScenes() {
 			.map((s) => ({ id: s.id, name: s.name, shareable: s.visibility !== 'dm-only' }));
 		const continueSceneId =
 			startableScenes.find((s) => s.id === activeSceneId && s.shareable)?.id ?? null;
-		const tableSceneId = session.tableView?.target.sceneId;
 		return {
 			startableScenes,
 			activeSceneId,
 			activeSceneName: visible.find((s) => s.id === activeSceneId)?.name ?? null,
-			tableSceneName:
-				visible.find((s) => s.id === tableSceneId && s.visibility !== 'dm-only' && !s.isTemplate)
-					?.name ?? null,
 			continueSceneId,
 			defaultStartSceneId: continueSceneId ?? startableScenes.find((s) => s.shareable)?.id ?? null,
 		};

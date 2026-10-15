@@ -3,6 +3,7 @@ import {
 	SESSION_LOG_SUBTYPE,
 	VAULT_OBJECT_SUBTYPE_KEY,
 	getSessionStatusStrip,
+	getPlayerViewController,
 } from '@dndtools/core';
 import { Toaster } from '../../../ds';
 import { useRuntime } from '../../../runtime/RuntimeContext';
@@ -107,7 +108,13 @@ function SessionConsole() {
 	const { runtime, actorId, workflow, isLive, canStart, canReview, previewing, isDm } =
 		useSessionSeat();
 	const dispatch = useSessionDispatch();
-	const { startableScenes, activeSceneName, tableSceneName, continueSceneId } = useSessionScenes();
+	const { startableScenes, activeSceneName, continueSceneId } = useSessionScenes();
+	// Use the public actor-scoped projection query, also available to GM-built widgets.
+	const controller = getPlayerViewController(runtime.state, actorId);
+	const tableSceneName =
+		controller.kind === 'available' && controller.tableView?.kind === 'assigned'
+			? controller.tableView.sceneName
+			: null;
 	const { party } = useRoster();
 	const [startOpen, setStartOpen] = useState(false);
 	const [endOpen, setEndOpen] = useState(false);
