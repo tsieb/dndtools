@@ -40,3 +40,16 @@
 - `vitest run --config vitest.app.config.ts apps/gm-react/src/i18n/`: 4 files, 54 tests passed.
 - Provider-consumer tests (`*.test.tsx` using AppSystemProvider/VocabularyProvider): 16 passed.
 - gm-react typecheck exit 0; focused ESLint exit 0; prettier written; `git diff --check` clean.
+
+## Claim-scope decision (SystemContext.tsx)
+
+- Gate flagged `apps/gm-react/src/app/SystemContext.tsx` as outside the claim. Kept deliberately:
+  the acceptance criterion "a custom package keeps its own words" needs package provenance, and
+  `AppSystemProvider` is the only place that has it. Without the id, an unedited `custom:` fork is
+  indistinguishable from a built-in (the review's medium finding).
+- Owned-path alternatives checked and rejected: object identity (`hydrateSystemsState` and
+  `getActiveSystemForActor` both `cloneSystemPackage`, so built-ins never arrive by reference);
+  reading the runtime from `vocabulary.tsx` (`RuntimeCtx` is not exported and `useRuntime` throws
+  outside a provider; catching that would invert the i18n → runtime layering).
+- The crossing is one JSX prop (`packageId={activePackage.id}`); no behavior change for English.
+- Task expected to block for the operator to decide whether to widen the claim.
