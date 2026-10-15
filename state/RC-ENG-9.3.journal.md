@@ -139,3 +139,35 @@ docs/planning/FRICTIONLESS.md: no chain of relative links from docs/README.md re
 - FRICTIONLESS.md rebound to `d18a4272`: header, §1 (19 remaining: 7 medium, 12 low), §2, §3,
   §4 note (probes on `7008d590`, same tree), §5 L12, §6, §8 reproduction and integration.
   `pnpm gates` exit 0 (docs check: 309 files reachable, 451 links); Prettier applied.
+
+## Retry: claim fence after the v0.4.4 merge (2026-10-15, head `aeffdfd7`)
+
+- Fence feedback: ~197 release paths outside the claim, from the merge commit `d18a4272`. Operator
+  brief: `loop/rc` now carries v0.4.4; drop the merge, rebase only the docs commits, and re-bind.
+  `owns` is now FRICTIONLESS.md and `docs/planning/README.md`.
+- `loop/rc` is `ad2812a9` (brief named `7bbb42ac`; `ad2812a9` is the same merge remade over
+  RC-DOC-1.1, and the two differ only in FEATURE-GAPS.md). `git diff --stat d18a4272 ad2812a9 --
+. ':!docs' ':!state'` lists only `scripts/validate/feature-audit.ts` (RC-DOC-1.1); `apps/`,
+  `packages/` and `tests/` are identical. No audit gate runs `feature-audit`.
+- `git reset --hard loop/rc` (tree clean) and cherry-picked `5734f8b5`, `6122e4bc`, `f5096498`
+  (the planning-index link, now owned). `8b09f32c` conflicted in FEATURE-GAPS.md: took loop/rc's
+  RC-DOC-1.1 intro unchanged plus one sentence linking FRICTIONLESS.md, and kept the README link
+  (no revert). Then `aeffdfd7`. Merge `d18a4272` not kept. Docs head `93361a43`.
+- Gate chain on `93361a43` (local; evidence `~/.cache/rc-eng-9-3-evidence-93361a43/`, `gates.log`
+  first line `commit 93361a43…`): budget runs 1–5 (09:40–09:54Z) each expected 178, unexpected 0,
+  flaky 0, skipped 0; the 80 `friction` annotations per run are identical to the `7008d590` and
+  `d18a4272` runs (the earlier doc said 81; that counted the header line, now corrected).
+  `pnpm a11y:gate` exit 0 (09:54–09:55Z): contrast 319 + 16, axe 61 passed 1 skipped, 60 scans,
+  0 critical/serious, 1 moderate (`region`, phone-session-strip, L12), PASS; artifacts kept in
+  `a11y-artifacts/`.
+- Story-spec regression on `93361a43` (09:55–10:24Z): expected 1124, **unexpected 2**, flaky 0,
+  skipped 18. `canvas-arrange.spec.ts:32` mobile (setup loop, `:48`, a Delete press left 7
+  tiles where 6 were expected) and `hub-templates.spec.ts:260` desktop (56 vs 57 percent part
+  width at 900px). Load
+  average 3.4 before the chain, 13.6 after. Repeat on the same commit, `--repeat-each=10
+--retries=0`, both profiles: canvas-arrange desktop 1/10 failed (same `:48` error), mobile 0/10;
+  hub-templates desktop 10/10 passed (mobile skipped by design). Not diagnosed; recorded in
+  FRICTIONLESS.md §6. Neither spec backs a "(spec)" row; all specs those rows cite passed.
+- FRICTIONLESS.md re-bound to `93361a43` (header, §1, §2, §3, §4 note, §6, §8). `pnpm gates`
+  exit 0 (docs check 309 files, 454 links); `pnpm feature-audit` exit 0 (48 limits, 0 stale,
+  0 inventory issues); Prettier clean.

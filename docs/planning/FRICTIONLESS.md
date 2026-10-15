@@ -1,14 +1,17 @@
 # Frictionless exit audit (RC-ENG-9.3, the M2.6 gate)
 
-Run on 2026-10-14. The gates are bound to **`d18a4272`**, the commit on this task branch that
-carries all 45 stories RC-ENG-9.3 depends on. The branch's base (`81b6b34c`, RC-POL-1.2 on
-`74efcfe2`) predates RC-CAN-8.6, RC-CAN-8.7, RC-SES-7.3 and RC-UX-6.5. `d18a4272` merges
-`origin/loop/rc` `effe44cb` (v0.4.4), which has them, and resolves the RC-POL-1.2 conflicts to
-`7008d590`, the integration of RC-POL-1.2 over `effe44cb`. Every file in `d18a4272` is
-byte-identical to `7008d590` except four under `docs/` and `state/`
-(`git diff --stat 7008d590 d18a4272`). The later commits on this branch change only this file and
-the run journal. The review probes in §4 ran against a `7008d590` checkout; the budget runs, the
-a11y gate and the story-spec run in §2, §3 and §6 ran again on `d18a4272` itself. See §8 for
+Run on 2026-10-14 and re-run on 2026-10-15. The gates are bound to **`93361a43`**: `loop/rc`
+`ad2812a9` plus this task's documentation commits. `ad2812a9` is the operator's merge of
+`origin/loop/rc` `effe44cb` (v0.4.4) into the dispatcher's `loop/rc`, so it carries all 45 stories
+RC-ENG-9.3 depends on, RC-CAN-8.6, RC-CAN-8.7, RC-SES-7.3 and RC-UX-6.5 among them. Its `apps/`,
+`packages/` and `tests/` are byte-identical to the two commits audited on 2026-10-14: `7008d590`
+(RC-POL-1.2 integrated over `effe44cb`) and `d18a4272` (an earlier candidate of this task, since
+dropped). Outside `docs/` and `state/`, the one other difference is
+`scripts/validate/feature-audit.ts`, RC-DOC-1.1's FEATURE-GAPS checker, which none of these gates
+runs; `git diff --stat d18a4272 93361a43 -- . ':!docs' ':!state'` lists only that file. The
+commit after `93361a43` changes only this file and the run journal. The review probes in §4 ran
+against a `7008d590` checkout. The budget runs, the a11y gate and the story-spec run in §2, §3 and
+§6 ran on `7008d590`, again on `d18a4272`, and a third time on `93361a43`. See §8 for
 integration.
 
 Method, the same as the [2026-09-29 reviews](friction-review-2026-09-29/README.md): the dev server
@@ -17,7 +20,7 @@ touch (rail) and 390×844 with touch (phone); keyboard-only passes; action count
 `design-polish` and `design:design-critique` checklists applied to the captures. Default theme,
 English. Every gate below ran locally on one machine, not on hosted CI. Screenshots, ARIA snapshots
 and per-state metrics live in the audit session's scratch directory and are not committed. File
-references below hold for both commits.
+references below hold for all three commits.
 
 Severity, as in the 2026-09-29 reviews: **critical** blocks or silently breaks a primary path;
 **high** means a new GM or player will fail or misread; **medium** is friction or inconsistency;
@@ -25,9 +28,9 @@ Severity, as in the 2026-09-29 reviews: **critical** blocks or silently breaks a
 
 ## 1. Verdict
 
-**M2.6 passes on `d18a4272`.** No critical or high finding remains on the five surfaces. Every
+**M2.6 passes on `93361a43`.** No critical or high finding remains on the five surfaces. Every
 budget in [FRICTION_BUDGETS.md](FRICTION_BUDGETS.md) held on five consecutive runs on both
-profiles, and `pnpm a11y:gate` passed on the same commit (twice).
+profiles, and `pnpm a11y:gate` passed on the same commit.
 
 Of the 90 findings from 2026-09-29, 74 are fixed (6 of them on the strength of the story's own
 spec), 13 are partly fixed with a smaller residual recorded in §5, 2 stay open by decision (PLY-11
@@ -53,12 +56,12 @@ one extra tap there; the two budget profiles do not cover that width.
 
 Five consecutive runs of the five specs that assert the budgets (`golden-path`,
 `friction-budgets`, `companion-sheet`, `widget-quick-builder`, `table-view`) on `desktop-chromium`
-and `mobile-chromium` together, retries 0, on `d18a4272` (08:01–08:15Z): **178 passed, 0 failed,
-0 flaky, 0 skipped in each run**. Counts come from the `friction` annotations `assertWithin`
+and `mobile-chromium` together, retries 0, on `93361a43` (2026-10-15 09:40–09:54Z): **178 passed,
+0 failed, 0 flaky, 0 skipped in each run**. Counts come from the `friction` annotations `assertWithin`
 records on a passing journey. Only the application journeys are listed; the boundary fixtures
-consume the full allowance by construction. The same five runs on `7008d590` (06:58–07:12Z) also
-passed 178 of 178, and every annotation (81 per run: project, test, budget, count) was identical
-across all ten runs.
+consume the full allowance by construction. The same five runs on `7008d590` (2026-10-14
+06:58–07:12Z) and on `d18a4272` (08:01–08:15Z) also passed 178 of 178. Every `friction` annotation
+(80 per run: project, test, budget, count) was identical across all fifteen runs.
 
 | Budget ID           | Ceiling | desktop-chromium, runs 1–5 | mobile-chromium, runs 1–5 | 2026-09-29                          |
 | ------------------- | ------- | -------------------------- | ------------------------- | ----------------------------------- |
@@ -75,7 +78,7 @@ The 21 Help journeys are the 20 GM shell routes in the spec's inventory plus ent
 seeded-defect tests (one extra dialog) failed their budget as designed in every run. Only the two
 onboarding rows have slack; the other six sit at their ceiling, so any added step on those jobs
 fails the browser gate. On `7008d590` the review probes ran alongside runs 2–5, so those runs
-passed under extra load; the `d18a4272` runs had no probes running alongside them.
+passed under extra load. The later runs had no probes running alongside them.
 
 Jobs counted by hand outside the table, desktop unless noted:
 
@@ -90,8 +93,8 @@ Jobs counted by hand outside the table, desktop unless noted:
 
 ## 3. Accessibility gate
 
-`pnpm a11y:gate` on `d18a4272`, run twice (08:15–08:16Z after the budget runs, 08:49–08:51Z on its
-own), exit 0 both times, the same result both times:
+`pnpm a11y:gate` on `93361a43` (2026-10-15 09:54–09:55Z, after the budget runs), exit 0. Two runs on
+`d18a4272` (2026-10-14 08:15–08:16Z and 08:49–08:51Z) gave the same result:
 
 - non-text contrast: 319 pair checks across five themes (tavern, parchment, scholar, dungeon,
   high-contrast) and 16 forced-colors remap checks passed;
@@ -105,7 +108,7 @@ own), exit 0 both times, the same result both times:
 The earlier gate on `7008d590` also exited 0 with 61 passed and 1 skipped, but its report merged
 only 5 scans. The worker artifacts it reads (`apps/gm-react/test-results/a11y/`) were partly
 cleared, most likely by this audit's probe runs in the same checkout. So that report's
-"0 moderate" covered 5 scans, not 60. The `d18a4272` report is the complete one.
+"0 moderate" covered 5 scans, not 60. The later reports are complete.
 
 The keyboard pass found a visible focus ring at every one of 40 Tab stops on `/`, `/board`,
 `/knowledge`, `/campaign`, `/graph` and `/screens`, at 1440 and 390. With
@@ -115,7 +118,7 @@ The keyboard pass found a visible focus ring at every one of 40 Tab stops on `/`
 ## 4. The five reviews, re-run
 
 Status per original finding. "Fixed" is observed on `7008d590` (the same application tree as
-`d18a4272`) unless marked "(spec)", which means
+`93361a43`) unless marked "(spec)", which means
 it rests on the story's own acceptance spec passing in the §6 regression run rather than on a
 probe of this audit. Residuals point to §5.
 
@@ -336,11 +339,27 @@ Story, and the companion preview that shows the exact page a player's phone rend
 **Story specs on the same commit.** One run of the 75 e2e spec files the 45 dependency stories
 added or changed (found through their commits), plus the join-first, companion-frame, play-polish,
 Standby-session and onboarding-polish specs, minus the five already run five times and the axe
-gate. Both profiles, retries 0, on `d18a4272` (08:16–08:49Z): **1,126 passed, 0 failed, 0 flaky,
-18 skipped**, the same as the earlier run on `7008d590` (07:25–07:55Z). Each
-skip is a declared single-profile test (a touch gesture, the phone panel list, a desktop-only
-canvas check) or the demo vault's dedicated performance capture. This is the run the "(spec)" rows
-in §4 rest on.
+gate. Both profiles, retries 0. On `7008d590` (2026-10-14 07:25–07:55Z) and on `d18a4272`
+(08:16–08:49Z): **1,126 passed, 0 failed, 0 flaky, 18 skipped**. Each skip is a declared
+single-profile test (a touch gesture, the phone panel list, a desktop-only canvas check) or the demo
+vault's dedicated performance capture.
+
+On `93361a43` (2026-10-15 09:55–10:24Z): **1,124 passed, 2 failed, 0 flaky, 18 skipped.** The
+machine's load average was 3.4 before the budget runs and 13.6 after this run. The application code
+is the same as in the two clean runs. Neither failing spec backs a "(spec)" row in §4, and every
+spec those rows cite passed. The two failures:
+
+- `canvas-arrange.spec.ts:32` (RC-CAN-3.6), `mobile-chromium`. It fails in its setup loop, which
+  deletes the seeded tiles one `Delete` press at a time: one press did not remove its tile (7 left
+  where 6 were expected, `canvas-arrange.spec.ts:48`). Repeated ten times per profile on the same
+  commit, it failed once more (desktop 1 of 10, mobile 0 of 10). The failure is intermittent and
+  has not been diagnosed; whether the keypress is lost in the app or in the test's focus walk is
+  open. The arrange steps the spec exists for were not reached in the failing runs.
+- `hub-templates.spec.ts:260`, `desktop-chromium`. The Command Center's part widths on `/` and
+  `/screen/:id` differed by one percentage point at 900px (56 against 57). It passed 10 of 10 on
+  repeat.
+
+These are the runs the "(spec)" rows in §4 rest on.
 
 ## 7. Not checked
 
@@ -362,7 +381,7 @@ The probes were scratch specs and are not committed; the gates are. From a clean
 `<dir>` a scratch path and `<port>` a free port:
 
 ```sh
-git worktree add --detach <dir> d18a4272
+git worktree add --detach <dir> 93361a43
 cd <dir> && pnpm install --frozen-lockfile
 cd <dir>/apps/gm-react
 # five times:
@@ -375,11 +394,10 @@ cd <dir> && DNDTOOLS_E2E_PORT=<port> pnpm a11y:gate
 
 The counts in §2 are the `friction` annotations in each JSON report.
 
-This audit holds for the application tree of `d18a4272`, which is also the tree of `7008d590`.
-Because the merge brings v0.4.4 into the branch, the diff from the task base `81b6b34c` covers every
-path v0.4.4 changed, not just this file. That is the dependency code the acceptance needs. Local
-`loop/rc` (`81b6b34c`) has not yet taken `main` (`effe44cb`) back in. If `loop/rc` ends up with a
-different resolution of RC-POL-1.2 over v0.4.4 than `7008d590`, or if a later commit touches the
-five surfaces, repeat the budget runs and the a11y gate before citing this verdict. To check
-whether a tree still matches, run `git diff --stat d18a4272 <commit> -- . ':!docs' ':!state'`;
-empty output means the same application code.
+This audit holds for the application tree of `93361a43`, which is also the tree of `d18a4272` and
+`7008d590`. On top of `loop/rc` `ad2812a9`, the branch adds only documentation: this file, its
+links from the planning index and FEATURE-GAPS.md, and the run journal. A later rebase can change
+the commit ids without changing the code. Before citing this verdict for another commit, run
+`git diff --stat 93361a43 <commit> -- . ':!docs' ':!state'`. Empty output means the same
+application code. If the output lists anything the five surfaces or these gates load, repeat the
+budget runs and the a11y gate first.
