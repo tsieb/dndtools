@@ -1,5 +1,9 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
-import { DND5E_SYSTEM_PACKAGE, type SystemVocabulary } from '@dndtools/core';
+import {
+	DND5E_SYSTEM_PACKAGE,
+	GENERIC_SYSTEM_PACKAGE,
+	type SystemVocabulary,
+} from '@dndtools/core';
 import type { MessageValues } from './format';
 
 /**
@@ -17,10 +21,57 @@ import type { MessageValues } from './format';
  */
 export type VocabularyValues = Readonly<Record<string, string>>;
 
+// Match the complete vocabulary, not individual English words: a DM-authored set is
+// authoritative. Compare values because vault hydration copies the built-in objects.
+const SPANISH_VOCABULARIES: readonly (readonly [SystemVocabulary, SystemVocabulary])[] = [
+	[
+		DND5E_SYSTEM_PACKAGE.vocabulary,
+		{
+			gameMaster: 'DJ',
+			player: 'Jugador',
+			character: 'Personaje',
+			ability: 'Conjuro',
+			abilityPlural: 'Conjuros',
+			levelUpVerb: 'Subir de nivel',
+			levelNoun: 'Nivel',
+			hitPoints: 'Puntos de golpe',
+			session: 'Sesión',
+			campaign: 'Campaña',
+		},
+	],
+	[
+		GENERIC_SYSTEM_PACKAGE.vocabulary,
+		{
+			gameMaster: 'DJ',
+			player: 'Jugador',
+			character: 'Personaje',
+			ability: 'Habilidad',
+			abilityPlural: 'Habilidades',
+			levelUpVerb: 'Avanzar',
+			levelNoun: 'Hito',
+			hitPoints: 'Salud',
+			session: 'Sesión',
+			campaign: 'Historia',
+		},
+	],
+];
+
+function localizedVocabulary(vocabulary: SystemVocabulary, locale: string): SystemVocabulary {
+	if (locale.toLowerCase().split('-')[0] !== 'es') return vocabulary;
+	return (
+		SPANISH_VOCABULARIES.find(([source]) =>
+			(Object.keys(source) as (keyof SystemVocabulary)[]).every(
+				(key) => source[key] === vocabulary[key],
+			),
+		)?.[1] ?? vocabulary
+	);
+}
+
 export function vocabularyValues(
 	vocabulary: SystemVocabulary,
 	locale: string = 'en',
 ): VocabularyValues {
+	vocabulary = localizedVocabulary(vocabulary, locale);
 	const lower = (value: string) => value.toLocaleLowerCase(locale);
 	return Object.freeze({
 		gm: vocabulary.gameMaster,

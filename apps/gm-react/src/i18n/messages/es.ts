@@ -2624,10 +2624,10 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'player.vitals.longRest': 'Descanso largo',
 	'player.vitals.restHelp':
 		'Un descanso corto recupera los recursos de descanso corto; un descanso largo restaura los espacios de conjuro, los recursos de descanso largo y elimina las condiciones.',
-	'player.vitals.preparedSpells': '{spellPlural} preparados ({count})',
-	'player.vitals.noSpellsTitle': 'Sin {spellPluralLower} registrados',
+	'player.vitals.preparedSpells': '{spellPlural} en preparación ({count})',
+	'player.vitals.noSpellsTitle': 'Sin {spellPluralLower} en el registro',
 	'player.vitals.noSpellsBody':
-		'{spellPlural} que aprenda el personaje aparecen aquí con un interruptor de preparado.',
+		'{spellPlural}: aquí puedes consultar lo que aprenda el personaje y marcar su preparación.',
 	'player.vitals.prepared': 'Preparado',
 	'player.vitals.notPrepared': 'Sin preparar',
 
@@ -4937,7 +4937,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'characters.levelUpXp': '{levelUp} (PX)',
 
 	'characters.spellcasting': '{spellPlural}',
-	'characters.spellsPrepared': '{spellPlural} ({count} preparados)',
+	'characters.spellsPrepared': '{spellPlural} ({count} en preparación)',
 	'characters.addSpell': 'Añadir {spellLower}',
 	'characters.spellPlaceholder': 'Curar heridas',
 	'characters.slotLevel': 'Nivel de espacio',

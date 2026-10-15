@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act } from 'react';
+import { act, useEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -8,7 +8,14 @@ import {
 	GENERIC_SYSTEM_PACKAGE,
 	type SystemVocabulary,
 } from '@dndtools/core';
-import { I18nProvider, VocabularyProvider, useI18n, type MessageKey } from './index';
+import {
+	I18nProvider,
+	VocabularyProvider,
+	useI18n,
+	type MessageKey,
+	loadCatalog,
+	LOCALE_STORAGE_KEY,
+} from './index';
 import { vocabularyValues } from './vocabulary';
 import { en } from './messages/en';
 import { es } from './messages/es';
@@ -23,6 +30,7 @@ let root: Root;
 let container: HTMLDivElement;
 
 beforeEach(() => {
+	localStorage.removeItem(LOCALE_STORAGE_KEY);
 	container = document.createElement('div');
 	document.body.appendChild(container);
 	root = createRoot(container);
@@ -31,6 +39,7 @@ beforeEach(() => {
 afterEach(() => {
 	act(() => root.unmount());
 	container.remove();
+	localStorage.removeItem(LOCALE_STORAGE_KEY);
 });
 
 function Chrome({ messageKey }: { messageKey: MessageKey }) {
@@ -136,5 +145,118 @@ describe('the active system package names things', () => {
 			}
 		}
 		expect(unsupplied).toEqual([]);
+	});
+});
+
+const spanishMessages: readonly MessageKey[] = [
+	'player.tab.levelUp',
+	'player.vitals.spellSlots',
+	'player.vitals.noSlotsTitle',
+	'player.vitals.noSlotsBody',
+	'player.vitals.preparedSpells',
+	'player.vitals.noSpellsTitle',
+	'player.vitals.noSpellsBody',
+	'character.levelUp.byXp',
+	'character.levelUp.byMilestone',
+	'characters.finishLevelUp',
+	'characters.levelUpXp',
+	'characters.spellcasting',
+	'characters.spellsPrepared',
+	'characters.addSpell',
+];
+
+function SpanishMessages() {
+	const { t } = useI18n();
+	return (
+		<>
+			{spanishMessages.map((key) => (
+				<p key={key}>{t(key, { count: 2 })}</p>
+			))}
+		</>
+	);
+}
+
+// Mirrors AppSystemProvider: the reader's locale flows into vocabulary production.
+function LocalizedPackage({
+	vocabulary,
+	locale,
+}: {
+	vocabulary: SystemVocabulary;
+	locale: string;
+}) {
+	const { locale: activeLocale, setLocale } = useI18n();
+	useEffect(() => setLocale(locale), [locale, setLocale]);
+	return (
+		<VocabularyProvider vocabulary={vocabulary} locale={activeLocale}>
+			<SpanishMessages />
+		</VocabularyProvider>
+	);
+}
+
+async function showSpanish(vocabulary: SystemVocabulary, locale = 'es') {
+	await loadCatalog(locale);
+	await act(async () => {
+		root.render(
+			<I18nProvider>
+				<LocalizedPackage vocabulary={vocabulary} locale={locale} />
+			</I18nProvider>,
+		);
+	});
+	return Array.from(container.querySelectorAll('p'), (element) => element.textContent);
+}
+
+describe('shipped vocabularies speak Spanish', () => {
+	it.each([
+		[DND5E_SYSTEM_PACKAGE, 'Conjuro', 'Conjuros', 'Subir de nivel'],
+		[GENERIC_SYSTEM_PACKAGE, 'Habilidad', 'Habilidades', 'Avanzar'],
+	] as const)(
+		'renders all fourteen messages for $0.displayName, including a hydrated vocabulary',
+		async (pkg, singular, plural, advance) => {
+			const lower = singular.toLowerCase();
+			expect(await showSpanish({ ...pkg.vocabulary })).toEqual([
+				advance,
+				`Espacios de ${singular}`,
+				`Sin espacios de ${lower}`,
+				`Todavía no se registran espacios de ${lower} para este personaje.`,
+				`${plural} en preparación (2)`,
+				`Sin ${plural.toLowerCase()} en el registro`,
+				`${plural}: aquí puedes consultar lo que aprenda el personaje y marcar su preparación.`,
+				`${advance} (PX)`,
+				`${advance} (hito)`,
+				`Terminar ${advance.toLowerCase()}`,
+				`${advance} (PX)`,
+				plural,
+				`${plural} (2 en preparación)`,
+				`Añadir ${lower}`,
+			]);
+		},
+	);
+
+	it('preserves every word of a custom vocabulary, even its shared English terms', async () => {
+		const custom = { ...GENERIC_SYSTEM_PACKAGE.vocabulary, gameMaster: 'Keeper' };
+		expect(vocabularyValues(custom, 'es')).toEqual(vocabularyValues(custom, 'en'));
+		const rendered = await showSpanish(custom);
+		expect(rendered[0]).toBe('Advance');
+		expect(rendered[1]).toBe('Espacios de Ability');
+		expect(rendered[11]).toBe('Abilities');
+	});
+
+	it('updates when the reader changes language or package', async () => {
+		expect((await showSpanish(DND5E_SYSTEM_PACKAGE.vocabulary))[1]).toBe('Espacios de Conjuro');
+		expect((await showSpanish(GENERIC_SYSTEM_PACKAGE.vocabulary))[1]).toBe('Espacios de Habilidad');
+		expect((await showSpanish(GENERIC_SYSTEM_PACKAGE.vocabulary, 'en'))[1]).toBe('Ability slots');
+	});
+
+	it('supports regional Spanish and leaves other locales and source data unchanged', () => {
+		for (const pkg of [DND5E_SYSTEM_PACKAGE, GENERIC_SYSTEM_PACKAGE]) {
+			const original = { ...pkg.vocabulary };
+			expect(vocabularyValues(pkg.vocabulary, 'es-MX')).toEqual(
+				vocabularyValues(pkg.vocabulary, 'es'),
+			);
+			expect(vocabularyValues(pkg.vocabulary, 'fr')).toEqual(
+				vocabularyValues(pkg.vocabulary, 'en'),
+			);
+			expect(pkg.vocabulary).toEqual(original);
+		}
 	});
 });
