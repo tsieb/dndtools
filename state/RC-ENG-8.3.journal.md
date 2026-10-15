@@ -73,5 +73,10 @@
   shared brief `~/.cache/rc-eng-8-3-evidence/review-brief.md`. A: onboarding, Command Center, shell,
   palette and Help, `/screens`. B: `/screen/:id`, `/scene/:id`, `/session`. C: Characters, Atlas and
   the map editor, Notes, `/play`. Desktop 1440×900, rail 834×1112 touch, phone 390×844 touch.
-- 10:57Z: the parent session restarted mid-review; the reviewers' orphaned dev servers on 5491/5492
+- 10:57Z and again ~11:17Z: the parent session restarted mid-review; the reviewers' orphaned dev servers on 5491/5492
   were stopped and the three passes resumed from their transcripts and partial evidence.
+- Review C finished: critical 0, high 1 (C-1), medium 14 (C-2..C-15), low 11 (C-16..C-26); report
+  saved as `~/.cache/rc-eng-8-3-evidence/review-c/REPORT.md`. C-1 re-checked by me in source:
+  `charBuilder/data.ts:53,59` ancestry `sub` strings are display text only; `charBuilder/index.tsx:225`
+  `effScores` and `coreAbilities` add no bonus; `create.ts:209` dispatches them as-is; the core draft
+  flow has no ancestry concept. Copy `en.ts:5252,5283` promises the bonuses. Confirmed.
