@@ -2,6 +2,8 @@
 
 This requirements corpus describes reachable React surfaces and cross-cutting layers. Edit rows
 in place when behavior changes. Planned work lives in the [RC roadmap](../planning/RC_ROADMAP.md).
+Friction findings that remain after the M2.6 exit audit are listed by severity in
+[`FRICTIONLESS.md`](../planning/FRICTIONLESS.md).
 
 ## Evidence and validation
 

@@ -87,3 +87,17 @@ docs/planning/FRICTIONLESS.md: no chain of relative links from docs/README.md re
 - Re-run on this tree: `pnpm gates` exit 0 ("docs check passed: 309 file(s) reachable from
   docs/README.md, 453 relative link(s) resolved"); Prettier check clean on the README; no audit
   content changed.
+
+## Retry: claim fence (head `f5096498`)
+
+- Fence feedback: `docs/planning/README.md` is outside the claim. Reverted it to base `81b6b34c`
+  (`git checkout 81b6b34c… -- docs/planning/README.md`); the preceding entry's README change is
+  undone.
+- Reachability inside the fence instead: `scripts/validate/docs-links.ts` walks relative links from
+  `docs/README.md` through files under `docs/`. `docs/requirements/FEATURE-GAPS.md` is a manifest
+  companion path that `docs/README.md` already links, and its intro already sends readers to the
+  roadmap for what is missing. One prose sentence there (outside the parsed inventory table) now
+  points to FRICTIONLESS.md for the friction findings that remain after the M2.6 audit.
+- Re-run on this tree: `pnpm gates` exit 0 ("docs check passed: 309 file(s) reachable from
+  docs/README.md, 451 relative link(s) resolved"); `pnpm feature-audit` exit 0 ("40 declared limits
+  (0 stale)"); Prettier clean on the edited files.
