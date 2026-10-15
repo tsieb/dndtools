@@ -356,3 +356,34 @@ play-polish.spec.ts golden-routes.spec.ts --project=visual-rail --project=visual
     `node --check` on both Electron files and `git diff --check`: passed.
 - Full browser/visual gates and independent review remain the central operator's next steps.
   No existing rendered Help layout or copy changed in this repair.
+
+## Integration reconciliation onto ad2812a9
+
+- Rebased the task commits onto `ad2812a9080573bf6c4049c5b87cf5d6325ec03b` as requested.
+  Integration moved the rendered Help content to lazy-loaded `HelpPanel.tsx`; retained that
+  split and import-hub behavior. Kept `BetaFeedbackAction` in the owned `HelpMenu.tsx` and
+  wired it into the moved panel with one import and one JSX call. This is the necessary
+  moved-path reconciliation, not a restoration of the old eager panel.
+- Rebase also exposed 15 binary Help baseline conflicts. Preserved integration baselines
+  initially, then regenerated the combined UI in the pinned Playwright container rather than
+  choosing stale screenshots from either side. Validation in progress.
+- No Headroom tools are available. Original native outputs are used. No push, promotion,
+  dispatcher control-state change or additional agents.
+- Reconciliation validation completed; original outputs read directly:
+  - Focused Electron/feedback/release/CI tooling: 43 tests passed; app capabilities/feedback/Help:
+    26 tests passed (same seven files and commands as the authorized repair above).
+  - `pnpm e2e help-menu.spec.ts --workers=2 --retries=0`: 14 passed on desktop/mobile Chromium.
+    Original log: `/tmp/rc-eng-7.1-rebase-help-e2e.log`.
+  - `DNDTOOLS_PW_WORKERS=2 apps/gm-react/tests/visual/run-in-container.sh -g 'help' --update-snapshots=changed`:
+    15 passed; regenerated only the 15 Help baselines. Inspected desktop and phone Tavern
+    images: feedback action/privacy copy and current integration release notes are present.
+    Original log: `/tmp/rc-eng-7.1-rebase-visual-update.log`.
+  - Repeated the pinned-container command without snapshot updates: 15 passed, covering five
+    themes at desktop/rail/phone widths. Original log: `/tmp/rc-eng-7.1-rebase-visual-compare.log`.
+  - `pnpm --filter @dndtools/gm-react typecheck`: passed
+    (`/tmp/rc-eng-7.1-rebase-types.log`). `pnpm gates`: six gates passed, 310 reachable docs,
+    445 resolved links; existing size warnings (`/tmp/rc-eng-7.1-rebase-gates.log`).
+  - Targeted ESLint and Prettier for both Help files and `git diff --check`: passed.
+- Confirmed the requested integration SHA is an ancestor and no unmerged paths remain.
+  Full central gates, independent review and post-integration RC-tag/release evidence remain
+  operator steps; this run does not claim them complete.
