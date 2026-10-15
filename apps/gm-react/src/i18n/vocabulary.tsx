@@ -21,57 +21,53 @@ import type { MessageValues } from './format';
  */
 export type VocabularyValues = Readonly<Record<string, string>>;
 
-// Match the complete vocabulary, not individual English words: a DM-authored set is
-// authoritative. Compare values because vault hydration copies the built-in objects.
-const SPANISH_VOCABULARIES: readonly (readonly [SystemVocabulary, SystemVocabulary])[] = [
-	[
-		DND5E_SYSTEM_PACKAGE.vocabulary,
-		{
-			gameMaster: 'DJ',
-			player: 'Jugador',
-			character: 'Personaje',
-			ability: 'Conjuro',
-			abilityPlural: 'Conjuros',
-			levelUpVerb: 'Subir de nivel',
-			levelNoun: 'Nivel',
-			hitPoints: 'Puntos de golpe',
-			session: 'Sesión',
-			campaign: 'Campaña',
-		},
-	],
-	[
-		GENERIC_SYSTEM_PACKAGE.vocabulary,
-		{
-			gameMaster: 'DJ',
-			player: 'Jugador',
-			character: 'Personaje',
-			ability: 'Habilidad',
-			abilityPlural: 'Habilidades',
-			levelUpVerb: 'Avanzar',
-			levelNoun: 'Hito',
-			hitPoints: 'Salud',
-			session: 'Sesión',
-			campaign: 'Historia',
-		},
-	],
-];
+// Keyed by package id, not by matching words: a `custom:` fork deep-copies a built-in's vocabulary,
+// and the DM's copy is authoritative even while its words still equal the original's. Built-in ids
+// cannot be authored — the build re-seeds those packages on every load.
+const SPANISH_VOCABULARIES: Readonly<Record<string, SystemVocabulary>> = {
+	[DND5E_SYSTEM_PACKAGE.id]: {
+		gameMaster: 'DJ',
+		player: 'Jugador',
+		character: 'Personaje',
+		ability: 'Conjuro',
+		abilityPlural: 'Conjuros',
+		levelUpVerb: 'Subir de nivel',
+		levelNoun: 'Nivel',
+		hitPoints: 'Puntos de golpe',
+		session: 'Sesión',
+		campaign: 'Campaña',
+	},
+	[GENERIC_SYSTEM_PACKAGE.id]: {
+		gameMaster: 'DJ',
+		player: 'Jugador',
+		character: 'Personaje',
+		ability: 'Habilidad',
+		abilityPlural: 'Habilidades',
+		levelUpVerb: 'Avanzar',
+		levelNoun: 'Hito',
+		hitPoints: 'Salud',
+		session: 'Sesión',
+		campaign: 'Historia',
+	},
+};
 
-function localizedVocabulary(vocabulary: SystemVocabulary, locale: string): SystemVocabulary {
-	if (locale.toLowerCase().split('-')[0] !== 'es') return vocabulary;
-	return (
-		SPANISH_VOCABULARIES.find(([source]) =>
-			(Object.keys(source) as (keyof SystemVocabulary)[]).every(
-				(key) => source[key] === vocabulary[key],
-			),
-		)?.[1] ?? vocabulary
-	);
+function localizedVocabulary(
+	vocabulary: SystemVocabulary,
+	locale: string,
+	packageId: string | undefined,
+): SystemVocabulary {
+	if (packageId === undefined || locale.toLowerCase().split('-')[0] !== 'es') return vocabulary;
+	return Object.hasOwn(SPANISH_VOCABULARIES, packageId)
+		? SPANISH_VOCABULARIES[packageId]
+		: vocabulary;
 }
 
 export function vocabularyValues(
 	vocabulary: SystemVocabulary,
 	locale: string = 'en',
+	packageId?: string,
 ): VocabularyValues {
-	vocabulary = localizedVocabulary(vocabulary, locale);
+	vocabulary = localizedVocabulary(vocabulary, locale, packageId);
 	const lower = (value: string) => value.toLocaleLowerCase(locale);
 	return Object.freeze({
 		gm: vocabulary.gameMaster,
@@ -105,13 +101,19 @@ const VocabularyContext = createContext<VocabularyValues>(vocabularyValues(DEFAU
 export function VocabularyProvider({
 	vocabulary,
 	locale,
+	packageId,
 	children,
 }: {
 	vocabulary: SystemVocabulary;
 	locale?: string;
+	/** The active package's id; only a built-in id is translated, a DM-authored set never is. */
+	packageId?: string;
 	children: ReactNode;
 }) {
-	const values = useMemo(() => vocabularyValues(vocabulary, locale), [vocabulary, locale]);
+	const values = useMemo(
+		() => vocabularyValues(vocabulary, locale, packageId),
+		[vocabulary, locale, packageId],
+	);
 	return <VocabularyContext.Provider value={values}>{children}</VocabularyContext.Provider>;
 }
 

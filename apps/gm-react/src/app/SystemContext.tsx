@@ -34,7 +34,11 @@ export function AppSystemProvider({ children }: { children: ReactNode }) {
 	);
 	return (
 		<SystemProvider conditions={activePackage.conditions}>
-			<VocabularyProvider vocabulary={activePackage.vocabulary} locale={locale}>
+			<VocabularyProvider
+				vocabulary={activePackage.vocabulary}
+				locale={locale}
+				packageId={activePackage.id}
+			>
 				{children}
 			</VocabularyProvider>
 		</SystemProvider>

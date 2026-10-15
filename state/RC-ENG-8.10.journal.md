@@ -27,3 +27,16 @@
 - No browser or pinned visual gate run locally; central operator owns remaining gates.
 - Implementation prepared for commit on the current task branch; no push or promotion.
 - Central operator gates and independent review remain external to this implementation.
+
+## Review follow-up (custom fork pass-through)
+
+- Review finding: matching on vocabulary equality translated an unedited `custom:` fork
+  (system.fork deep-copies vocabulary). Fixed by keying Spanish vocabularies on package id;
+  `VocabularyProvider`/`vocabularyValues` take `packageId`, and `AppSystemProvider` passes
+  `activePackage.id` (one-prop crossing into `apps/gm-react/src/app/SystemContext.tsx`, required
+  because the provider had no provenance). Built-in ids are re-seeded from the build, never authored.
+- Added regression: unedited forks of 5e and Generic render "Level up"/"Espacios de Spell" and
+  "Advance"/"Espacios de Ability" under Spanish; actual built-ins still translate.
+- `vitest run --config vitest.app.config.ts apps/gm-react/src/i18n/`: 4 files, 54 tests passed.
+- Provider-consumer tests (`*.test.tsx` using AppSystemProvider/VocabularyProvider): 16 passed.
+- gm-react typecheck exit 0; focused ESLint exit 0; prettier written; `git diff --check` clean.

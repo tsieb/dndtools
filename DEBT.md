@@ -90,10 +90,11 @@ a `TODO(APP)` that survives a quarter gets an entry here before merge.
 ## Resolved
 
 - DEBT-2026-007 — built-in system vocabulary translations: resolved by RC-ENG-8.10.
-  `vocabularyValues()` localizes the complete shipped 5e and Generic vocabularies for Spanish,
-  including hydrated copies and regional Spanish locales. Customized vocabulary sets keep their
-  authored words. Spanish phrasing accommodates both conjuros and habilidades; provider tests
-  render all fourteen affected strings for both packages and cover custom words and locale changes.
+  `vocabularyValues()` localizes the shipped 5e and Generic vocabularies for Spanish, keyed by the
+  active package id (passed by `AppSystemProvider`), including regional Spanish locales. A
+  `custom:` package keeps its authored words, even an unedited fork whose words equal a built-in's.
+  Spanish phrasing accommodates both conjuros and habilidades; provider tests render all fourteen
+  affected strings for both packages and cover custom words, forks and locale changes.
 
 - DEBT-2026-001 — typed platform-preferences layer: resolved by RC-UX-4.1
   (`apps/gm-react/src/platform/preferences.ts`; the exception manifest went from 21 entries to 3).

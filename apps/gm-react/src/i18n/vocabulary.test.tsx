@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
 	DND5E_SYSTEM_PACKAGE,
 	GENERIC_SYSTEM_PACKAGE,
+	type SystemPackage,
 	type SystemVocabulary,
 } from '@dndtools/core';
 import {
@@ -177,28 +178,22 @@ function SpanishMessages() {
 }
 
 // Mirrors AppSystemProvider: the reader's locale flows into vocabulary production.
-function LocalizedPackage({
-	vocabulary,
-	locale,
-}: {
-	vocabulary: SystemVocabulary;
-	locale: string;
-}) {
+function LocalizedPackage({ pkg, locale }: { pkg: SystemPackage; locale: string }) {
 	const { locale: activeLocale, setLocale } = useI18n();
 	useEffect(() => setLocale(locale), [locale, setLocale]);
 	return (
-		<VocabularyProvider vocabulary={vocabulary} locale={activeLocale}>
+		<VocabularyProvider vocabulary={pkg.vocabulary} locale={activeLocale} packageId={pkg.id}>
 			<SpanishMessages />
 		</VocabularyProvider>
 	);
 }
 
-async function showSpanish(vocabulary: SystemVocabulary, locale = 'es') {
+async function showSpanish(pkg: SystemPackage, locale = 'es') {
 	await loadCatalog(locale);
 	await act(async () => {
 		root.render(
 			<I18nProvider>
-				<LocalizedPackage vocabulary={vocabulary} locale={locale} />
+				<LocalizedPackage pkg={pkg} locale={locale} />
 			</I18nProvider>,
 		);
 	});
@@ -213,7 +208,7 @@ describe('shipped vocabularies speak Spanish', () => {
 		'renders all fourteen messages for $0.displayName, including a hydrated vocabulary',
 		async (pkg, singular, plural, advance) => {
 			const lower = singular.toLowerCase();
-			expect(await showSpanish({ ...pkg.vocabulary })).toEqual([
+			expect(await showSpanish({ ...pkg, vocabulary: { ...pkg.vocabulary } })).toEqual([
 				advance,
 				`Espacios de ${singular}`,
 				`Sin espacios de ${lower}`,
@@ -233,28 +228,55 @@ describe('shipped vocabularies speak Spanish', () => {
 	);
 
 	it('preserves every word of a custom vocabulary, even its shared English terms', async () => {
-		const custom = { ...GENERIC_SYSTEM_PACKAGE.vocabulary, gameMaster: 'Keeper' };
-		expect(vocabularyValues(custom, 'es')).toEqual(vocabularyValues(custom, 'en'));
+		const custom: SystemPackage = {
+			...GENERIC_SYSTEM_PACKAGE,
+			id: 'custom:keeper',
+			vocabulary: { ...GENERIC_SYSTEM_PACKAGE.vocabulary, gameMaster: 'Keeper' },
+		};
+		expect(vocabularyValues(custom.vocabulary, 'es', custom.id)).toEqual(
+			vocabularyValues(custom.vocabulary, 'en', custom.id),
+		);
 		const rendered = await showSpanish(custom);
 		expect(rendered[0]).toBe('Advance');
 		expect(rendered[1]).toBe('Espacios de Ability');
 		expect(rendered[11]).toBe('Abilities');
 	});
 
+	it.each([
+		[DND5E_SYSTEM_PACKAGE, 'Level up', 'Espacios de Spell'],
+		[GENERIC_SYSTEM_PACKAGE, 'Advance', 'Espacios de Ability'],
+	] as const)(
+		'keeps an unedited fork of $0.displayName in its authored words',
+		async (pkg, advance, slots) => {
+			// system.fork deep-copies the vocabulary, so the fork's words equal the built-in's.
+			const fork: SystemPackage = {
+				...pkg,
+				id: 'custom:fork',
+				vocabulary: { ...pkg.vocabulary },
+			};
+			expect(vocabularyValues(fork.vocabulary, 'es', fork.id)).toEqual(
+				vocabularyValues(fork.vocabulary, 'en', fork.id),
+			);
+			const rendered = await showSpanish(fork);
+			expect(rendered[0]).toBe(advance);
+			expect(rendered[1]).toBe(slots);
+		},
+	);
+
 	it('updates when the reader changes language or package', async () => {
-		expect((await showSpanish(DND5E_SYSTEM_PACKAGE.vocabulary))[1]).toBe('Espacios de Conjuro');
-		expect((await showSpanish(GENERIC_SYSTEM_PACKAGE.vocabulary))[1]).toBe('Espacios de Habilidad');
-		expect((await showSpanish(GENERIC_SYSTEM_PACKAGE.vocabulary, 'en'))[1]).toBe('Ability slots');
+		expect((await showSpanish(DND5E_SYSTEM_PACKAGE))[1]).toBe('Espacios de Conjuro');
+		expect((await showSpanish(GENERIC_SYSTEM_PACKAGE))[1]).toBe('Espacios de Habilidad');
+		expect((await showSpanish(GENERIC_SYSTEM_PACKAGE, 'en'))[1]).toBe('Ability slots');
 	});
 
 	it('supports regional Spanish and leaves other locales and source data unchanged', () => {
 		for (const pkg of [DND5E_SYSTEM_PACKAGE, GENERIC_SYSTEM_PACKAGE]) {
 			const original = { ...pkg.vocabulary };
-			expect(vocabularyValues(pkg.vocabulary, 'es-MX')).toEqual(
-				vocabularyValues(pkg.vocabulary, 'es'),
+			expect(vocabularyValues(pkg.vocabulary, 'es-MX', pkg.id)).toEqual(
+				vocabularyValues(pkg.vocabulary, 'es', pkg.id),
 			);
-			expect(vocabularyValues(pkg.vocabulary, 'fr')).toEqual(
-				vocabularyValues(pkg.vocabulary, 'en'),
+			expect(vocabularyValues(pkg.vocabulary, 'fr', pkg.id)).toEqual(
+				vocabularyValues(pkg.vocabulary, 'en', pkg.id),
 			);
 			expect(pkg.vocabulary).toEqual(original);
 		}
