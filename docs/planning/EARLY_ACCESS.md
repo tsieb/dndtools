@@ -45,6 +45,11 @@ polish.
 Each failure is filed as a story in [§7](#7-blocking-stories), added to RC-ENG-8.3's `Deps:` in the
 roadmap, and created in the dispatcher as `proposed`. M2.5 is re-audited once they land.
 
+This file records a failed gate. RC-ENG-8.3 is not complete while M2.5 fails: the story closes only
+when a re-run on the application commit that carries RC-ENG-8.5 to 8.13 passes all five gates. Until
+the operator copies those nine into the dispatcher's stored dependencies, nothing there holds this
+task behind them ([§7](#7-blocking-stories)).
+
 What holds: the five golden journeys (first run, prep, Standby to live, knowledge capture, a player
 joining over the fake LAN) passed 50 of 50 times across ten profile-runs with no retry, and the axe
 gate reports no critical or serious violation on 60 route-and-profile scans.
@@ -80,24 +85,38 @@ does not scan parchment for text contrast, which is why DEBT-2026-008 (§5) does
 ## 4. The review
 
 Three passes of the project's `ux-ui-reviewer` agent (`.claude/agents/ux-ui-reviewer.md`), one per
-group of routes, each in its own detached worktree at `ef42291b` with its own dev server. Each drove
-the app with the repo's Playwright through scratch probe specs built on `tests/e2e/_helpers.ts`, at
-1440×900 (desktop, mouse), 834×1112 (rail, touch) and 390×844 (phone, touch), default theme, English.
-The brief gave them the severity scale above, told them to treat FRICTIONLESS.md's open items as
-known and re-check them, and required every critical or high finding to reproduce in two separate
-runs. I re-read the source behind each high finding before accepting it. The parent session
-restarted twice during the review, and the passes resumed from their saved probes and evidence.
-Screenshots, ARIA snapshots, per-state metrics and the three reports stay in the audit's scratch
-directory and are not committed.
+group of routes, each in its own detached worktree at `ef42291b` with its own dev server, and a
+fourth for the one state group B missed (below). Each drove the app with the repo's Playwright
+through scratch probe specs built on `tests/e2e/_helpers.ts`, at 1440×900 (desktop, mouse), 834×1112
+(rail, touch) and 390×844 (phone, touch), default theme, English. The brief gave them the severity
+scale above, told them to treat FRICTIONLESS.md's open items as known and re-check them, and
+required every critical or high finding to reproduce in two separate runs. I re-read the source
+behind each high finding before accepting it. The parent session restarted twice during the review,
+and the passes resumed from their saved probes and evidence. Screenshots, ARIA snapshots, per-state
+metrics and the four reports stay in the audit's scratch directory and are not committed.
 
 | Group | Routes                                                                                                | Critical | High | Medium | Low |
 | ----- | ----------------------------------------------------------------------------------------------------- | -------- | ---- | ------ | --- |
 | A     | Onboarding, Command Center (fresh, seeded, demo, live), the shell, palette and Help, `/screens`       | 0        | 1    | 7      | 6   |
 | B     | `/screen/:id` (home and four templates, view and edit), `/scene/:id`, `/session`, Session as a screen | 0        | 2    | 5      | 7   |
 | C     | Characters and the builder, Atlas and the map editor, Notes, `/play` joined over the fake LAN         | 0        | 1    | 14     | 11  |
+| BP    | `/scene/:id` template editor on the phone (completes group B; see below)                              | 0        | 0    | 5      | 6   |
 
 Every route was loaded at all three tiers, with the gaps listed in [§8](#8-not-checked). No page
 overflowed horizontally at any tier.
+
+Group B's pass reached the template editor at `/scene/:id` on desktop and the rail only. Its phone
+test hit its time limit in the step before, twice (11:17:18Z and 11:23:29Z). A fourth
+`ux-ui-reviewer` pass completed that state on 2026-10-15 (11:39–11:59Z) on this branch's checkout,
+whose application tree equals `ef42291b`. It ran at 390×844 with touch, on a seeded vault with a live
+session, and added a fresh template scene. It covered the empty state, Apply a template, the Flow and
+Canvas switch, Add, the tile Actions menu and inspector, move and resize by keyboard, touch drag and
+the Transform tab, remove and undo, preview as a player, and Done. Before it, I ran a shorter probe
+of the same state four times. Seven runs passed every step with no console or page error: my last
+two and the reviewer's last five. The other three failed on probe selectors, not on the app: my first
+two clicked the "Dice & Timers" filter instead of "Add Dice" and left the Add sheet open, and the
+reviewer's first looked for the template picker in the wrong dialog. The pass found no critical or
+high finding; its findings are BP-1 to BP-11 below.
 
 ### High
 
@@ -186,6 +205,19 @@ None of these blocks M2.5. They are recorded for the operator to file or fold in
   auto-opens each run.
 - **C-15** The join dialog promises a nearby-table list that does not exist, in English outside the
   catalog.
+- **BP-1** After a removed tile is restored with the canvas Undo or Ctrl+Z, the "Removed … · Undo"
+  toast stays up, and its Undo reverts the edit before the removal without saying so. Reproduced 3
+  times; the toast's action calls the generic history undo
+  (`apps/gm-react/src/screens/sceneEditor/useSceneCommands.ts:116-122`). Not phone-specific.
+- **BP-2** On the phone the inspector overlays the right 300px of the canvas
+  (`sceneEditor/shared.ts:15-23`), so it covers the tile being edited and its Actions button.
+- **BP-3** The tile menu's Move and Resize start a keyboard grab and show arrow-key hints, which do
+  nothing on a touch-only phone. Touch drag and the Transform tab still work.
+- **BP-4** On the phone Scene details reopens over the canvas each time nothing is selected
+  (`sceneEditor/index.tsx:142-145`), leaving about 311px of canvas and covering the zoom row or the
+  empty state's Apply a template.
+- **BP-5** The phone edit canvas's Undo, Redo, zoom and Flow tile-menu buttons are 28×28, the resize
+  handle 24×24. This is FRICTIONLESS M2 on the phone; the header controls are now at least 44px.
 
 ### Low
 
@@ -202,7 +234,11 @@ touch Atlas · C-19 phone and rail badges break mid-word · C-20 the companion j
 contradicts its layout · C-21 a phone note scrolls out of view after Done · C-22 sheet tabs wrap ·
 C-23 the token inspector's Delete dominates · C-24 disabled controls with no reason (Inventory Add,
 Level up, Add entry, Export as markdown, Open in map editor, Create, Join) · C-25 the demo maps are
-mostly empty grids · C-26 Atlas states its counts ambiguously.
+mostly empty grids · C-26 Atlas states its counts ambiguously · BP-6 the "Previewing as Player" toast
+outlives the preview · BP-7 the preview banner says "Press Escape" on a phone · BP-8 an applied
+template lands at 100% with tiles off the right edge · BP-9 a one-finger pan on empty canvas did not
+move the view (possibly a probe artefact) · BP-10 only the details panel says a scene is a template ·
+BP-11 the template picker's thumbnails clip their labels.
 
 ### FRICTIONLESS.md items, re-checked
 
@@ -269,7 +305,10 @@ P3, with no dependency of its own. RC-ENG-8.3's `Deps:` now lists all nine, in t
 §23. The stories were also created in the dispatcher with `task.create`, which files them as
 `proposed`; approving them is the operator's call. RC-ENG-8.3 was running when its dependencies
 changed, and the dispatcher refuses `task.update` on a running task, so its stored dependencies still
-need the operator to pick up the roadmap change.
+need the operator to pick up the roadmap change. A read-only look at the store at 12:00Z on
+2026-10-15 shows RC-ENG-8.3 `running` with its original 20 dependencies and RC-ENG-8.5 to 8.13
+`proposed`. Until the nine are added there, the dispatcher does not hold this task behind them,
+and approving it would mark the exit audit done while the gate fails.
 
 | Story       | Size | Finding                    | What it closes                                                                                                             |
 | ----------- | ---- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
@@ -293,11 +332,15 @@ on the new commit, and DEBT.md and FEATURE-GAPS.md re-read.
   beyond the specs that assert them.
 - A screen reader. Accessible names come from ARIA snapshots and axe.
 - In the review: the shortcut list behind Help (the probe's selector missed its row, so FRICTIONLESS
-  L3's shortcut wording was not re-checked); the template editor at `/scene/:id` on the phone (the
-  probe timed out before it); dragging a placed map token, drawing fog, placing a POI in the editor,
-  and a map import past its first step; the camera QR join.
+  L3's shortcut wording was not re-checked); dragging a placed map token, drawing fog, placing a POI
+  in the editor, and a map import past its first step; the camera QR join.
+- In the phone template-editor pass (BP): the rail and desktop again (group B covered them) and
+  pinch zoom.
 - The review is a model reviewer driving the app, with findings checked against source. It is not a
   usability test with people.
+
+Because of the Help shortcut list and the unexercised map-editor actions above, the three-tier review
+is not complete. The re-audit in §7 should cover them.
 
 ## 9. Reproducing the run, and integration
 

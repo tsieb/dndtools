@@ -126,3 +126,28 @@
   `~/.cache/rc-eng-8-3-evidence/a11y-artifacts/`), the three review worktrees (probes copied to
   `review-{a,b,c}/probes/`), `tools/loop/**/__pycache__`. Evidence stays in
   `~/.cache/rc-eng-8-3-evidence/`, uncommitted.
+
+## Attempt 2 (2026-10-15, after independent review rejected 3b9bbaec)
+
+- Review findings: (1) M2.5 still fails on this candidate — correct, and not fixable inside this
+  task's docs-only paths; the audit stays a recorded failure. (2) RC-ENG-8.3's stored dependencies do
+  not include RC-ENG-8.5–8.13 — re-read the store read-only at ~12:00Z: RC-ENG-8.3 `running`, 20 deps;
+  8.5–8.13 `proposed`, 0 deps. Not changed: editing it is dispatcher control state, which this task
+  must not touch; recorded in EARLY_ACCESS.md §1 and §7 as needing the operator before approval.
+  (3) the phone template-editor state was never reviewed — completed now.
+- Phone template editor: own probe (`p1..p4`, port 5497, this worktree; app tree == `ef42291b`, `git
+diff --stat ef42291b HEAD -- . ':!docs' ':!state'` empty). p1/p2 failed on a probe error (clicked the
+  "Dice & Timers" filter, Add sheet stayed open); p3/p4 passed every step. Then a fourth
+  `ux-ui-reviewer` pass (same brief, phone only, extended probe, q1..q6): 0 critical, 0 high, medium
+  BP-1..BP-5, low BP-6..BP-11; q1 failed on its own selectors, q2..q6 passed; no console or page
+  errors. BP-1 re-read in source (`useSceneCommands.ts:116-122`, toast Undo = generic history undo):
+  confirmed. Evidence `~/.cache/rc-eng-8-3-evidence/review-b-phone-tpl/` (REPORT.md, probes, shots,
+  aria, metrics). Scratch `apps/gm-react/tests/e2e/_rc83/` and `test-results/` removed.
+- EARLY_ACCESS.md: verdict unchanged (not passed); BP row and findings added to §4; §8 drops the
+  phone template editor and states the review is still incomplete (Help shortcut list, map-editor
+  actions); §1/§7 say the task must stay blocked until the re-audit passes. RC_ROADMAP.md story text
+  says the same.
+- Validation: the roadmap sentence was first added as an extra line, which moved the FEATURE-GAPS
+  Shells anchor (`RC_ROADMAP.md:4206`) and failed `pnpm feature-audit`. Rewritten to keep the story's
+  line count; re-run: 48 declared limits, 0 stale, 0 inventory issues. Docs link audit (`auditDocs`):
+  310 files, 465 links, 0 problems. Prettier `--check` on the changed files: clean.

@@ -3362,10 +3362,10 @@ this epic makes the primary paths releasable first and keeps them that way.
   gate: golden paths green on five consecutive runs on both profiles; a `ux-ui-reviewer` pass over
   every primary route at the three tiers with zero high findings; the a11y gate clean; no open
   primary-path entry in DEBT.md; no primary FEATURE-GAPS row carrying a limit beyond the §2.1 four.
-  Findings become stories that block this one. First run 2026-10-15 on `ef42291b`: not passed. The
-  golden paths and the a11y gate held; four high review findings, four DEBT entries and two
-  FEATURE-GAPS limits became RC-ENG-8.5 to 8.13, and the audit re-runs once they land. Acceptance:
-  EARLY_ACCESS.md records the run, the review and the verdict on one commit.
+  Findings become stories that block this one. First run 2026-10-15 on `ef42291b`: not passed; golden
+  paths and a11y gate held; four high review findings, four DEBT entries and two FEATURE-GAPS limits
+  became RC-ENG-8.5 to 8.13. The story stays open until a re-run on a commit carrying them passes.
+  Acceptance: EARLY_ACCESS.md records the run, the review and the verdict on one commit.
 - **RC-ENG-8.4 — Emphasis and display-face lint.** `S` · P2 · Owns: `scripts/emphasis-lint.ts`
   (new), `scripts/emphasis-baseline.json` (new). Two design rules the screens break today become
   checks in `pnpm lint`: the display face (Cinzel) set below 24px, and more than one accent-filled
