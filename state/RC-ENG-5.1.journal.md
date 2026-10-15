@@ -236,17 +236,21 @@ tests/unit/service-worker-security.test.ts` exited 0. Native original output ins
 
 ## Post-rebase visual gate red — 78d7b514d
 
-- Gate run `850987b9`: 587/588 passed; the only failure was `[visual-phone] shell-polish.spec.ts:5
-  app shell — tavern` (8.2s vs ~3.4s typical), stuck at "waiting for element to be stable" on the
-  More sheet (`getByRole('dialog', { name: 'All sections' })`). No pixel diff was reported.
+- Gate run `850987b9`: 587/588 passed; the only failure was
+  `[visual-phone] shell-polish.spec.ts:5 app shell — tavern` (8.2s vs ~3.4s typical), stuck at
+  "waiting for element to be stable" on the More sheet
+  (`getByRole('dialog', { name: 'All sections' })`). No pixel diff was reported.
 - Not caused by this branch: the diff touches `WorkerHost.ts` (custom-widget workers), the service
   worker (registered under the dev server only with `?sw=dev`, see
   `platform/serviceWorker.ts:shouldRegisterServiceWorker`), docs and unit tests. The visual suite
   uses neither.
-- Re-ran in the pinned container: `run-in-container.sh --update-snapshots=none --workers=2
-  tests/visual/shell-polish.spec.ts --repeat-each=3` → 45/45 passed (phone tavern 3.4–3.7s).
+- Re-ran in the pinned container:
+  `run-in-container.sh --update-snapshots=none --workers=2 tests/visual/shell-polish.spec.ts --repeat-each=3`
+  → 45/45 passed (phone tavern 3.4–3.7s).
   This matches the known one-stall-per-full-run pattern on an untouched route. No snapshots
   re-baselined, no code changed.
 - Full pinned-container visual gate re-run at `78d7b514d`
   (`run-in-container.sh --update-snapshots=none --workers=2`): 588 passed (15.4m), exit 0.
 - No push, promotion, extra agent, loop, or dispatcher control-state edit.
+- Format (changed) gate red at `47e215810`: the journal append wrapped inline code spans across
+  lines; reflowed so Prettier accepts it unchanged.
