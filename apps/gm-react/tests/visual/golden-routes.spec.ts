@@ -102,7 +102,9 @@ function defaultSceneId(page: Page): Promise<string | null> {
 
 async function snap(page: Page, theme: Theme, slug: string): Promise<void> {
 	await settle(page, theme);
-	await expect(page).toHaveScreenshot(`${slug}--${theme}.png`);
+	// Full-suite runners can spend more than five seconds in Chromium's capture after fonts
+	// are ready. Bound that work like route readiness; preserve the project's pixel limits.
+	await expect(page).toHaveScreenshot(`${slug}--${theme}.png`, { timeout: 20_000 });
 }
 
 // The primary GM workspaces (the a11y gate's core set). The board's own five-theme captures live in

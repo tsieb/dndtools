@@ -448,3 +448,29 @@ play-polish.spec.ts golden-routes.spec.ts --project=visual-rail --project=visual
   - Targeted Prettier, ESLint and `git diff --check`: passed.
 - Central full-suite validation and independent review remain next; the previously reported
   full-suite failure is not relabeled as a full-suite pass. RC-tag evidence remains post-integration.
+
+## Visual gate repair: bounded golden-route screenshot capture
+
+- Original central run `18ebaab8-c932-41ad-8321-52fe9244c3c9` at `aba6aed5a` reports 587
+  passes and one failure: rail/Tavern Audio Playback. Read its original log: screenshot
+  capture exhausted 5000ms after fonts loaded, with no pixel-mismatch diagnostic.
+  The previous Graph empty-state repair passed in this full run.
+- Inspected the expected PNG and the attached failure screenshot: both 834x1112 and the
+  same Audio Playback layout. ImageMagick RMSE was 0.533737 (normalized 0.00000814431).
+  This later failure screenshot is supporting evidence, not a successful timed assertion.
+- The journal records another full-run capture timeout after fonts loaded on Graph. Added
+  an explicit 20-second timeout to the shared golden-route `snap` helper, matching this
+  suite's bounded route-readiness waits. This addresses capture time, not rendering content:
+  no baseline, pixel threshold, retry count, app code or screenshot scope changed.
+- Headroom unavailable; used original native output. Focused pinned validation in progress.
+  No push, promotion, extra agents, other loop or dispatcher control-state changes.
+- Validation:
+  - `DNDTOOLS_PW_WORKERS=2 apps/gm-react/tests/visual/run-in-container.sh golden-routes.spec.ts -g 'Audio polish.*Playback' --repeat-each=2 --update-snapshots=none`:
+    30 passed (52.3s), five themes at desktop/rail/phone sizes, twice. Original result and
+    exit 0 inspected at `/tmp/rc-eng-7.1-audio-capture.log`. No snapshots updated.
+  - `pnpm gates`: six gates and docs checks passed (existing size warnings); original output
+    read at `/tmp/rc-eng-7.1-capture-gates.log`.
+  - Targeted ESLint, Prettier and `git diff --check`: passed.
+- These focused passes verify compatibility with existing baselines. They do not prove that
+  the prior full-suite timing condition was reproduced or that the full suite now passes.
+  Central full validation/review and post-integration RC-tag evidence remain outstanding.
