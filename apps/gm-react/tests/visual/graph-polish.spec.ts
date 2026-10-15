@@ -69,6 +69,12 @@ for (const theme of THEMES) {
 		await page.getByRole('button', { name: 'Open note' }).scrollIntoViewIfNeeded();
 		await snap(page, theme, 'graph-selected');
 		await page.getByLabel('Search the graph').fill('no-matching-graph-node');
+		// The list updates urgently, but the canvas uses a deferred query. Until its count
+		// reaches zero, the first empty-state heading belongs to the list; scrolling to it
+		// captures the wrong viewport even after the canvas later finishes rendering.
+		await expect(page.getByRole('status').filter({ hasText: /^Showing / })).toHaveText(
+			/^Showing 0 of \d+ visible nodes$/,
+		);
 		await page
 			.getByRole('heading', { name: 'No results for this filter.' })
 			.first()

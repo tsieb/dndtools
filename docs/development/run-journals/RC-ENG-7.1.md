@@ -425,3 +425,26 @@ play-polish.spec.ts golden-routes.spec.ts --project=visual-rail --project=visual
 - This continuation's validation: Prettier and `git diff --check` passed; `pnpm gates`
   passed six gates and docs checks with existing size warnings. Read original log:
   `/tmp/rc-eng-7.1-claim-resolved-gates.log`.
+
+## Visual gate repair: wait for the deferred Graph canvas
+
+- Read the original central log for run `6f21ea34-4207-47c9-9074-95fc942335ce`: 587 passed,
+  one failed (`visual-rail`, Graph Tavern empty-filter screenshot). Inspected original expected
+  and actual PNGs: identical empty content at different scroll positions, not a Help mismatch.
+- Graph's results list uses the urgent query and its canvas/count use `useDeferredValue`.
+  The test selected the first matching empty-state heading before the deferred canvas was
+  empty; that can select the list heading and scroll below the intended canvas viewport.
+- Added an assertion for the canvas status to show zero nodes before selecting the first
+  empty heading. Kept app code, baselines and screenshot tolerances unchanged. The visual
+  spec is a companion test path. Headroom unavailable; original native outputs inspected.
+- Validation in progress. No push, promotion, new agents or dispatcher state changes.
+- Validation complete:
+  - `DNDTOOLS_PW_WORKERS=2 apps/gm-react/tests/visual/run-in-container.sh graph-polish.spec.ts --repeat-each=2`:
+    30 passed (five themes, three viewport profiles, two repetitions), using unchanged
+    baselines. Original log `/tmp/rc-eng-7.1-graph-readiness.log`; exit code 0 and original
+    result summary inspected. This is the focused Graph suite, not a new full 588-test run.
+  - `pnpm gates`: six gates and docs checks passed with existing size warnings; original
+    output read at `/tmp/rc-eng-7.1-graph-gates.log`.
+  - Targeted Prettier, ESLint and `git diff --check`: passed.
+- Central full-suite validation and independent review remain next; the previously reported
+  full-suite failure is not relabeled as a full-suite pass. RC-tag evidence remains post-integration.
