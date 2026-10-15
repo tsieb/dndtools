@@ -104,3 +104,14 @@ promotion.
   `tsc --noEmit` core exit 0 and gm-react exit 0; the FEATURE-GAPS "event-source wiring" limit is
   absent (grep exit 1). Browser/visual results are from attempt 3 and were not re-run, because no
   UI code changed since then.
+
+## Attempt 6 — rebase onto loop/rc `6b8d7e21`
+
+- Rebasing onto `6b8d7e21` conflicted in `docs/requirements/FEATURE-GAPS.md` because the base
+  re-anchored the same `en.ts` lines after the palette keyword cleanup. I took the base file, removed
+  the Characters "event-source wiring" limit again (same-width padding, so no other rows re-pad), and
+  shifted the `en.ts` anchors past line 2679 by +3 for the three `character.history.kind.*` keys.
+  Each shifted anchor now points at the same text it pointed to on the base.
+- Validation on the rebased tree: `pnpm feature-audit` exit 0 (47 declared limits, 0 stale);
+  Prettier check on FEATURE-GAPS.md passes; character-history-events.test.ts 15/15. No code
+  changed in this attempt, and browser/visual results were not re-run.
