@@ -81,3 +81,12 @@
   `effScores` and `coreAbilities` add no bonus; `create.ts:209` dispatches them as-is; the core draft
   flow has no ancestry concept. Copy `en.ts:5252,5283` promises the bonuses. Confirmed.
 - 11:19Z: EARLY_ACCESS.md drafted (gates, DEBT, FEATURE-GAPS, verdict fail); review A/B sections and stories pending.
+- Review B finished: critical 0, high 2, medium 5 (B-3..B-7), low 7 (B-8..B-14); the agent could not
+  write report files, so its final message is saved as `review-b/REPORT.md`. B-1 (default Start goes
+  live on the dm-only home screen and the header says players see it) re-checked in source:
+  `useSessionView.ts:104` falls back to `commandCenter.homeSceneId`, `Lifecycle.tsx:303` defaults to
+  Continue, the header at `Lifecycle.tsx:54-56` names the scene regardless of visibility. Confirmed.
+  B-2 (FRICTIONLESS L4 widened: rail Fit covers Next turn and Timer Start) re-checked: the overflow
+  footer is an opaque absolute overlay (`WidgetRenderSlot.tsx:415-430`). Accepted as high on the
+  brief's "primary action hidden"; recoverable by scrolling inside the tile, which is why the golden
+  detector passes it. Judgement recorded.
