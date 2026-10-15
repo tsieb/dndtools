@@ -72,3 +72,18 @@ Operator decision required: widen the claim to include both paths, or revise the
   Those are prior implementation results, not new runs or evidence that the claim gate passed.
 - This follow-up records the required-path justification in its commit message. No dispatcher
   state changed, and no push, promotion or agents were used.
+
+## Self-heal round 1 (claim widened to both DS map files)
+
+- Claim now includes `ds/components/map/LayerPanel.tsx` and `LayerRow.tsx`; kept as committed, no
+  code changes this round. Branch is level with `loop/rc` (`4efd8df9a`), no rebase needed.
+- Shared-DS blast radius: the editor dock's `LayerRow readOnly` (player view) now renders the name
+  as text with no button. Before this change it rendered a no-op focusable button.
+  Re-verified the dock alongside Atlas.
+- App typecheck (`tsc --noEmit`): exit 0. `CI=true vitest --config vitest.app.config.ts` over
+  `src/ds`, `src/screens/atlas`, `src/app/map`: exit 0, 40 files / 341 tests
+  (`/tmp/rc-eng-8.11-r2-vitest-app.log`). An earlier per-package vitest run failed only on the
+  cwd-relative `spacing.css` path in `dice-drama.test.tsx`, which is an invocation artefact.
+- `playwright test atlas.spec.ts atlas-polish.spec.ts map-editor.spec.ts --workers=2`, both
+  profiles, own port: exit 0, 117 passed / 5 skipped (existing profile-specific `test.skip` guards)
+  in 2.8m (`/tmp/rc-eng-8.11-r2-e2e.log`).
