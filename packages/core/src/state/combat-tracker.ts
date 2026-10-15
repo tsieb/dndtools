@@ -413,6 +413,8 @@ export interface SessionCombatState {
 	turn: number;
 	/** The combatants keyed by id. */
 	combatants: Record<string, Combatant>;
+	/** Character participants removed before combat.end; reset for every new fight. */
+	departedCharacters?: Record<string, { characterId: string; hp: number; maxHp: number }>;
 	/** The initiative ORDER — combatant ids in turn order. Stable; recomputed only by reorder. */
 	order: string[];
 	/**
@@ -526,6 +528,12 @@ export function ensureSessionCombatState(
 		round: state?.round ?? 0,
 		turn: state?.turn ?? 0,
 		combatants,
+		departedCharacters: Object.fromEntries(
+			Object.entries(state?.departedCharacters ?? {}).map(([id, participant]) => [
+				id,
+				{ ...participant },
+			]),
+		),
 		order: state?.order ? [...state.order] : [],
 		tokens,
 		templates,
@@ -902,6 +910,21 @@ export const combatHistoryRecords: CharacterHistoryCollector = (nextState, event
 			kind: 'combat',
 			title: `Fought a combat (${rounds} ${rounds === 1 ? 'round' : 'rounds'})`,
 			body: `Ended the fight at ${Math.max(0, hp)} of ${maxHp} hit points.`,
+			actorId: ended.actorId,
+		});
+	}
+	for (const participant of Object.values(combat.departedCharacters ?? {})) {
+		if (
+			seen.has(participant.characterId) ||
+			!nextState.characters.characters[participant.characterId]
+		)
+			continue;
+		seen.add(participant.characterId);
+		records.push({
+			characterId: participant.characterId,
+			kind: 'combat',
+			title: `Fought a combat (${rounds} ${rounds === 1 ? 'round' : 'rounds'})`,
+			body: `Left the fight at ${Math.max(0, participant.hp)} of ${participant.maxHp} hit points.`,
 			actorId: ended.actorId,
 		});
 	}

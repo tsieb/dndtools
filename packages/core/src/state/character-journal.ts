@@ -54,6 +54,11 @@ export const HISTORY_ENTRY_KINDS: readonly HistoryEntryKind[] = [
 	'level-up',
 ] as const;
 
+/** Automatic records cannot be re-authored by Journal Undo, so they cannot be deleted. */
+export function isHistoryEntryKind(kind: string): kind is HistoryEntryKind {
+	return HISTORY_ENTRY_KINDS.some((historyKind) => historyKind === kind);
+}
+
 export const JOURNAL_ENTRY_KINDS: readonly JournalEntryKind[] = [
 	'bookmark',
 	'npc-impression',
@@ -290,14 +295,15 @@ export function setJournalEntryVisibility(
 	});
 }
 
-/** Remove an entry from a character's journal. Returns `null` when it does not exist. Pure. */
+/** Remove an authored entry. Returns `null` for absent or automatic history entries. Pure. */
 export function removeJournalEntry(
 	state: CharacterJournalState,
 	characterId: string,
 	entryId: string,
 ): CharacterJournalState | null {
 	const journal = state.journals[characterId];
-	if (!journal || !journal.entries.some((e) => e.id === entryId)) return null;
+	const entry = journal?.entries.find((e) => e.id === entryId);
+	if (!journal || !entry || isHistoryEntryKind(entry.kind)) return null;
 	return withJournal(state, {
 		...journal,
 		entries: journal.entries.filter((e) => e.id !== entryId),

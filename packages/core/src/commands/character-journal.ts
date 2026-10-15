@@ -366,7 +366,10 @@ export function handleRemoveJournalEntry(
 	const nextJournals = removeJournalEntry(journals, parsed.data.characterId, parsed.data.entryId);
 	if (!nextJournals || !before) {
 		return reject(
-			{ code: 'invalid-state', message: `Journal entry ${parsed.data.entryId} does not exist.` },
+			{
+				code: 'invalid-state',
+				message: `Journal entry ${parsed.data.entryId} does not exist or cannot be deleted.`,
+			},
 			state,
 		);
 	}

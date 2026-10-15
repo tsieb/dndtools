@@ -45,9 +45,7 @@ promotion.
 ## Handoffs
 
 - `screens/player/Journal.tsx` (not owned) shows history entries in the Journal tab with the raw
-  kind as the badge (`rest`, `level-up`) because its labels come from `JOURNAL_KINDS`. Its delete
-  undo re-adds through `character.add-journal-entry`, which refuses history kinds (the same lossy
-  restore the `downtime` kind already has). Small follow-up for whoever owns the player journal.
+  kind as the badge (`rest`, `level-up`) because its labels come from `JOURNAL_KINDS`. Automatic history deletion is now prevented in core and its Delete affordance is hidden (see attempt 3).
 - Entry titles/bodies are English strings written by core, like the encounter-log labels. The
   History badges are localised (en/es).
 
@@ -62,3 +60,20 @@ promotion.
   count is unchanged, so the FEATURE-GAPS anchors still match.
 - Pinned container, `player-polish.spec.ts` + `scene-editor-polish.spec.ts`,
   `--update-snapshots=none`: 30 passed, exit 0.
+
+
+## Attempt 3 — independent review correctness fixes
+
+- Retain removed character participants and their departure HP in the durable combat slice. Hydration
+  clones this additive data; starting the next fight clears it. Ending combat includes departed
+  characters, deduplicates rejoined characters, and applies the existing journal visibility rules.
+- Automatic rest/combat/level-up records cannot be deleted through the journal reducer/command.
+  Player Journal hides their Delete action, so it cannot offer an Undo that the authoring schema
+  rejects. The authoring schema still rejects fabricated automatic records. Companion command,
+  public export and Player Journal edits are necessary to address the review's two reproducers.
+- Added five core regressions for removal/rejoin, persisted-state hydration, subsequent fights,
+  departed NPC privacy, and deletion/fabrication rejection for every automatic kind (owner and DM).
+- History browser spec now also checks all three entries in Journal and absence of Delete actions.
+- Validation: history core 15/15; related combat/resource/advancement tests 84/84; History browser
+  tests 6/6 across desktop/mobile; changed-file ESLint exit 0; core and gm-react typechecks exit 0; pinned container
+  player-polish visual suite 15/15 with --update-snapshots=none; git diff --check exit 0. No dispatcher state, push, promotion or additional agents.

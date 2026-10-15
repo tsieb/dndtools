@@ -1,6 +1,6 @@
 import { JournalHighlights } from './JournalHighlights';
 import { useState } from 'react';
-import type { JournalEntryView } from '@dndtools/core';
+import { isHistoryEntryKind, type JournalEntryView } from '@dndtools/core';
 import {
 	Badge,
 	Button,
@@ -306,13 +306,15 @@ export function PlayerJournal({
 																	size="sm"
 																	onClick={() => startEdit(im)}
 																/>
-																<IconButton
-																	icon="close"
-																	label={t('player.journal.deleteEntry', { title: im.title })}
-																	variant="ghost"
-																	size="sm"
-																	onClick={() => void remove(im)}
-																/>
+																{!isHistoryEntryKind(im.kind) && (
+																	<IconButton
+																		icon="close"
+																		label={t('player.journal.deleteEntry', { title: im.title })}
+																		variant="ghost"
+																		size="sm"
+																		onClick={() => void remove(im)}
+																	/>
+																)}
 															</span>
 														)}
 													</div>

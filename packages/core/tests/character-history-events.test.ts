@@ -10,6 +10,7 @@ import {
 	dispatchCommand,
 	getCharacterJournalForActor,
 	historyEntryVisibility,
+	ensureSessionCombatState,
 	type Actor,
 	type CommandResult,
 	type CoreCommand,
@@ -333,4 +334,138 @@ describe('RC-ENG-8.12 — ending a combat appends a dated history entry per char
 		expect(journalTitles(narrowed, PLAYER_B.id, pc)).toEqual([]);
 		expect(journalTitles(narrowed, DM_ACTOR.id, pc)).toEqual(['Fought a combat (2 rounds)']);
 	});
+});
+
+describe('RC-ENG-8.12 review regressions', () => {
+	it.each([false, true])(
+		'retains departed participants across hydration (rejoined: %s)',
+		(rejoin) => {
+			const { state, env, pc, npc } = table();
+			let next = startActiveSession(state, env);
+			const fighter = {
+				kind: 'character',
+				name: 'Pip',
+				characterId: pc,
+				initiative: 15,
+				maxHp: 12,
+			};
+			next = run(next, env, {
+				type: 'combat.start',
+				actorId: DM_ACTOR.id,
+				payload: {
+					combatants: [
+						fighter,
+						{ ...fighter, name: 'Tam', characterId: npc },
+						{ kind: 'monster', name: 'Bandit', initiative: 9, maxHp: 10 },
+					],
+				},
+			} as CoreCommand);
+			next = run(next, env, {
+				type: 'combat.advance-turn',
+				actorId: DM_ACTOR.id,
+				payload: {},
+			} as CoreCommand);
+			for (const combatant of Object.values(next.session.combat.combatants).filter(
+				(c) => c.characterId,
+			)) {
+				next = run(next, env, {
+					type: 'combat.remove-combatant',
+					actorId: DM_ACTOR.id,
+					payload: { combatantId: combatant.id },
+				} as CoreCommand);
+			}
+			next = {
+				...next,
+				session: {
+					...next.session,
+					combat: ensureSessionCombatState(JSON.parse(JSON.stringify(next.session.combat))),
+				},
+			};
+			if (rejoin)
+				next = run(next, env, {
+					type: 'combat.add-combatants',
+					actorId: DM_ACTOR.id,
+					payload: { combatants: [fighter] },
+				} as CoreCommand);
+			next = run(next, env, {
+				type: 'combat.end',
+				actorId: DM_ACTOR.id,
+				payload: {},
+			} as CoreCommand);
+			expect(journalTitles(next, PLAYER_ACTOR.id, pc)).toHaveLength(1);
+			expect(historyEntry(next, pc, 'combat')!.body).toContain(
+				rejoin ? 'Ended the fight' : 'Left the fight',
+			);
+			expect(Date.parse(historyEntry(next, pc, 'combat')!.createdAt)).not.toBeNaN();
+			expect(historyEntry(next, npc, 'combat')!.visibility).toBe('dm-only');
+			expect(journalTitles(next, PLAYER_ACTOR.id, npc)).toEqual([]);
+			// A later fight must not credit participants from the previous combat.
+			next = run(next, env, {
+				type: 'combat.start',
+				actorId: DM_ACTOR.id,
+				payload: { combatants: [{ kind: 'monster', name: 'Bandit', initiative: 9, maxHp: 10 }] },
+			} as CoreCommand);
+			next = run(next, env, {
+				type: 'combat.end',
+				actorId: DM_ACTOR.id,
+				payload: {},
+			} as CoreCommand);
+			expect(journalTitles(next, PLAYER_ACTOR.id, pc)).toHaveLength(1);
+		},
+	);
+
+	it.each(['rest', 'combat', 'level-up'])(
+		'protects %s entries from deletion and fabrication',
+		(kind) => {
+			const { state, env, pc } = table();
+			let next = startActiveSession(state, env);
+			next = run(next, env, {
+				type: 'character.rest',
+				actorId: PLAYER_ACTOR.id,
+				payload: { characterId: pc, rest: 'long' },
+			} as CoreCommand);
+			next = run(next, env, {
+				type: 'character.apply-advancement',
+				actorId: PLAYER_ACTOR.id,
+				payload: { characterId: pc, mode: 'milestone', className: 'Fighter', hitPointsGained: 6 },
+			} as CoreCommand);
+			next = run(next, env, {
+				type: 'combat.start',
+				actorId: DM_ACTOR.id,
+				payload: {
+					combatants: [
+						{ kind: 'character', name: 'Pip', characterId: pc, initiative: 15, maxHp: 12 },
+					],
+				},
+			} as CoreCommand);
+			next = run(next, env, {
+				type: 'combat.end',
+				actorId: DM_ACTOR.id,
+				payload: {},
+			} as CoreCommand);
+			const entry = historyEntry(next, pc, kind)!;
+			for (const actorId of [PLAYER_ACTOR.id, DM_ACTOR.id]) {
+				const removed = dispatchCommand(next, env, {
+					type: 'character.remove-journal-entry',
+					actorId,
+					payload: { characterId: pc, entryId: entry.id },
+				} as CoreCommand);
+				expect(removed.status).toBe('rejected');
+				expect(removed.nextState).toEqual(next);
+				const fabricated = dispatchCommand(next, env, {
+					type: 'character.add-journal-entry',
+					actorId,
+					payload: {
+						characterId: pc,
+						kind,
+						title: entry.title,
+						body: entry.body,
+						visibility: entry.visibility,
+						sharedWith: [],
+					},
+				} as CoreCommand);
+				expect(fabricated.status).toBe('rejected');
+			}
+		},
+	);
 });

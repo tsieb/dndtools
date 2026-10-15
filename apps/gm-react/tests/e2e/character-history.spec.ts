@@ -158,6 +158,13 @@ test.describe('character history timeline', () => {
 		expect(markdown).toContain('## Long rest\n_Rest — ');
 		expect(markdown).toContain('## Fought a combat (1 round)\n_Combat — ');
 		expect(markdown).toContain(`## Reached level ${toLevel}\n_Level up — `);
+		await page.getByRole('tab', { name: 'Journal', exact: true }).click();
+		for (const title of ['Long rest', 'Fought a combat (1 round)', `Reached level ${toLevel}`]) {
+			await expect(page.getByText(title, { exact: true })).toBeVisible();
+			await expect(page.getByRole('button', { name: `Delete ${title}`, exact: true })).toHaveCount(
+				0,
+			);
+		}
 	});
 
 	test('the export button is disabled with no entries yet', async ({ page }) => {

@@ -1320,6 +1320,18 @@ export function handleRemoveCombatant(
 	let nextCombat: SessionCombatState = {
 		...combat,
 		combatants,
+		departedCharacters: {
+			...combat.departedCharacters,
+			...(existing.characterId
+				? {
+						[existing.characterId]: {
+							characterId: existing.characterId,
+							hp: existing.resources.hp,
+							maxHp: existing.resources.maxHp,
+						},
+					}
+				: {}),
+		},
 		order,
 		tokens,
 		round,
