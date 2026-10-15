@@ -61,7 +61,6 @@ promotion.
 - Pinned container, `player-polish.spec.ts` + `scene-editor-polish.spec.ts`,
   `--update-snapshots=none`: 30 passed, exit 0.
 
-
 ## Attempt 3 — independent review correctness fixes
 
 - Retain removed character participants and their departure HP in the durable combat slice. Hydration
@@ -94,3 +93,14 @@ promotion.
   decision; it does not widen the claim or assert that the candidate passed the claim gate.
 - Validation after the revert: character-history-events.test.ts 15/15, exit 0. No UI or combat
   behavior changed in this attempt; prior browser/visual results are not new runs on this commit.
+
+## Attempt 5 — after claim widening (self-heal round 1)
+
+- The operator widened the claim to `packages/core/src/commands/combat.ts` and
+  `apps/gm-react/src/screens/player/Journal.tsx`. Both changes are unchanged from attempt 4 and
+  kept as required; nothing was reverted.
+- Branch base is still loop/rc `68040135`, so no rebase was needed.
+- Validation on this commit: core character-history + combat tests 137/137 (6 files), exit 0;
+  `tsc --noEmit` core exit 0 and gm-react exit 0; the FEATURE-GAPS "event-source wiring" limit is
+  absent (grep exit 1). Browser/visual results are from attempt 3 and were not re-run, because no
+  UI code changed since then.
