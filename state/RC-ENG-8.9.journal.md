@@ -88,3 +88,29 @@ tests/e2e/extensions-polish.spec.ts --workers=2`: exit 0, 28 passed (2.4m), desk
   Original output read from `/tmp/rc-eng-8.9-tooling-fix.log`.
 - Prettier and `git diff --check` passed. The companion edit changes only one inventory row.
   Committed with this journal on the task branch; no push, promotion or dispatcher mutation.
+
+## Browser acceptance swatch correction
+
+- Read original central log:
+  `/home/trinkle/Programming/agent-dispatcher/.state/attempts/67fba381-1036-401b-ba82-55641d4cf572/output.log`.
+  Browser acceptance: 2296 passed, 49 skipped, 1 failure (including two failed retries).
+  Parchment's exact-color swatch baseline differs by 576 pixels, one 24x24 token cell.
+- First ran the failing check on pre-task base `f02a1bf40` in detached scratch worktree
+  `/tmp/rc-eng-8.9-base-swatch`, sharing installed dependency directories:
+  `playwright test tests/e2e/themes.spec.ts --project=desktop-chromium
+-g 'parchment swatch board' --workers=1`: exit 0, 1 passed (4.9s).
+  Original output: `/tmp/rc-eng-8.9-base-swatch.log`. Vite reported font allow-list warnings
+  in that scratch checkout; the swatch board explicitly has no text/shadows and passed exactly.
+- This failure is caused by our accent change, NOT inherited. The earlier refresh missed the
+  separate browser-acceptance snapshot directory. Required companion file outside original claim:
+  `apps/gm-react/tests/e2e/themes.spec.ts-snapshots/theme-parchment-desktop-chromium-linux.png`.
+  Updating that baseline from the browser; no assertion/tolerance or spec changes.
+
+- Baseline update: exit 0, 1 passed (6.8s), original `/tmp/rc-eng-8.9-swatch-update.log`.
+  ImageMagick exact pixel comparison confirms only 576 pixels changed; the updated accent cell
+  contains exactly 576 pixels of #945016. All other 91,296 pixels are unchanged.
+- Full themes spec on desktop and mobile after update: exit 0, 13 passed / 5 intentional mobile
+  swatch skips (21.5s). Original output: `/tmp/rc-eng-8.9-themes-verify.log`.
+  The five mobile skips are pre-existing: the board has no responsive layout.
+- Only the missing parchment swatch PNG and journal changed. Formatting/diff checks passed.
+  No push, promotion, agent spawning or dispatcher control changes.
