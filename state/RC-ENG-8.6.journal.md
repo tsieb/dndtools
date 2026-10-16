@@ -177,3 +177,13 @@ because that file holds the stale fixture assumption, and the claim offers no ot
 Validation (original logs read): `DISPLAY=:0 pnpm desktop:smoke` passed 3/3 on this head with the fix
 (`/tmp/eng86-ci-smoke-final-{1,2,3}.log`, exit 0, parity write + verify included). Prettier clean.
 ESLint ignores `electron/*.cjs`.
+
+Same root cause, same commit series: `scripts/android-emulator-acceptance.sh` (nightly + release,
+not in the failed CI run) also only opened the library before Start session. A phone-Chromium
+replay of its sequence on this head (throwaway spec, since deleted; `/tmp/eng86-android-replay2.log`)
+failed: the start dialog never opened. The same sequence plus New screen → Create screen
+passed through "Players see". The script now takes that step, failing loudly on every hop. Its
+source test `tests/unit/android-emulator-acceptance.test.ts`: 20 passed (`/tmp/eng86-android-unit.log`);
+`bash -n` clean. Not run on an emulator: there is no local JDK and the local emulator segfaults.
+Nightly android acceptance is the real check. This file is also outside the claim; the reason
+for crossing it is the same as for the smoke.

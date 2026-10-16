@@ -480,13 +480,19 @@ wait_for_pid >/dev/null || fail 'dismissing first-run setup terminated the app p
 wait_for_ui_text_absent 'Skip setup' || fail 'Back did not dismiss first-run setup'
 wait_for_ui_text 'Open scene' || fail 'root destination did not render after first-run setup'
 
-# A fresh vault starts empty (RC-UX-3.6). Opening the Command Center scene creates the scene a
-# session can start on; Home then returns to the root destination for the checks below. On a fresh
-# vault the first-session guide (RC-UX-6.3) fills the phone screen above the CTA, so scroll to it.
+# A fresh vault starts empty (RC-UX-3.6). Opening the Command Center scene creates only the DM's
+# home board, a workspace a session never starts on (RC-ENG-8.6), so create a screen from the
+# library's default template, as a DM would. Home then returns to the root destination for the
+# checks below. On a fresh vault the first-session guide (RC-UX-6.3) fills the phone screen above
+# the CTA, so scroll to it.
 step 'fresh vault scene'
 tap_ui_button_scrolling 'Open scene' || fail 'Open scene was not reachable on the fresh vault'
 wait_for_ui_text 'New screen' || fail 'Open scene did not open the Screens library'
-tap_ui_button 'Home' || fail 'Home navigation control was not reachable from Screens'
+tap_ui_button 'New screen' || fail 'New screen was not reachable in the Screens library'
+wait_for_ui_text 'Create screen' || fail 'the New screen dialog did not open'
+tap_ui_button 'Create screen' || fail 'the New screen dialog could not be confirmed'
+wait_for_ui_text_absent 'Create screen' || fail 'the new screen was not created'
+tap_ui_button 'Home' || fail 'Home navigation control was not reachable from the new screen'
 wait_for_root_destination || fail 'Home did not return to the root destination'
 
 # Exercise renderer history and commit a real Core command before the final root-level minimize
