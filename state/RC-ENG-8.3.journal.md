@@ -386,3 +386,12 @@ diff --stat ef42291b HEAD -- . ':!docs' ':!state'` empty). p1/p2 failed on a pro
 - EARLY_ACCESS.md stands: third run on `d24d51bb3`, not passed (A3-1, B3-1, D3-2 →
   RC-ENG-8.18 to 8.20). Needs operator, unchanged: approve 8.18–8.20, add 8.15–8.20 to RC-ENG-8.3's
   stored deps, reconcile 8.15–8.17 (landed here), drop RC-ENG-8.16's three non-path owns tokens.
+
+## Attempt 10 (2026-10-16, Requirements audit gate failed on 37aba1fae)
+
+- Original log (`attempts/49f570b5-…/output.log`): `pnpm feature-audit` exit 1, one stale anchor,
+  "Shells and platform: docs/planning/RC_ROADMAP.md :: "operator" (line-mismatch)". My own miss: I ran
+  the audit after the en.ts re-anchor but before adding RC-ENG-8.18–8.20 to the roadmap, which moved
+  RC-PLT-1.1's §23 row (status `operator`) from line 4260 to 4307. Re-pointed in FEATURE-GAPS.md
+  line 77, same digit count so no table re-pad; `pnpm feature-audit`: 46 limits, 0 stale, exit 0.
+- EARLY_ACCESS.md §6 and §9 now say two anchors were re-pointed, not one. No application change.

@@ -264,11 +264,12 @@ item 2 defines it: a capability a primary surface offers, or the plan promises, 
 or incomplete.
 
 None is counted. The primary rows and their limits are unchanged since the second run.
-`pnpm feature-audit` reports 46 declared
-limits, 0 stale, 0 inventory issues, after one re-anchor: the six catalog keys `f1b81db8a` added
-moved the Plans & cloud row's `Subscribe at {host}` anchor in `en.ts` from line 5596 to 5602. That
-row is not primary. A3-1, B3-1 and D3-2 are review findings, not declared limits: no row claims the
-preview, the Start dialog's reasons or marker hit areas.
+`pnpm feature-audit` reports 46 declared limits, 0 stale, 0 inventory issues, after two line anchors
+were re-pointed: the six catalog keys `f1b81db8a` added moved the Plans & cloud row's
+`Subscribe at {host}` anchor in `en.ts` from line 5596 to 5602, and the stories this run filed moved
+the Shells and platform row's anchor on RC-PLT-1.1's §23 row in RC_ROADMAP.md from line 4260 to line
+4307; neither row is primary. A3-1, B3-1 and D3-2 are review findings, not declared limits: no row
+claims the preview, the Start dialog's reasons or marker hit areas.
 
 The primary rows' remaining limits, with the reason each is not a §2.1 limit:
 
@@ -358,8 +359,8 @@ The DEBT.md and FEATURE-GAPS.md readings in §5 and §6 are static: the files at
 against the source they cite.
 
 This audit holds for the application tree of `d24d51bb3`. The commit after it adds only
-documentation: this file, the roadmap stories, the run journal, and the re-anchored FEATURE-GAPS.md
-line. Before citing this verdict for another commit, run
+documentation: this file, the roadmap stories, the run journal, and the two re-pointed
+FEATURE-GAPS.md line anchors. Before citing this verdict for another commit, run
 `git diff --stat d24d51bb3 <commit> -- . ':!docs' ':!state'`. Empty output means the same application
 code; anything else means the gates run again.
 
