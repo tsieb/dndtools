@@ -147,3 +147,16 @@ tests/e2e/extensions-polish.spec.ts --workers=2`: exit 0, 28 passed (2.4m), desk
   Left untouched to stay inside the claim.
 - `loop/rc` is 5 commits ahead (RC-ENG-8.10 i18n/journals); no overlap with this task's paths.
 - No source, baseline, push, promotion, agent or dispatcher-state changes this round.
+
+## Rebase onto 144f5f6cf (DEBT.md conflict)
+
+- Rebased all six task commits onto integration head `144f5f6cf`. Only conflict: `DEBT.md`, where
+  RC-ENG-8.10 removed open DEBT-2026-007 and added its bullet at the top of `## Resolved`.
+- Resolution keeps both: DEBT-2026-007 and DEBT-2026-008 both leave `## Open`; the Resolved section
+  lists 8.10's 007 bullet unchanged, then 008 rewritten in the same bullet style (same facts as before:
+  `#9a5418` → `#945016`, 4.43:1 → 4.74:1, lint pair at 4.5:1, spec exceptions removed, captures
+  re-baselined). Prettier check on `DEBT.md` passed.
+- After rebase: `pnpm tokens:contrast` exit 0 (106 checks, parchment 21);
+  `pnpm test:tooling --maxWorkers=3` exit 0, 33 files / 274 tests
+  (original `/tmp/rc-eng-8.9-tooling-rebase.log`).
+  The other task files were unchanged by the rebase; no source, spec or baseline edits.
