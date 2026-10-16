@@ -107,3 +107,28 @@ Re-verified HEAD 715c73430 (original logs read):
 
 Known residue: the header's "nothing yet" and the disabled-checkbox title are English literals.
 Localizing them needs new en/es keys plus a qps-ploc regen, all outside this claim.
+
+## Browser-acceptance repair (gate run 07a0aaea, head bd55555ac)
+
+Read the original gate log: 2291 passed, 2 failed — only `first-session-guide.spec.ts:56` on both
+profiles, all retries, at the Start dialog's confirm (`<button disabled>`, "element is not
+enabled"). That journey starts from an UNSEEDED fresh vault whose only startable scene is a
+private screen created from a template. The candidate preselected shareable scenes only, so the
+dialog chose nothing and confirm stayed disabled; the top bar likewise had no default.
+
+Fix (owned paths only): both the dialog and `defaultStartSceneId` prefer the first shareable
+scene and fall back to the first startable scene. Workspaces (home, Session screen, legacy
+DM-only home) are still excluded from startable scenes, so a DM-only workspace is never chosen.
+On a private scene the session goes live, the share box is disabled with its reason, and the
+header honestly reads "Players see nothing yet".
+
+Validation (original logs read):
+
+- first-session-guide + session-start-default + session-lifecycle, both profiles: 26 passed,
+  exit 0 (`/tmp/rc-eng-8.6-r3-e2e.log`).
+- App typecheck: exit 0 (`/tmp/rc-eng-8.6-r3-typecheck.log`).
+- `CI=true vitest --config vitest.app.config.ts` app/ + screens/session: 86 files / 1349 tests,
+  exit 0 (`/tmp/rc-eng-8.6-r3-vitest.log`).
+- Every other spec that drives a session start (golden-path, feature-spotlight, combat,
+  responsive, help-menu, player-summary, session-standby, session-polish, table-view), both
+  profiles: 365 passed, exit 0, 12.1m (`/tmp/rc-eng-8.6-r3-e2e-related.log`).

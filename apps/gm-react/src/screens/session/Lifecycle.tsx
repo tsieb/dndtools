@@ -303,7 +303,10 @@ function StartSessionForm({
 	const { t } = useI18n();
 	const continueScene = scenes.find((scene) => scene.id === continueSceneId) ?? null;
 	const [mode, setMode] = useState<'continue' | 'new'>(continueScene ? 'continue' : 'new');
-	const [sceneId, setSceneId] = useState(scenes.find((scene) => scene.shareable)?.id ?? '');
+	// Prefer a scene the table can see; a private scene can still run a session, just not be shown.
+	const [sceneId, setSceneId] = useState(
+		(scenes.find((scene) => scene.shareable) ?? scenes[0])?.id ?? '',
+	);
 	const [title, setTitle] = useState('');
 	const [sharingChoices, setSharingChoices] = useState<Record<string, boolean>>({});
 	const chosenSceneId = mode === 'continue' && continueScene ? continueScene.id : sceneId;

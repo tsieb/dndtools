@@ -108,7 +108,10 @@ export function useSessionScenes() {
 			activeSceneId,
 			activeSceneName: visible.find((s) => s.id === activeSceneId)?.name ?? null,
 			continueSceneId,
-			defaultStartSceneId: continueSceneId ?? startableScenes.find((s) => s.shareable)?.id ?? null,
+			defaultStartSceneId:
+				continueSceneId ??
+				(startableScenes.find((s) => s.shareable) ?? startableScenes[0])?.id ??
+				null,
 		};
 	}, [scenes, permissions, commandCenter, session, actorId]);
 }
