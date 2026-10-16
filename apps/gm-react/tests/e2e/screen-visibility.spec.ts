@@ -11,6 +11,38 @@ import { gotoRoute, installFakeLan, waitReady } from './_helpers';
 
 const NAME = 'Harbour table';
 
+/** A fresh profile: onboarding opens over an empty vault; Escape leaves it. */
+async function freshVault(page: Page) {
+	await page.goto('/#/');
+	await waitReady(page);
+	const onboarding = page.locator('[data-fullscreen-overlay="onboarding"]');
+	await expect(onboarding).toBeVisible();
+	await page.keyboard.press('Escape');
+	await expect(onboarding).toBeHidden();
+}
+
+/** New screen from a template, as the first-session guide's row opens it. Every new screen is GM-only. */
+async function createScreen(page: Page, name: string) {
+	await gotoRoute(page, '/screens');
+	await page.getByRole('button', { name: 'New screen', exact: true }).first().click();
+	const dialog = page.getByRole('dialog', { name: 'New screen' });
+	await dialog.getByRole('radio', { name: 'Combat scene', exact: true }).click();
+	await dialog.getByRole('textbox', { name: 'Name', exact: true }).fill(name);
+	await dialog.getByRole('button', { name: 'Create screen', exact: true }).click();
+	await page.waitForURL((url) => url.hash.startsWith('#/screen/'), { timeout: 10_000 });
+	const created = await sceneOf(page, name);
+	expect(created?.visibility, 'a new screen starts GM-only').toBe('dm-only');
+	return created!;
+}
+
+/** The top bar's "Preview as" menu: inline from rail up, inside Table controls on a phone. */
+async function previewAnyPlayer(page: Page) {
+	const tableControls = page.getByRole('button', { name: 'Table controls' });
+	if (await tableControls.isVisible()) await tableControls.click();
+	await page.getByRole('button', { name: 'Preview as another role' }).click();
+	await page.getByRole('menuitemradio', { name: 'Any player', exact: true }).click();
+}
+
 async function sceneOf(page: Page, name: string) {
 	return page.evaluate(
 		(wanted) =>
@@ -29,24 +61,8 @@ test('a screen made from a template can be shared and a joined player sees it', 
 	const peers: Page[] = [];
 	await installFakeLan(page, peers);
 
-	// A fresh profile: onboarding opens over an empty vault; Escape leaves it.
-	await page.goto('/#/');
-	await waitReady(page);
-	const onboarding = page.locator('[data-fullscreen-overlay="onboarding"]');
-	await expect(onboarding).toBeVisible();
-	await page.keyboard.press('Escape');
-	await expect(onboarding).toBeHidden();
-
-	// New screen from a template, as the first-session guide's row opens it.
-	await gotoRoute(page, '/screens');
-	await page.getByRole('button', { name: 'New screen', exact: true }).first().click();
-	const dialog = page.getByRole('dialog', { name: 'New screen' });
-	await dialog.getByRole('radio', { name: 'Combat scene', exact: true }).click();
-	await dialog.getByRole('textbox', { name: 'Name', exact: true }).fill(NAME);
-	await dialog.getByRole('button', { name: 'Create screen', exact: true }).click();
-	await page.waitForURL((url) => url.hash.startsWith('#/screen/'), { timeout: 10_000 });
-	const created = await sceneOf(page, NAME);
-	expect(created?.visibility, 'a new screen starts GM-only').toBe('dm-only');
+	await freshVault(page);
+	const created = await createScreen(page, NAME);
 
 	// Scene details says who can see it; sharing it is one choice and Save.
 	await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
@@ -117,4 +133,68 @@ test('a screen made from a template can be shared and a joined player sees it', 
 	} finally {
 		await context.close();
 	}
+});
+
+/**
+ * RC-ENG-8.19 (RC-ENG-8.3 finding B3-1) — the Start dialog offered a GM-only screen with "Show … to
+ * the table" disabled and gave the reason only as an English hover title, which touch never shows.
+ * It now says why where it can be read and offers the share, so the GM can go live with it shown.
+ * RC-ENG-8.18 (finding A3-1) on a fresh vault: "Any player" then sees the screen the table sees.
+ */
+test('the Start dialog says why a GM-only screen cannot be shown and shares it', async ({
+	page,
+}) => {
+	test.setTimeout(120_000);
+	const name = 'Lantern vigil';
+	await freshVault(page);
+	const created = await createScreen(page, name);
+
+	await gotoRoute(page, '/session');
+	await page.getByRole('button', { name: 'Start session', exact: true }).first().click();
+	const start = page.getByRole('dialog', { name: 'Start a session' });
+	await start.getByLabel('Scene', { exact: true }).selectOption(created.id);
+	const show = start.getByRole('checkbox', { name: `Show ${name} to the table` });
+	await expect(show).toBeDisabled();
+	const reason = start.getByText(
+		`Only the DM can see ${name}, so it can’t be shown to the table. Share it with players first.`,
+	);
+	await expect(reason).toBeVisible();
+	await expect(show).toHaveAttribute('aria-describedby', (await reason.getAttribute('id'))!);
+
+	await start.getByRole('button', { name: 'Share with players', exact: true }).click();
+	await expect.poll(async () => (await sceneOf(page, name))?.visibility).toBe('shared');
+	await expect(show).toBeEnabled();
+	await expect(show).toBeChecked();
+	await expect(reason).toHaveCount(0);
+	await start.getByRole('button', { name: 'Start session', exact: true }).click();
+	await expect(start).toBeHidden();
+	await expect(page.getByText(`Players see ${name}`, { exact: true })).toBeVisible();
+	await expect
+		.poll(() => page.evaluate(() => window.__rt!.state.session.tableView?.target.sceneId))
+		.toBe(created.id);
+
+	await previewAnyPlayer(page);
+	const stage = page.getByTestId('player-stage');
+	await expect(stage).toContainText(name);
+	await expect(stage).not.toContainText('has not shown a scene yet');
+	await page.keyboard.press('Escape');
+	await expect.poll(() => page.evaluate(() => window.__rt!.preview)).toBeNull();
+});
+
+test('the home screen offers no "Who can see this screen" choice', async ({ page }) => {
+	await freshVault(page);
+	await gotoRoute(page, '/');
+	const homeId = await page.evaluate(async () => {
+		const rt = window.__rt!;
+		for (let i = 0; i < 50 && !rt.state.commandCenter.homeSceneId; i++)
+			await new Promise((resolve) => setTimeout(resolve, 100));
+		return rt.state.commandCenter.homeSceneId;
+	});
+	expect(homeId).toBeTruthy();
+	await gotoRoute(page, `/screen/${homeId}`);
+	await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
+	await page.getByRole('button', { name: 'Edit scene name, description & tags' }).click();
+	const details = page.getByTestId('scene-meta-panel');
+	await expect(details.getByRole('button', { name: 'Save details' })).toBeVisible();
+	await expect(details.getByLabel('Who can see this screen')).toHaveCount(0);
 });

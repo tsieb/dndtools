@@ -323,6 +323,9 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.end.liveLabel': 'Terminar la sesión en vivo',
 	'session.end.announcement': 'Sesión terminada — los jugadores volvieron a espera',
 	'session.start.showToTable': 'Mostrar {scene} a la mesa',
+	'session.start.gmOnly':
+		'Solo {gm} puede ver {scene}, así que no se puede mostrar a la mesa. Compártela antes con los jugadores.',
+	'session.start.share': 'Compartir con los jugadores',
 	'session.start.title': 'Iniciar una sesión',
 	'session.start.description':
 		'Elige la escena que verán los jugadores cuando la sesión esté en vivo.',

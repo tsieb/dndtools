@@ -2166,3 +2166,110 @@ test.describe('map editor — combat range and areas', () => {
 		expect(await tokenPosition(page, fixture.combatantIds[1]!)).toEqual({ x: 0.7, y: 0.6 });
 	});
 });
+
+// ── 12 · a token under a point of interest can be dragged ────────────────────────────────────────
+
+/**
+ * RC-ENG-8.20 (RC-ENG-8.3 finding D3-2) — each point of interest's wrapper is sized to its pin AND its
+ * label, and it carried the drag handlers at the tokens' z-index after them in the DOM. On the demo
+ * vault's Ruined Keep at default zoom, a press on Sir Caldwell's centre landed on Broken Altar's label
+ * and dragged the point instead, and Glyph of Warding's pin covered Cellar Ambusher. Only the pin takes
+ * a press now, and an unselected point sits under the tokens.
+ */
+type Placed = { id: string; label: string; position: { x: number; y: number } };
+
+function readKeep(page: Page): Promise<{ tokens: Placed[]; pois: Placed[] }> {
+	return page.evaluate(() => {
+		const maps = (
+			window.__rt!.state as unknown as {
+				maps: { maps: Record<string, { name: string; tokens: Placed[]; pois: Placed[] }> };
+			}
+		).maps.maps;
+		const keep = Object.values(maps).find((map) => map.name === 'Ruined Keep')!;
+		const pick = (p: Placed) => ({ id: p.id, label: p.label, position: { ...p.position } });
+		return { tokens: keep.tokens.map(pick), pois: keep.pois.map(pick) };
+	});
+}
+
+/** A real touch drag through CDP; Playwright's touchscreen has only `tap`. */
+async function touchDrag(page: Page, from: { x: number; y: number }, to: { x: number; y: number }) {
+	const cdp = await page.context().newCDPSession(page);
+	const at = (x: number, y: number) => [{ x: Math.round(x), y: Math.round(y), id: 1 }];
+	await cdp.send('Input.dispatchTouchEvent', {
+		type: 'touchStart',
+		touchPoints: at(from.x, from.y),
+	});
+	for (let i = 1; i <= 12; i++) {
+		await cdp.send('Input.dispatchTouchEvent', {
+			type: 'touchMove',
+			touchPoints: at(from.x + ((to.x - from.x) * i) / 12, from.y + ((to.y - from.y) * i) / 12),
+		});
+	}
+	await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+	await cdp.detach();
+}
+
+for (const tier of [
+	{ name: 'phone', viewport: { width: 390, height: 844 }, touch: true },
+	{ name: 'desktop', viewport: { width: 1440, height: 900 }, touch: false },
+] as const) {
+	test.describe(`map editor: the seeded Ruined Keep at ${tier.name} size`, () => {
+		test.use({ viewport: tier.viewport, hasTouch: tier.touch, isMobile: tier.touch });
+
+		test('each seeded token drags from its centre and no point of interest moves', async ({
+			page,
+		}) => {
+			test.setTimeout(90_000);
+			await markOnboarded(page);
+			await gotoRoute(page, '/atlas');
+			await openEditor(page, 'Ruined Keep');
+			const skipTour = page.getByRole('button', { name: 'Skip tour' });
+			if (await skipTour.isVisible().catch(() => false)) await skipTour.click();
+			await expect(skipTour).toHaveCount(0);
+
+			const before = await readKeep(page);
+			expect(before.tokens.map((token) => token.label).sort()).toEqual([
+				'Cellar Ambusher',
+				'Sir Caldwell',
+			]);
+			for (const seeded of before.tokens) {
+				const button = editorRoot(page).getByRole('button', { name: `Token: ${seeded.label}` });
+				const box = (await button.boundingBox())!;
+				const from = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+				const hit = await page.evaluate(({ x, y }) => {
+					const top = document.elementFromPoint(x, y);
+					return top?.closest('button')?.getAttribute('aria-label') ?? top?.tagName ?? null;
+				}, from);
+				expect(hit, `${seeded.label}'s centre hit-tests as the token`).toBe(
+					`Token: ${seeded.label}`,
+				);
+				const to = { x: from.x + 48, y: from.y + 24 };
+				if (tier.touch) await touchDrag(page, from, to);
+				else {
+					await page.mouse.move(from.x, from.y);
+					await page.mouse.down();
+					await page.mouse.move(to.x, to.y, { steps: 12 });
+					await page.mouse.up();
+				}
+				await expect
+					.poll(
+						async () =>
+							(await readKeep(page)).tokens.find((token) => token.id === seeded.id)!.position,
+					)
+					.not.toEqual(seeded.position);
+				expect((await readKeep(page)).pois, 'no point of interest moved').toEqual(before.pois);
+			}
+
+			const axe = await new AxeBuilder({ page })
+				.include('[role="application"]')
+				.withRules(['target-size'])
+				.analyze();
+			const checked = axe.passes.find((rule) => rule.id === 'target-size')?.nodes.length ?? 0;
+			expect(checked, 'axe measured the map markers').toBeGreaterThanOrEqual(4);
+			expect(
+				axe.violations.flatMap((v) => v.nodes.map((node) => node.target.join(' '))),
+				'no target-size violation on the seeded map',
+			).toEqual([]);
+		});
+	});
+}

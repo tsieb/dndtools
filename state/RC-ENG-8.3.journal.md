@@ -395,3 +395,34 @@ diff --stat ef42291b HEAD -- . ':!docs' ':!state'` empty). p1/p2 failed on a pro
   RC-PLT-1.1's §23 row (status `operator`) from line 4260 to 4307. Re-pointed in FEATURE-GAPS.md
   line 77, same digit count so no table re-pad; `pnpm feature-audit`: 46 limits, 0 stale, exit 0.
 - EARLY_ACCESS.md §6 and §9 now say two anchors were re-pointed, not one. No application change.
+
+## Attempt 11 (2026-10-16, independent review: the three highs are unresolved)
+
+- Review on `b345d8b38` withheld approval: A3-1, B3-1 and D3-2 are still in the code ("filing stories is
+  not resolution"), plus a medium: `tile-overflow-controls.spec.ts` skipped clipped controls silently.
+  Both self-heal rounds are spent (`self_heal_rounds` 2) and RC-ENG-8.18 to 8.20 are still `proposed`;
+  `loop/rc` is still `511fc6af4`. So this attempt fixes the three here and re-runs the audit.
+- Crossings, outside the claim (each is its story's Owns, flagged in the commit for the operator):
+  `screens/play/Frame.tsx` (A3-1), `screens/session/Lifecycle.tsx` (B3-1), `app/map/canvas/MapMarkers.tsx`
+  (D3-2). `SceneMetaPanel.tsx` is claimed. Catalogs, qps-ploc and specs are companions.
+- A3-1: the reviewer's cause was half of it. With `permissionsWithPreviewActors` alone the stage still
+  said "not shown": the table view is copied only to actors seated when it was set (`inheritTableView`
+  does joiners). The companion's generic preview now reads the preview actors plus the table view as
+  its own assignment while a shareable scene is on the table (`genericPreviewState`). RC-CHR-6.5's
+  "Any player" test assumed the generic stage is empty while "theirs" was both a seat's scene and the
+  table's; it now re-points the seat at "mine" and asserts the table scene shows and the seat's doesn't.
+- B3-1: the Start dialog shows "Only the DM can see {scene}…" (catalog, en/es) under the disabled box,
+  wired by `aria-describedby`, and a "Share with players" button (`useScreenActions().setVisibility`);
+  the box then enables and is checked. Scene details no longer offers the field on the home, Session or
+  Command Center home screens (B3-5).
+- D3-2: POI wrappers take no pointer events; the drag handlers and pointer events are on the pin
+  button alone, and an unselected POI is z 1 under the tokens (2/3). Seed left as is: with the pin as
+  the only hit area, both tokens' centres hit-test as themselves and axe finds no `target-size`.
+- Specs: `companion-preview.spec.ts` (+1), `screen-visibility.spec.ts` (+2, refactored helpers),
+  `map-editor.spec.ts` (+2 tiers: 390×844 touch, 1440×900 mouse). Negative control, the fixed source
+  files reverted to `HEAD`: all 6 new/changed tests fail on both profiles (8 + 4 failures), pass with
+  the fixes. Map specs, 8 files: 173 passed, 5 skipped.
+- Medium (spec): the clipped controls are now listed and compared to an exact `KNOWN_CLIPPED` per
+  width. Measured, both profiles identical, stable ×3: the Map tile's lower controls rest outside its
+  body at every tier (3 at 1440, 6 at 834, 2 at 390), the Timer pair at 834 (B3-2), and the combat
+  rows' HP/More actions at 390. Recorded as open debt in the spec and the audit, not as a pass.

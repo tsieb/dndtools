@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { allowedTransitionsFrom, type SessionWorkflowState } from '@dndtools/core';
 import { Button, Checkbox, Dialog, Field, Icon, Input, Select, StatusDot } from '../../ds';
 import { Seg, T, eb } from '../../app/screen-kit';
 import { WORKFLOW_LABEL } from '../../app/ProjectionControl';
 import { useI18n, type MessageKey } from '../../i18n';
+import { useScreenActions } from '../screen/useScreens';
 
 export function SessionHeader({
 	workflow,
@@ -315,6 +316,18 @@ function StartSessionForm({
 	const chosenScene = scenes.find((scene) => scene.id === chosenSceneId);
 	const showToTable = !!chosenScene?.shareable && (sharingChoices[chosenSceneId] ?? true);
 	const canConfirm = !!chosenScene;
+	// RC-ENG-8.19 — a GM-only scene can't be shown, and the dialog says so where touch can read it,
+	// with the one write that fixes it. The scenes prop re-derives from the runtime, so the box enables.
+	const actions = useScreenActions();
+	const gmOnlyId = useId();
+	const [sharing, setSharing] = useState(false);
+	const [shareError, setShareError] = useState<string | null>(null);
+	const share = async (id: string) => {
+		setSharing(true);
+		const failure = await actions.setVisibility(id, 'shared');
+		setSharing(false);
+		setShareError(failure);
+	};
 	return (
 		<Dialog
 			open
@@ -393,17 +406,38 @@ function StartSessionForm({
 						</>
 					)}
 					{chosenScene ? (
-						<Checkbox
-							label={t('session.start.showToTable', { scene: chosenScene.name })}
-							checked={showToTable}
-							disabled={!chosenScene.shareable}
-							title={
-								!chosenScene.shareable ? 'DM-only scenes cannot be shown to the table.' : undefined
-							}
-							onChange={(checked) =>
-								setSharingChoices((choices) => ({ ...choices, [chosenSceneId]: checked }))
-							}
-						/>
+						<div style={{ display: 'grid', gap: T.space.two, justifyItems: 'start' }}>
+							<Checkbox
+								label={t('session.start.showToTable', { scene: chosenScene.name })}
+								checked={showToTable}
+								disabled={!chosenScene.shareable}
+								aria-describedby={chosenScene.shareable ? undefined : gmOnlyId}
+								onChange={(checked) =>
+									setSharingChoices((choices) => ({ ...choices, [chosenSceneId]: checked }))
+								}
+							/>
+							{chosenScene.shareable ? null : (
+								<>
+									<div id={gmOnlyId} style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
+										{t('session.start.gmOnly', { scene: chosenScene.name })}
+									</div>
+									<Button
+										variant="secondary"
+										size="sm"
+										icon="visibility-players"
+										disabled={sharing}
+										onClick={() => void share(chosenScene.id)}
+									>
+										{t('session.start.share')}
+									</Button>
+								</>
+							)}
+							{shareError ? (
+								<div role="alert" style={{ font: `var(--text-xs) ${T.sans}`, color: T.err }}>
+									{shareError}
+								</div>
+							) : null}
+						</div>
 					) : null}
 				</div>
 			)}

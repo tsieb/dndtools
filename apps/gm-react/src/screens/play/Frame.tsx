@@ -2,9 +2,14 @@ import './play.css';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
+	canShowSceneToTable,
 	companionViewerFor,
 	getDiceHistoryForActor,
+	isPreviewActorId,
+	permissionsWithPreviewActors,
+	type ActorId,
 	type CoreCommand,
+	type CoreStateSlice,
 	type DiceRollView,
 } from '@dndtools/core';
 import { Avatar, BottomTabBar, Button, Icon } from '../../ds';
@@ -78,6 +83,46 @@ export function PlayerView() {
 	);
 }
 
+/**
+ * RC-ENG-8.18 — the state a generic preview ("Any player", "Observer") reads. The reserved zero-grant
+ * actor is not in the stored permissions, so every actor-scoped query would answer `unknown-actor`;
+ * and the table view is copied only to participants seated when it was set (or who join later, via
+ * the core's `inheritTableView`). The preview stands for a participant joining now, so it gets the
+ * preview actors and, while a shareable scene is on the table, the table view as its own assignment.
+ */
+function genericPreviewState(state: CoreStateSlice, viewer: ActorId): CoreStateSlice {
+	const permissions = permissionsWithPreviewActors(state.permissions);
+	const table = state.session.tableView ?? null;
+	const assignments = state.session.playerViewAssignments;
+	if (
+		!table ||
+		assignments[viewer] ||
+		!canShowSceneToTable(state.scenes.scenes[table.target.sceneId])
+	)
+		return { ...state, permissions };
+	return {
+		...state,
+		permissions,
+		session: {
+			...state.session,
+			playerViewAssignments: {
+				...assignments,
+				[viewer]: {
+					id: `preview-table-${table.revision}`,
+					playerActorId: viewer,
+					target: table.target,
+					deliveryStatus: 'delivered',
+					deliveryReason: 'connected',
+					createdBy: table.setBy,
+					createdAt: table.setAt,
+					updatedAt: table.setAt,
+					revision: table.revision,
+				},
+			},
+		},
+	};
+}
+
 function PlayerCompanion({ onJoin }: { onJoin: () => void }) {
 	const { t } = useI18n();
 	const navigationRef = useNavigationInset();
@@ -99,7 +144,11 @@ function PlayerCompanion({ onJoin }: { onJoin: () => void }) {
 		? (session.client?.identity?.actorId ?? PLAYER_ACTOR_ID)
 		: companionViewerFor(runtime.state.permissions, runtime.preview, PLAYER_ACTOR_ID);
 
-	const state = runtime.state;
+	const rawState = runtime.state;
+	const state = useMemo(
+		() => (!joined && isPreviewActorId(viewer) ? genericPreviewState(rawState, viewer) : rawState),
+		[joined, rawState, viewer],
+	);
 	const localData = useMemo<LiveData>(() => {
 		const previewData = buildPlayerData(state, viewer, new Date().toISOString());
 		return {

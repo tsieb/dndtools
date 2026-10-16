@@ -1,5 +1,7 @@
 import {
 	canShowSceneToTable,
+	findHomeScreen,
+	findSessionScreen,
 	findWidgetDefinition,
 	type Scene,
 	type SceneBackground,
@@ -64,9 +66,15 @@ export function SceneMetaPanel({
 	const [draftTags, setDraftTags] = useState(tags.join(', '));
 	const [visibility, setVisibility] = useState<SceneVisibility>(scene.visibility);
 	const actions = useScreenActions();
-	// The GM's own workspaces and templates never reach the table whatever they are set to, so the
-	// choice is offered only where it can take effect: the core's rule, asked for a shared copy.
-	const showable = canShowSceneToTable({ ...scene, visibility: 'shared' });
+	// The GM's own workspaces and templates are never session scenes, so the choice is offered only
+	// where it can take effect: the core's rule, asked for a shared copy, minus the home and Session
+	// screens and the Command Center's home (RC-ENG-8.19: the home screen could go live as the table).
+	const { scenes, commandCenter } = runtime.state;
+	const workspace =
+		scene.id === commandCenter.homeSceneId ||
+		scene.id === findHomeScreen(scenes)?.id ||
+		scene.id === findSessionScreen(scenes)?.id;
+	const showable = !workspace && canShowSceneToTable({ ...scene, visibility: 'shared' });
 	return (
 		<Card
 			elevation="overlay"

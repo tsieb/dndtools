@@ -140,10 +140,12 @@ export function MapMarkers({
 					if (v.x < -0.05 || v.x > 1.05 || v.y < -0.05 || v.y > 1.05) return null;
 					const canDrag = editable && markersInteractive && isDm;
 					const selectPoi = () => onSelectPoi?.(p.id === selectedPoiId ? null : p.id);
+					// RC-ENG-8.20 — only the pin takes a press. The wrapper is sized to the pin AND its label,
+					// so with pointer events it laid a label-wide hit box over any token nearby; an
+					// unselected point also sits under the tokens, which are what a GM drags at the table.
 					return (
 						<div
 							key={p.id}
-							{...markerDragHandlers('poi', p.id, canDrag, selectPoi)}
 							style={{
 								position: 'absolute',
 								left: `${v.x * 100}%`,
@@ -152,17 +154,21 @@ export function MapMarkers({
 								display: 'flex',
 								flexDirection: 'column',
 								alignItems: 'center',
-								pointerEvents: markersInteractive ? 'auto' : 'none',
-								cursor: canDrag ? (dragging ? 'grabbing' : 'grab') : 'pointer',
-								zIndex: p.id === selectedPoiId ? 4 : 2,
+								pointerEvents: 'none',
+								zIndex: p.id === selectedPoiId ? 4 : 1,
 							}}
 						>
 							<POIMarker
+								{...markerDragHandlers('poi', p.id, canDrag, selectPoi)}
 								category={POI_MARKER_CAT[p.category] ?? 'location'}
 								label={p.label}
 								dmOnly={p.visibility === 'dm-only'}
 								active={p.id === selectedPoiId}
 								onClick={clickGuard(selectPoi)}
+								style={{
+									pointerEvents: markersInteractive ? 'auto' : 'none',
+									cursor: canDrag ? (dragging ? 'grabbing' : 'grab') : 'pointer',
+								}}
 							/>
 							<span
 								style={{

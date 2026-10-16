@@ -1,6 +1,39 @@
 import { expect, test } from '@playwright/test';
 import { gotoRoute, markOnboarded, preferPhoneCanvas, journeySurfaceIssues } from './_helpers';
 
+/**
+ * Controls whose centre rests OUTSIDE their tile's body on the seeded live home (at Fit from 834px up,
+ * the phone canvas at 390px). Each is still reachable by scrolling that body, which the
+ * unrecoverable-clip detector above checks; none of them takes a tap where it rests, so this list is
+ * open debt, not a pass. It is exact: a control newly clipped, or one fixed, fails here until this
+ * list and docs/planning/EARLY_ACCESS.md (RC-ENG-8.3 §4) both say so. The Timer pair on the rail is
+ * the third run's B3-2.
+ */
+const MAP = 'Map, Maps widget › ';
+const COMBAT = 'Initiative Tracker, Combat widget › ';
+const TIMER = 'Timer, Dice & Timers widget › ';
+const KNOWN_CLIPPED: Record<number, string[]> = {
+	1440: [`${MAP}Hide combat overlay`, `${MAP}Open in editor`, `${MAP}Project to players`],
+	834: [
+		`${MAP}Zoom in`,
+		`${MAP}Zoom out`,
+		`${MAP}Fit`,
+		`${MAP}Hide combat overlay`,
+		`${MAP}Open in editor`,
+		`${MAP}Project to players`,
+		`${TIMER}Start 60-second timer`,
+		`${TIMER}Add 60 seconds to the timer`,
+	],
+	390: [
+		`${MAP}Fit`,
+		`${MAP}Hide combat overlay`,
+		`${COMBAT}Adjust hit points — First foe`,
+		`${COMBAT}More actions — First foe`,
+		`${COMBAT}Adjust hit points — Second foe`,
+		`${COMBAT}More actions — Second foe`,
+	],
+};
+
 for (const width of [1440, 834, 390]) {
 	test(`live home tile controls receive centre taps at ${width}px`, async ({ page }) => {
 		await page.setViewportSize({ width, height: 1112 });
@@ -68,10 +101,14 @@ for (const width of [1440, 834, 390]) {
 		});
 		expect(restsInView, 'Next turn rests inside its tile body').toBe(true);
 		// Every control whose centre rests inside its tile's body gets the tap there: no footer, frame
-		// or neighbour covers it. Content scrolled out of a body is that body's to recover.
-		const covered = await page.evaluate(() => {
+		// or neighbour covers it. A control whose centre rests OUTSIDE its body is listed, and the list
+		// must equal the known, still-open exceptions exactly, so a newly clipped control fails here.
+		const { covered, clipped } = await page.evaluate(() => {
 			const misses: string[] = [];
-			for (const tile of document.querySelectorAll('[data-testid^="widget-"][role="group"]')) {
+			const outside: string[] = [];
+			for (const tile of document.querySelectorAll<HTMLElement>(
+				'[data-testid^="widget-"][role="group"]',
+			)) {
 				for (const el of tile.querySelectorAll<HTMLElement>('button')) {
 					const box = el.getBoundingClientRect();
 					if (!box.width || !box.height) continue;
@@ -84,15 +121,19 @@ for (const width of [1440, 834, 390]) {
 						const clip = p.getBoundingClientRect();
 						if (y < clip.top || y > clip.bottom) resting = false;
 					}
-					if (!resting) continue;
+					const name = el.getAttribute('aria-label') ?? el.innerText.trim();
+					if (!resting) {
+						outside.push(`${tile.getAttribute('aria-label')} › ${name}`);
+						continue;
+					}
 					const hit = document.elementFromPoint(x, y);
-					if (!(el === hit || el.contains(hit)))
-						misses.push(`${el.getAttribute('aria-label') ?? el.innerText} → ${hit?.tagName}`);
+					if (!(el === hit || el.contains(hit))) misses.push(`${name} → ${hit?.tagName}`);
 				}
 			}
-			return misses;
+			return { covered: misses, clipped: outside };
 		});
 		expect(covered).toEqual([]);
+		expect(clipped, 'controls resting outside their tile body').toEqual(KNOWN_CLIPPED[width]);
 		await nextTurn.evaluate((el) => {
 			const box = el.getBoundingClientRect();
 			const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);

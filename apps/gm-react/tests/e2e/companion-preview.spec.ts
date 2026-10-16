@@ -137,14 +137,27 @@ test.describe('companion preview follows the previewed actor', () => {
 		page,
 	}) => {
 		const scenes = await assignScenes(page);
+		// The live session shows "theirs" to the table. Re-point the demo seat (`actor-player`) at
+		// "mine", so the generic actor reads the table's scene (RC-ENG-8.18) and never a seat's.
+		const seat = await page.evaluate(async (sceneName) => {
+			const rt = window.__rt!;
+			const scene = Object.values(rt.state.scenes.scenes).find((s) => s.name === sceneName)!;
+			const result = await rt.dispatch({
+				type: 'session.project-player-view',
+				actorId: rt.defaultActorId,
+				payload: { playerActorIds: ['actor-player'], target: { kind: 'scene', sceneId: scene.id } },
+			});
+			return result.status;
+		}, scenes.mine);
+		expect(seat).toBe('accepted');
 		await previewFromTopBar(page, 'Any player');
 		await expect(page.getByTestId('companion-preview-banner')).toBeVisible();
 		await expect
 			.poll(() => page.evaluate(() => window.__rt!.preview?.actorId))
 			.toBe('preview-generic-player');
 		await expect(page.locator('.player-view-toolbar')).toContainText('Preview · Player (preview)');
+		await expect(page.getByTestId('player-stage')).toContainText(scenes.theirs);
 		await expect(page.getByTestId('player-stage')).not.toContainText(scenes.mine);
-		await expect(page.getByTestId('player-stage')).not.toContainText(scenes.theirs);
 		const tree = await page.locator('body').ariaSnapshot();
 		expect(tree).not.toContain('navigation "Primary"');
 		await openSheet(page);
@@ -153,6 +166,35 @@ test.describe('companion preview follows the previewed actor', () => {
 		);
 		await expect(page.locator('#player-main')).not.toContainText('Sera Duskwhisper');
 		await expect(page.locator('#player-main')).not.toContainText('Brother Calloway');
+		await page.keyboard.press('Escape');
+		await expect.poll(() => page.evaluate(() => window.__rt!.preview)).toBeNull();
+	});
+
+	// RC-ENG-8.18 (RC-ENG-8.3 finding A3-1) — "Any player" is the generic zero-grant actor the stored
+	// permissions do not list. Before the companion projected it in, every actor-scoped read answered
+	// `unknown-actor` and the stage said no scene was shown while the session header named one.
+	test('Any player sees the scene the session shows the table', async ({ page }) => {
+		const expected = await page.evaluate(
+			() =>
+				Object.values(window.__rt!.state.scenes.scenes).find(
+					(scene) => !scene.isTemplate && !scene.deletedAt && scene.visibility !== 'dm-only',
+				)!.name,
+		);
+		await gotoRoute(page, '/session');
+		await page.getByRole('button', { name: 'Start session', exact: true }).first().click();
+		const start = page.getByRole('dialog', { name: 'Start a session' });
+		await expect(start.getByRole('checkbox')).toBeChecked();
+		await start.getByRole('button', { name: 'Start session', exact: true }).click();
+		await expect(start).toBeHidden();
+		await expect(page.getByText(`Players see ${expected}`, { exact: true })).toBeVisible();
+
+		await previewFromTopBar(page, 'Any player');
+		await expect
+			.poll(() => page.evaluate(() => window.__rt!.preview?.actorId))
+			.toBe('preview-generic-player');
+		const stage = page.getByTestId('player-stage');
+		await expect(stage).toContainText(expected);
+		await expect(stage).not.toContainText('has not shown a scene yet');
 		await page.keyboard.press('Escape');
 		await expect.poll(() => page.evaluate(() => window.__rt!.preview)).toBeNull();
 	});
