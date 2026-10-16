@@ -93,3 +93,17 @@ getPlayerViewController. Restored the candidate file exactly afterward (`git dif
 was clean). The prior full-suite pass remains evidence for the unchanged candidate implementation.
 No assertions or gate enforcement have been weakened. Claim widening is not automatic and no
 dispatcher state was edited: the operator must decide whether to include this required file.
+
+## Self-heal round 1 (claim widened to parity.ts)
+
+The claim now includes parity.ts, so the candidate stays as it was; no implementation change.
+Re-verified HEAD 715c73430 (original logs read):
+
+- `pnpm --filter @dndtools/gm-react typecheck`: exit 0 (`/tmp/rc-eng-8.6-r2-typecheck.log`).
+- `CI=true vitest run --config vitest.app.config.ts` over app/widgets + screens/session:
+  26 files / 598 tests passed, exit 0 (`/tmp/rc-eng-8.6-r2-vitest3.log`). An earlier run from
+  apps/gm-react without that config failed hostBridge/widgetKit on cwd-relative paths only.
+- `session-start-default.spec.ts`, both profiles: 4 passed, exit 0 (`/tmp/rc-eng-8.6-r2-e2e.log`).
+
+Known residue: the header's "nothing yet" and the disabled-checkbox title are English literals.
+Localizing them needs new en/es keys plus a qps-ploc regen, all outside this claim.
