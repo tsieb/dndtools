@@ -1,9 +1,10 @@
 # Early-access exit audit (RC-ENG-8.3, the M2.5 gate)
 
-Run on 2026-10-15 against **`ef42291b`**, the dispatcher's `loop/rc` when this task was claimed. It
-carries all 20 stories RC-ENG-8.3 depends on, RC-ENG-9.3 among them. Its application tree is the one
-[FRICTIONLESS.md](FRICTIONLESS.md) audited: `git diff --stat 93361a43 ef42291b -- . ':!docs' ':!state'`
-prints nothing. The gates were still re-run for this audit on `ef42291b`, not carried over.
+Re-run on 2026-10-16 against **`b2ddfc1d`**, the dispatcher's `loop/rc` after the ten stories filed
+by the first run (RC-ENG-8.5 to 8.14) landed. Each of the ten is `succeeded` in the dispatcher's
+store and its recorded head is an ancestor of `b2ddfc1d`. The first run, on `ef42291b` on 2026-10-15,
+did not pass; [§10](#10-the-first-run-on-ef42291b) keeps its result. Everything in §1 to §9 was
+measured on `b2ddfc1d`, nothing was carried over from the first run.
 
 The gate, from the story and [§3.2 M2.5](RC_ROADMAP.md#32-milestones):
 
@@ -29,48 +30,50 @@ polish.
 
 ## 1. Verdict
 
-**M2.5 does not pass on `ef42291b`.** Gates 1 and 3 pass. Gates 2, 4 and 5 fail:
+**M2.5 does not pass on `b2ddfc1d`.** Gates 1, 3, 4 and 5 pass. Gate 2 fails: the review found one
+critical and two high findings.
 
-- the review found five high findings and no critical one: the palette sends a typed section name to
-  the Import hub (A-1); the default Start session goes live on the DM-only home screen and tells the
-  GM that players see it (B-1); on the rail at Fit the overflow footer covers the Initiative tracker's
-  Next turn (B-2); a PC built in the wizard lacks the ancestry bonus, hit dice, initiative and
-  save proficiencies the wizard shows (C-1); and a finished map import leaves the open editor saying
-  the map's image is missing (D-1);
-- four DEBT.md entries are open on primary surfaces: DEBT-2026-004 (Maps), -006 (Characters), -007
-  (Characters and the companion in Spanish) and -008 (screens and Session in parchment);
-- two primary FEATURE-GAPS rows carry a limit outside the §2.1 four: Characters (History has no
-  rest, combat or level-up events) and the Player app (a push limit that `/play` never shows; the
-  row is misattributed).
+- **C2-1 (critical).** On the rail and the phone the level-up wizard is wider than the sheet's
+  column, so Next and Discard level-up sit past the right edge of a region that cannot be scrolled
+  by touch. A touch user cannot level up a character, and the companion sends players to the DM's
+  sheet to do it.
+- **B2-1 (high).** B-2 from the first run is still there in a new form: at Fit during live combat,
+  the Initiative tracker's Next turn cannot be tapped where it rests on the rail, and now on desktop
+  as well.
+- **B2-2 (high).** Nothing in the app lets the GM make a screen visible to players. Every new screen
+  is DM-only, so a GM who builds a screen and starts a session shows the table nothing; only seeded
+  scenes can ever be shown.
 
-Each failure is filed as a story in [§7](#7-blocking-stories), added to RC-ENG-8.3's `Deps:` in the
-roadmap, and created in the dispatcher as `proposed`. M2.5 is re-audited once they land.
+The first run's other four highs are fixed: A-1 (palette), B-1 (Start session on the DM-only home
+screen), C-1 (the builder's stats) and D-1 (map import). Of the four DEBT entries it counted, -006,
+-007 and -008 are resolved and -004 is down to part (c), which §5 does not count (a stated
+judgement); the two FEATURE-GAPS limits it counted are gone.
 
-This file records a failed gate. RC-ENG-8.3 is not complete while M2.5 fails: the story closes only
-when a re-run on the application commit that carries RC-ENG-8.5 to 8.14 passes all five gates. Until
-the operator copies those ten into the dispatcher's stored dependencies, nothing there holds this
-task behind them ([§7](#7-blocking-stories)).
+The three findings are filed as RC-ENG-8.15 to 8.17 ([§7](#7-blocking-stories)), added to
+RC-ENG-8.3's `Deps:` in the roadmap and created in the dispatcher as `proposed`. RC-ENG-8.3 is not
+complete: the story closes only when a re-run on an application commit carrying those three passes
+all five gates.
 
-What holds: the five golden journeys (first run, prep, Standby to live, knowledge capture, a player
-joining over the fake LAN) passed 50 of 50 times across ten profile-runs with no retry, and the axe
-gate reports no critical or serious violation on 60 route-and-profile scans.
+What holds: the five golden journeys passed 50 of 50 times across ten profile-runs with no retry,
+and the axe gate reports no critical or serious violation on 60 route-and-profile scans.
 
 ## 2. Golden paths
 
 `golden-path.spec.ts` on `desktop-chromium` and `mobile-chromium` together, retries 0, five
-consecutive runs, 2026-10-15 10:37:55–10:43:19Z: **78 passed, 0 failed, 0 flaky, 0 skipped in each
-run** (39 per profile). The 78 are the five journeys and the detector and seeded-defect fixtures that
-prove each journey assertion fails on a planted defect; the fixtures failed their planted defect as
-designed every time. The highest retry index in all five JSON reports is 0.
+consecutive runs, 2026-10-16 16:16:58–16:21:55Z: **78 passed, 0 failed, 0 flaky, 0 skipped in each
+run** (39 per profile). The 78 are the five journeys (first run, prep, Standby to live, knowledge
+capture, a player joining over the fake LAN) and the detector and seeded-defect fixtures that prove
+each journey assertion fails on a planted defect. The highest retry index in all five JSON reports
+is 0. The machine's load average was 1.7–4.1 at the run starts.
 
 The journeys assert, per RC-ENG-8.1 and RC-ENG-9.2, no console error or warning, no failed request,
 no widget in an error state, no disabled control without a stated reason, no unrecoverable clip, and
-the friction budgets. The machine's load average was 6.8–10.2 at the run starts; another dispatcher
-worktree ran a containerized visual suite throughout.
+the friction budgets. They passed with B2-1 and B2-2 present: the overflow detector accepts content
+that scrolls into view inside its tile, and the live journey goes live on a seeded shareable scene.
 
 ## 3. Accessibility gate
 
-`pnpm a11y:gate` on `ef42291b` (10:43:19–10:45:12Z, straight after run 5), exit 0:
+`pnpm a11y:gate` on `b2ddfc1d` (16:21:55–16:23:24Z, straight after run 5), exit 0:
 
 - non-text contrast: 319 pair checks across five themes and 16 forced-colors remap checks passed;
 - axe on both profiles: 61 passed, 1 skipped (the phone-only `/board` Layout test on
@@ -78,119 +81,302 @@ worktree ran a containerized visual suite throughout.
 - report over 60 route-and-profile scans, all 60 worker artifacts present: 0 critical, 0 serious,
   1 moderate, 0 minor; 0 blocking; 0 approved known violations; "Gate result: PASS".
 
-The moderate one is axe `region` on the phone live-session strip
-(`div[data-testid="phone-session-strip"]`, `/session#combat`, `mobile-chromium`), FRICTIONLESS.md L12,
-unchanged. The gate logs moderate impacts without blocking. The gate is clean by its own policy; it
-does not scan parchment for text contrast, which is why DEBT-2026-008 (§5) does not show here.
+The moderate one is axe `region` on `/session#combat` on `mobile-chromium`, the same rule and scan as
+the first run (FRICTIONLESS.md L12). The gate logs moderate impacts without blocking.
 
 ## 4. The review
 
-Three passes of the project's `ux-ui-reviewer` agent (`.claude/agents/ux-ui-reviewer.md`), one per
-group of routes, each in its own detached worktree at `ef42291b` with its own dev server, a fourth
-for the one state group B missed, and a fifth (D) for the five actions groups A and C did not reach
-(both below). Each drove the app with the repo's Playwright
-through scratch probe specs built on `tests/e2e/_helpers.ts`, at 1440×900 (desktop, mouse), 834×1112
-(rail, touch) and 390×844 (phone, touch), default theme, English. The brief gave them the severity
-scale above, told them to treat FRICTIONLESS.md's open items as known and re-check them, and
-required every critical or high finding to reproduce in two separate runs. I re-read the source
-behind each high finding before accepting it. The parent session restarted twice during the review,
-and the passes resumed from their saved probes and evidence. Screenshots, ARIA snapshots, per-state
-metrics and the five reports stay in the audit's scratch directory and are not committed.
+Four passes of the project's `ux-ui-reviewer` agent (`.claude/agents/ux-ui-reviewer.md`), one per
+group of routes, each in its own detached worktree at `b2ddfc1d` with its own dev server, run in
+parallel after the gates (about 16:25–17:00Z). Each drove the app with the repo's Playwright through
+scratch probe specs built on `tests/e2e/_helpers.ts`, starting from the first run's probes, at
+1440×900 (desktop, mouse), 834×1112 (rail, touch) and 390×844 (phone, touch), default theme,
+English. The shared brief gave them the severity scale above, the first run's findings and
+FRICTIONLESS.md's open items to re-check, required the first run's highs to be re-tested with their
+original reproduction, and required every critical or high finding to reproduce in two separate
+runs. I re-read the source behind each critical and high finding before accepting it. Screenshots,
+ARIA snapshots, per-state metrics and the reports stay in the audit's scratch directory and are not
+committed.
 
-| Group | Routes                                                                                                       | Critical | High | Medium | Low |
-| ----- | ------------------------------------------------------------------------------------------------------------ | -------- | ---- | ------ | --- |
-| A     | Onboarding, Command Center (fresh, seeded, demo, live), the shell, palette and Help, `/screens`              | 0        | 1    | 7      | 6   |
-| B     | `/screen/:id` (home and four templates, view and edit), `/scene/:id`, `/session`, Session as a screen        | 0        | 2    | 5      | 7   |
-| C     | Characters and the builder, Atlas and the map editor, Notes, `/play` joined over the fake LAN                | 0        | 1    | 14     | 11  |
-| BP    | `/scene/:id` template editor on the phone (completes group B; see below)                                     | 0        | 0    | 5      | 6   |
-| D     | Help's shortcut list; in the map editor token drag, fog, POI placement and a full import (completes A and C) | 0        | 1    | 7      | 5   |
+| Group | Routes                                                                                                                                 | Critical | High | Medium | Low |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---- | ------ | --- |
+| A     | Onboarding, Command Center (fresh, seeded, demo, live), the shell, palette and Help with the shortcut list, `/screens`                 | 0        | 0    | 3      | 6   |
+| B     | `/screen/:id` (home and four templates, view and edit), `/scene/:id` and the template editor on all three tiers, `/session`            | 0        | 2    | 4      | 2   |
+| C     | Characters, the builder and level-up, character History, Notes, `/play` joined over the fake LAN                                       | 1        | 0    | 1      | 2   |
+| D     | Atlas and its Layers panel, the map editor (token drag, fog, POI, Generate, Assets), image and external-scene import, `.dd2vtt` export | 0        | 0    | 5      | 6   |
 
-Every route was loaded at all three tiers, with the gaps listed in [§8](#8-not-checked). No page
-overflowed horizontally at any tier.
+The counts are the re-run's new ids; B2-1 is the first run's B-2 still present. Every route was
+loaded at all three tiers, with the gaps listed in [§8](#8-not-checked). No page overflowed
+horizontally at any tier. The only console message any probe saw is D2-7's React ref warning
+when the map editor's Generate panel opens; there was no page error.
 
-Group B's pass reached the template editor at `/scene/:id` on desktop and the rail only. Its phone
-test hit its time limit in the step before, twice (11:17:18Z and 11:23:29Z). A fourth
-`ux-ui-reviewer` pass completed that state on 2026-10-15 (11:39–11:59Z) on this branch's checkout,
-whose application tree equals `ef42291b`. It ran at 390×844 with touch, on a seeded vault with a live
-session, and added a fresh template scene. It covered the empty state, Apply a template, the Flow and
-Canvas switch, Add, the tile Actions menu and inspector, move and resize by keyboard, touch drag and
-the Transform tab, remove and undo, preview as a player, and Done. Before it, I ran a shorter probe
-of the same state four times. Seven runs passed every step with no console or page error: my last
-two and the reviewer's last five. The other three failed on probe selectors, not on the app: my first
-two clicked the "Dice & Timers" filter instead of "Add Dice" and left the Add sheet open, and the
-reviewer's first looked for the template picker in the wrong dialog. The pass found no critical or
-high finding; its findings are BP-1 to BP-11 below.
+### The first run's highs, re-tested
 
-Groups A and C left five primary-route actions unreached: the shortcut list behind Help (a selector
-miss), and in the map editor dragging a placed token, drawing fog, placing a POI with the editor's
-own tool, and a map import past its first step. Pass D covered them on 2026-10-15 (about
-12:08–12:40Z, interrupted twice by parent-session restarts and resumed from its transcript) on this
-branch's checkout, whose application tree equals `ef42291b`, with the same brief and the same three
-tiers. It opened the shortcut list from Help on every tier and with `?`; on a fresh map it placed a
-token and dragged it (mouse on desktop, touch on rail and phone) and reloaded to read the position
-back from the core; it drew a fog rectangle, a brush stroke and a conceal rectangle and undid one;
-it placed a POI with the POI tool and named it; and it took `tests/e2e/fixtures/import-map.png`
-through all six import steps (source, grid, scale, walls, preview, result) and reopened the map.
-Each action ran twice per tier. Every action completed at every tier, with the state matching what
-the screen said, apart from D-1 below. Not reached: the camera QR join (no camera on this machine)
-and re-importing a `.dd2vtt` the editor had just exported, which the reviewer added beyond the
-brief and dropped when an Escape after the download closed the editor.
+| Id  | Status        | Evidence                                                                                                                                                                                                              |
+| --- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A-1 | fixed         | 2 runs × 3 tiers. "maps", "characters", "notes", "session", "screens" each select their Go to row and Enter lands on the route; "import" still opens the Import hub. Exact and prefix label matches now rank first.   |
+| B-1 | fixed         | 3 runs × 3 tiers. With the home screen present, both starts go live on the shareable Harbor of Saltreach; header, Stage and player preview agree. With every scene DM-only the header says "Players see nothing yet". |
+| B-2 | still present | Now B2-1, below.                                                                                                                                                                                                      |
+| C-1 | fixed         | 26 PCs built over 2 runs on all tiers (Human and Dwarf, standard array, point buy, roll): stored scores, INIT, hit dice and save proficiencies match the Review card. A rolled Dwarf with INT 7 finalizes.            |
+| D-1 | fixed         | 2 runs × 3 tiers. After Done the open editor draws the imported image and shows no missing-image notice; the bytes are stored before `map.import-asset` is dispatched (`useImportMap.ts:212-230`).                    |
+
+### Critical
+
+- **C2-1 · Characters › Level up, rail and phone · Next and Discard level-up are off-screen.** On a
+  character sheet's Level up tab the wizard renders 609px wide. The phone column is 362px and the
+  rail column 490px, so Next lands at x 567–623 at 390 and 913–969 at 834, and Discard level-up just
+  left of it. Both sit inside ancestors with `overflow-x: hidden` (`main#main-content` on the phone,
+  the sheet section on the rail), which a finger cannot scroll, and the stepper's steps are not
+  buttons. A touch user can choose a class and then cannot go on, finish or discard; the draft
+  persists, so the tab stays on it. The companion's Level up tab says "Your DM can level you up from
+  their sheet", so this sheet is the only path. The root is
+  `<div style={{ maxWidth: 680, margin: '0 auto' }}>` with no `minWidth: 0`
+  (`apps/gm-react/src/app/character/LevelUp.tsx:282`), so it grows to the stepper's unwrapped width
+  (`ds/components/core/Stepper.tsx:118`, `whiteSpace: 'nowrap'`) and the stepper's own
+  `overflowX: 'auto'` (`LevelUp.tsx:288`) never engages. Reproduced 4 of 4 (two runs on each touch
+  tier); desktop is clean. None of these files changed since `ef42291b`; the first run never opened
+  the wizard. I re-read the three lines and the rects in the probe log; they agree.
 
 ### High
 
-- **A-1 · palette, every tier · A section name opens the Import hub.** Typing "maps",
-  "characters" or "notes" makes "Import…" the first, selected row, above Go to › Maps. Enter opens
-  "Bring your existing material" and the route stays on `/`; on desktop, Escape from that dialog
-  leaves focus on the body. The import row's keywords (`importHub.keywords`,
-  `apps/gm-react/src/i18n/messages/en.ts:14-15`) name those sections, and the Actions group ranks
-  above Go to (`apps/gm-react/src/app/CommandPalette.tsx:466-471`). NAVIGATION.md §4 makes the
-  palette the phone's one inline route to every destination. Reproduced in 3 runs on each tier. The
-  reviewer called it recoverable (the right row is one below) and left the blocking call to the
-  audit; it is held high because it breaks the palette's standard use on the tier that relies on it.
-- **B-1 · `/session` and the top bar · Start session goes live on the DM-only home screen.** Once
-  the home screen exists, which a real first run creates, the Start dialog opens on "Continue DM
-  screen?", because the resume target falls back to the home screen
-  (`apps/gm-react/src/screens/session/useSessionView.ts:104`) and the dialog defaults to Continue
-  (`apps/gm-react/src/screens/session/Lifecycle.tsx:303`). "Show DM screen to the table" is disabled
-  with no reason. After confirming, the header reads "Players see DM screen" (the header names the
-  active scene whatever its visibility, `Lifecycle.tsx:54-56`), the Stage's Everyone row is empty, and
-  player preview says "Your DM has not shown a scene yet". The top-bar start does the same in one
-  click. The seeded vault has a shareable scene that neither path uses. The golden path misses it
-  because it goes live before the home screen exists, so its dialog opens in New. Reproduced 4 of 4
-  (dialog) and 2 of 2 (top bar).
-- **B-2 · `/screen/:id`, rail · The overflow footer covers Next turn.** On the default home screen
-  during live combat at 834×1112 and the default Fit zoom, the Initiative tracker's Next turn is fully
-  covered and the Timer's Start mostly covered by the "1 more line · Grow to fit" footer. Hit tests at
-  the button's centre, top and bottom land on the body, the footer or the tile below. The footer is an
-  opaque overlay on the body's bottom edge
-  (`apps/gm-react/src/app/widgets/WidgetRenderSlot.tsx:417-432`). This is FRICTIONLESS.md L4, which
-  was low; it now hides the combat tile's primary action, so it is raised. The golden-path detector
-  passes it because the content can be scrolled into view inside the 160px tile. Reproduced 2 of 2;
-  the desktop control was clean.
-- **C-1 · Characters, every tier · The builder promises stats the PC does not get.** Identity lists
-  ancestries as "Human +1 to all abilities" and "Dwarf +2 CON" under "Sets racial traits & ability
-  bonuses", and point buy reads "scores 8–15 before racial bonuses"
-  (`apps/gm-react/src/i18n/messages/en.ts:5252,5283`). No bonus is applied anywhere: the ancestry
-  entries are display text (`apps/gm-react/src/app/charBuilder/data.ts:50-62`), the effective scores
-  add nothing (`apps/gm-react/src/app/charBuilder/index.tsx:225-233`), and the core draft flow has no
-  ancestry concept. A Dwarf built from the standard array is stored with CON 14. The Review card's
-  INIT +1 becomes "—" on the sheet, a level 1 Fighter shows hit dice "0/0 d8", and saves carry no
-  class proficiency. Reproduced 3 times (Human on every tier; Dwarf twice on desktop and phone).
-- **D-1 · map editor, every tier · A finished import says the map's image is missing.** The import's
-  result step reads "Image recorded · Grid set to 8 squares across… · 2 traced walls added", but after
-  Done the open editor draws no image and shows "This map's image isn't on this device — showing
-  shapes only". Closing and reopening the map from Atlas shows the image, so the bytes were stored.
-  The commit dispatches `map.import-asset` before `putAssetBytes` writes the bytes
-  (`apps/gm-react/src/app/map/useImportMap.ts:210-252`); the canvas resolves the new asset id once,
-  finds nothing, and its effect depends on the id alone, so it never looks again
-  (`apps/gm-react/src/platform/assetUrl.ts:42-64`); the editor then shows the missing-image notice
-  (`apps/gm-react/src/app/map/canvas/MapCanvas.tsx:186-208`). A GM who has just been told the
-  import worked sees an error state and will import again or give up. Reproduced 6 of 6 (two runs on
-  each tier); I re-read the three files and the order is as described.
+- **B2-1 · `/screen/:id`, rail and desktop · Next turn cannot be tapped where it rests at Fit.**
+  RC-ENG-8.7 moved the overflow footer into its own row and gave Grow to fit a 44px minimum on every
+  tier (`apps/gm-react/src/app/widgets/WidgetRenderSlot.tsx:494-501`). In a tile about 140px tall
+  that leaves the Initiative body 32px on the rail and 46px on desktop. On the demo vault's live home
+  screen at Fit, Next turn is scrolled out of the body ("4 more lines" on the rail, "3 more lines" on
+  desktop): taps at its box land on the tile body, Grow to fit or the Map tile below, and the Timer's
+  Start sits under its body's "1 more line". The first run's desktop control was clean, so desktop
+  is a regression. A swipe inside the tile or Grow to fit reaches it, and on desktop the side panel
+  has its own Next turn. `tile-overflow-controls.spec.ts` passes because it scrolls each button into
+  view before hit-testing. Held high, as B-2 was, because it hides the combat tile's primary action
+  on the default home screen at the default zoom. Reproduced 2 of 2 on each of the rail and
+  desktop; the phone was clean.
+- **B2-2 · Screens and Session, every tier · A GM cannot show players a screen they made.** Every
+  new screen is created `dm-only` (`apps/gm-react/src/screens/screen/useScreens.ts:194`), and no
+  surface changes a scene's visibility: scene details edits name, description, tags and background
+  (`screens/sceneEditor/useSceneCommands.ts:15-20`, `SceneMetaPanel.tsx`); the inspector's visibility
+  control is per tile; the Stage's Everyone select lists only shareable scenes
+  (`app/ProjectionControl.tsx:228-231`). On a fresh vault after a real onboarding, the first-session
+  guide's "New screen from a template" makes a DM-only screen; Start session then offers only that
+  screen with "Show … to the table" unchecked and disabled (its reason is a hover-only `title`,
+  `screens/session/Lifecycle.tsx:401`), the header reads "Players see nothing yet", and a player's
+  preview reads "Your DM has not shown a scene yet". The core already accepts `visibility` on
+  `scene.update-metadata` (`packages/core/src/commands/scene-meta.ts:112`); nothing in the app sends
+  it. The first run missed this because the seeded vault's Harbor of Saltreach is shareable, and
+  RC-ENG-8.6's fix made the header honest, which exposed it. Reproduced 2 of 2 on desktop and on the
+  phone; the rail shares the code path and was not run for this state. I re-read the files above and
+  searched the app for any dispatch carrying a scene visibility; there is none.
 
 ### Medium
 
 None of these blocks M2.5. They are recorded for the operator to file or fold into the stories in §7.
+
+- **A2-1** (also B2-5) On a fresh vault, Start session from the top bar or `/session` answers with
+  the toast "Create a scene first — a session needs a scene to show players." and no action; the app
+  calls them screens, and the vault already shows two (`app/ProjectionControl.tsx:55-58`,
+  `en.ts:312`). The built-in screens are not startable (`screens/session/useSessionView.ts:95-114`).
+- **A2-2** The first-session guide's New screen defaults to the DM screen template and the name "DM
+  screen" (`screens/screen/NewScreenDialog.tsx:42`), so the guide makes a second "DM screen", and the
+  session goes live on it showing players nothing (the B2-2 path).
+- **A2-3** Onboarding's consent step opens with "Cloud-Enhanced lets our server read your campaign
+  content, including secrets" before saying those features are not in this edition
+  (`en.ts:67`).
+- **B2-3** B-7 unchanged on every tier: the Map tile's body scrolls on its own
+  (`app/widgets/templates/board/MapView.tsx:355`), so its zoom row and Project to players can sit
+  out of view with no "more" cue.
+- **B2-4** Two strings from the RC-ENG-8.6 fix bypass the catalog: "nothing yet" in the Session
+  header (`screens/session/Lifecycle.tsx:56`) and the disabled checkbox's hover-only reason
+  (`Lifecycle.tsx:401`).
+- **B2-6** In the template editor on the rail and the phone, removing the last tile replaces the
+  history cluster with the empty state, so the canvas Undo is gone; only the toast's Undo or Ctrl+Z
+  restores the tile.
+- **C2-2** Level-up's class step starts empty for a character who already has a class, and accepts
+  any text (`app/character/LevelUp.tsx:175`, `LevelUpParts.tsx:205-231`).
+- **D2-1** In Atlas's Layers panel, Move up/down and the visibility chip drop focus to the body after
+  use, because they set native `disabled` while busy (`screens/atlas/LayersPanel.tsx:114,124,162`);
+  the enable switch keeps focus. Predates RC-ENG-8.11.
+- **D2-2** On the phone, Atlas's Project to players result renders about 1,500px above the viewport
+  (`screens/atlas/index.tsx:214`), so the GM sees no result.
+- **D2-3** On the phone map editor, choosing Generate shows nothing; the panel stays behind Panels
+  (`app/map/useMapEditorShell.ts:133-141` raises it only in quick-map mode).
+- **D2-4** The map import's "External scene format" path reports "Imported … · Scene elements
+  recorded" and marks the background image "Importable", but changes nothing on the map
+  (`useImportMap.ts:251-255` commits with no bytes); a `.dd2vtt` the editor just exported cannot be
+  imported back. The first step does say scene files cannot be read.
+- **D2-5** An imported square map is stretched to the canvas's shape on every tier (the map lives in
+  a 0..100 box with `preserveAspectRatio="none"`, `app/map/canvas/MapSvgLayers.tsx:55`). Tokens and
+  walls stay aligned with the image. No doc records the choice.
+
+### Low
+
+A2-4 Send feedback always shows "If the form did not open…" because `window.open(…, 'noopener')`
+returns null · A2-5 "atlas" in the palette finds only New map · A2-6 on desktop, focus falls to the
+body after a palette Go to opened with Ctrl+K · A2-7 the palette shows "esc" and arrow-key hints on
+touch and has no Close button · A2-8 Help guides say "GM screen" · A2-9 Command Center regions are
+announced with numbers · B2-7 "More editing tools" exists only on the phone · B2-8 B-11 and B-13
+still visible on Session · C2-3 the Journal tab badges automatic History entries with raw kind ids
+("level-up", "rest") and offers them an edit pencil · C2-4 point buy starts every score at 10 with 15
+points left and no Suggest · D2-6 the Generate panel has no side padding on desktop and the rail ·
+D2-7 opening Generate logs "Function components cannot be given refs" (`GeneratePanel.tsx:267`
+passes a ref to the DS `Input`) · D2-8 the minimap shows only a hatched placeholder, even for an
+imported image · D2-9 read-only Atlas layer rows are Tab stops with raw English names · D2-10 the
+Select tool group's pop-out opens over the canvas by default · D2-11 (unconfirmed) the "Your notes are
+connected" tip can sit over Atlas's Layers panel.
+
+### The first run's other findings, re-checked
+
+Still present, at their recorded severity: A-2 to A-14; B-3, B-5, B-6, B-8, B-11 to B-14; C-2 to
+C-10, C-12 to C-22, C-24 to C-26; BP-1 (now confirmed on all three tiers), BP-2 to BP-6, BP-8, BP-10,
+BP-11; D-2 to D-13. Changed: B-7 is B2-3 above; C-11 is lowered to low (long map names now truncate
+with an ellipsis, and tool hints wrap in the options bar); B-4's state (no home screen) can no
+longer be reached, because onboarding provisions the home screen; BP-9 did not reproduce. Not
+re-checked: B-9, B-10, BP-7, C-23. The first run's descriptions are kept in
+[§10](#10-the-first-run-on-ef42291b).
+
+FRICTIONLESS.md: L4 is still held high (B2-1). M2 is wider again: the Assets and Generate pickers
+and the Level up wizard's controls join the sub-44px targets on touch. M1, M3, M5, M6, M7, L1, L2,
+L3, L6, L10 and L12 still hold as recorded. L5 changed: on the phone Snap moved into More editing
+tools, and no clip was seen. None was found fixed.
+
+## 5. DEBT.md
+
+An entry counts as primary-path when its stated impact is visible to a GM or player on a primary
+surface in a configuration the product ships (the default or a selectable theme, locale or system).
+
+| Entry         | Severity | Status on `b2ddfc1d`                                                                                                                                                                                                                                                                                                                                                                                    | Counts |
+| ------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| DEBT-2026-004 | low      | Open, re-scoped by RC-ENG-8.11 to part (c): the generator category and preset pickers (`app/map/generate/GeneratePanel.tsx`) and the asset category pickers (`app/map/dock/AssetsPanel.tsx`) are hand-rolled `aria-pressed` buttons rather than the DS `SegmentedControl`. Part (b) is resolved: Atlas composes `LayerRow` inside `LayerPanel`, and the entry records why the composed import conforms. | no     |
+| DEBT-2026-009 | medium   | Open. Every content command copies every item. Not counted: the cost is internal, and RC-ENG-3.2's final capture breached none of the eleven budgets. This is a judgement; RC-ENG-7.3 should re-read it.                                                                                                                                                                                                | no     |
+
+DEBT-2026-004 (c) is a judgement too. The first run counted the entry for part (b), a hand-rolled
+panel on Atlas's main view, and left (c) uncounted. The two panels left are optional docks inside the
+map editor; their buttons work and carry `aria-pressed`, and review D found them consistent with
+the surrounding chrome on screen. Their real defect is size: under 44px on touch, which is
+FRICTIONLESS M2, recorded in §4 and not part of this entry. If the operator reads (c) as primary-path,
+gate 4 fails on it.
+
+DEBT-2026-006, -007 and -008, which the first run counted, are under Resolved, closed by RC-ENG-8.8,
+8.10 and 8.9. Checked in source: `character.create-draft` takes `abilityScorePool`
+(`packages/core/src/commands/character.ts:240`), `vocabularyValues()` localizes the built-in
+packages (`apps/gm-react/src/i18n/vocabulary.tsx:65`), and parchment's accent is `#945016`, 4.74:1
+on its tint (`apps/gm-react/src/styles/tokens/colors.css:165`), which the contrast step of the a11y
+gate passed.
+
+## 6. FEATURE-GAPS.md
+
+The primary rows are Onboarding, Command Center, Palette and help, Screens, Scene editor, Board,
+Session, Characters, Maps (Atlas), Notes (Knowledge) and Player app. A §2.1 limit is read as §2.1
+item 2 defines it: a capability a primary surface offers, or the plan promises, that is unavailable
+or incomplete.
+
+None is counted. The first run's two are gone: the Characters History limit left with RC-ENG-8.12
+(History now records rests, combats and level-ups; review C saw all three on every tier), and the
+push limit moved to the Settings row with RC-ENG-8.13, so the Player app row carries no limit.
+`pnpm feature-audit` reports 46 declared limits, 0 stale. The primary rows' remaining limits, with
+the reason each is not a §2.1 limit:
+
+| Row              | Limit                                                          | Why it is not a §2.1 limit                                                                             |
+| ---------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Palette and help | Authored guides ship in English                                | Localization residue; §2.3 gates the Spanish catalog at RC-1, not M2.5.                                |
+| Scene editor     | Generated widgets need DM review                               | The §0.3 rule 9 guardrail (AI proposes, never disposes).                                               |
+| Board            | Tile status notes and inspector tier descriptions stay English | Localization residue, as above.                                                                        |
+| Board            | Phone list tiles keep their authored height and scroll inside  | RC-CAN-5.5's recovery design for content that outgrows a tile.                                         |
+| Session          | End the live session to return to Standby                      | The §1.6 D2 posture rule.                                                                              |
+| Session          | Continuity prompts stay English                                | Localization residue.                                                                                  |
+| Characters       | D&D Beyond JSON import diagnostics stay English                | Localization residue.                                                                                  |
+| Maps (Atlas)     | The legacy per-map token array stays in state                  | Internal state; nothing on screen.                                                                     |
+| Notes            | Live co-editing presence is not modeled                        | Neither offered nor promised; the roadmap's "presence" is the companion's `screens/play/Presence.tsx`. |
+| Notes            | History keeps 50 revisions over 30 days                        | Retention bounds (RC-KNW-5.2), not a missing capability.                                               |
+
+The English residues are listed for RC-ENG-7.3, which audits §2.3. B2-2 is not a FEATURE-GAPS row:
+the Screens row claims sharing through projection and makes no visibility claim, so the gap is a
+review finding, not a declared limit.
+
+## 7. Blocking stories
+
+The first run's ten stories, RC-ENG-8.5 to 8.14, are all `succeeded` and integrated, and the re-run
+above confirms what each was to close, with one exception: RC-ENG-8.7's footer change cleared the
+overlay but left Next turn out of reach at rest (B2-1).
+
+Each new blocking finding is one story in the ENG-8 epic of
+[RC_ROADMAP.md](RC_ROADMAP.md#epic-eng-8--early-access-primary-paths-before-platform-depth-p2p3), P3,
+with no dependency of its own. RC-ENG-8.3's `Deps:` lists all three, in the story text and in §23.
+They were created in the dispatcher with `task.create`, which files them as `proposed`; approving
+them is the operator's call. RC-ENG-8.3 is running, and the dispatcher refuses `task.update` on a
+running task, so its stored dependencies (30, through RC-ENG-8.14, at a read-only check at 17:00Z)
+need the operator to add these three.
+
+| Story       | Size | Finding          | What it closes                                                                                  |
+| ----------- | ---- | ---------------- | ----------------------------------------------------------------------------------------------- |
+| RC-ENG-8.15 | M    | B2-1 (B-2, L4)   | The combat tile's actions can be tapped at Fit without scrolling, on every tier.                |
+| RC-ENG-8.16 | M    | B2-2 (with A2-2) | The GM can make a screen visible to players, and the Start dialog says how when it is not.      |
+| RC-ENG-8.17 | S    | C2-1             | The level-up wizard fits the rail and phone columns, so Next, Finish and Discard can be tapped. |
+
+When all three land, RC-ENG-8.3 runs again: the five golden runs, the a11y gate, the four review
+passes over every primary route at the three tiers on the new commit, and DEBT.md and
+FEATURE-GAPS.md re-read.
+
+## 8. Not checked
+
+- Electron and Android shells; hosted CI.
+- Themes other than the default, except through the contrast gate; Spanish and the pseudo-locale
+  beyond the specs that assert them.
+- A screen reader. Accessible names come from ARIA snapshots and axe.
+- In the review: the camera QR join (no camera on this machine; the companion was joined over the
+  fake LAN); B2-2 on the rail (same code path as desktop and phone); the first run's B-9, B-10,
+  BP-7 and C-23.
+- The review is a model reviewer driving the app, with the blocking findings checked against
+  source. It is not a usability test with people.
+
+## 9. Reproducing the run, and integration
+
+The review probes were scratch specs and are not committed; they are kept with the evidence. The
+gates are committed. From a clean checkout, with `<dir>` a scratch path and `<port>` a free port:
+
+```sh
+git worktree add --detach <dir> b2ddfc1d
+cd <dir> && pnpm install --frozen-lockfile
+cd <dir>/apps/gm-react
+# five times, n = 1..5:
+DNDTOOLS_E2E_PORT=<port> PLAYWRIGHT_JSON_OUTPUT_NAME=<dir>/golden-run<n>.json \
+  pnpm exec playwright test tests/e2e/golden-path.spec.ts \
+  --project=desktop-chromium --project=mobile-chromium --reporter=json,line
+cd <dir> && DNDTOOLS_E2E_PORT=<port> pnpm a11y:gate
+```
+
+The DEBT.md and FEATURE-GAPS.md readings in §5 and §6 are static: the files at `b2ddfc1d` read
+against the source they cite.
+
+This audit holds for the application tree of `b2ddfc1d`. The audit branch is rebased onto it and
+adds only documentation: this file, the planning-index link, the roadmap stories, the run journal,
+and one re-anchored FEATURE-GAPS.md limit (the Shells row cites the roadmap line of RC-PLT-1.1,
+which the new stories move). Before citing this verdict for another commit, run
+`git diff --stat b2ddfc1d <commit> -- . ':!docs' ':!state'`. Empty output means the same application
+code; anything else means the gates run again.
+
+## 10. The first run, on `ef42291b`
+
+Run 2026-10-15 on `ef42291b`, with the same gates and method (three route groups, then a phone
+template-editor pass and a pass for five actions the first groups had not reached).
+
+**Verdict: not passed.** Gates 1 and 3 passed (78 of 78 in each of five golden runs; the a11y gate
+clean with the same one moderate). Gates 2, 4 and 5 failed:
+
+- five high review findings: A-1, a typed section name in the palette opened the Import hub; B-1,
+  the default Start session went live on the DM-only home screen and said players saw it; B-2, on
+  the rail at Fit the overflow footer covered the Initiative tracker's Next turn; C-1, a PC built in
+  the wizard lacked the ancestry bonus, hit dice, initiative and save proficiencies the wizard showed;
+  D-1, a finished map import left the open editor saying the map's image was missing;
+- four open primary-path DEBT entries: -004 part (b), -006, -007 and -008;
+- two primary FEATURE-GAPS limits outside the §2.1 four: Characters History without rest, combat or
+  level-up events, and a push limit on the Player app row that `/play` never showed.
+
+They became RC-ENG-8.5 to 8.14. The re-run above found A-1, B-1, C-1 and D-1 fixed, the DEBT entries
+and limits resolved, and B-2 still present as B2-1.
+
+### The first run's medium findings
+
+Their status on `b2ddfc1d` is in §4.
 
 - **A-2** The NavRail's Search is 28×28 on the touch rail.
 - **A-3** One glyph serves two or three destinations on the rail and in More (DM screen and
@@ -269,7 +455,7 @@ None of these blocks M2.5. They are recorded for the operator to file or fold in
   popover's Close 28×28 and visibility options 24px tall, the phone Panels button 28×28, the
   "Import map…" item 31px tall, and the shortcut list's Close 30×30.
 
-### Low
+### The first run's low findings
 
 A-9 no Help inside onboarding · A-10 focus after onboarding lands on the finished row · A-11 the live
 chip squeezes the desktop subtitle · A-12 the hero's party avatars clip their initials · A-13 the
@@ -293,135 +479,3 @@ import's result step appears · D-10 the shortcut list says "Scene canvas" and "
 and is offered on touch-only phones · D-11 the editor tour says "Hover over a tool" on touch · D-12
 the phone list view cuts off its Position and Actions columns · D-13 Help opens with focus on Import
 hub.
-
-### FRICTIONLESS.md items, re-checked
-
-L4 is raised to high (B-2). M2 is wider than recorded: A-8, B-5, C-12 and C-13 find the same
-sub-44px targets outside edit mode and on Session, Maps, Characters and Notes. M7 is wider too: the
-companion's rail sheet has 24×24 slot and condition controls, and "Clear Poisoned" is 24×24 at 390,
-which the 48dp gate (`companion-frame.spec.ts`) does not catch. M5 still holds at 834, and the keys
-typed before the GM taps the body are dropped. L3 holds in one row of the shortcut list: "Open the
-command palette — search the whole vault" (`settings.a11y.shortcutPalette`, re-checked by pass D).
-M1, M3, M6, L1, L2, L5, L6, L10 and L12 still hold as recorded; M3's two labels are asserted literally by `screen-editing.spec.ts:39-40`, so the
-fix has to change that spec. None of these were found fixed.
-
-## 5. DEBT.md
-
-An entry counts as primary-path when its stated impact is visible to a GM or player on a primary
-surface in a configuration the product ships (the default or a selectable theme, locale or system).
-
-| Entry         | Severity | Primary surface                            | Status on `ef42291b`                                                                                                                                                                                                                                                                                                                                                                         | Counts |
-| ------------- | -------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| DEBT-2026-004 | low      | Maps                                       | Part (b) is still open. Atlas's `screens/atlas/LayersPanel.tsx` hand-rolls its rows; only the editor dock (`app/map/dock/LayersPanel.tsx`) uses the DS `LayerRow`. The map import composes DS `Dialog`, `Stepper` and `Field`; the DS `ImportWizard` appears only in `screens/DsGallery.tsx`. The entry says RC-POL-1.9 picks it up; POL-1.9 has landed and its journal does not mention it. | yes    |
-| DEBT-2026-006 | medium   | Characters                                 | Open. The core still holds every PC draft to the 27-point buy (`ABILITY_POINT_BUDGET`, `character-draft-flow.ts:77`), so a rolled spread cannot be finalized.                                                                                                                                                                                                                                | yes    |
-| DEBT-2026-007 | medium   | Characters, the companion (Spanish)        | Open. Package vocabulary reaches Spanish strings untranslated.                                                                                                                                                                                                                                                                                                                               | yes    |
-| DEBT-2026-008 | medium   | Screens, Session, scene editor (parchment) | Open. The parchment pair is still `#9a5418` on `#f0e0c8` (`styles/tokens/colors.css:165,168`); `session-polish.spec.ts:27` and the comments at `QuickPanel.tsx:217`, `CombatantItem.tsx:95` and `DiceTray.tsx:220` still name it.                                                                                                                                                            | yes    |
-| DEBT-2026-009 | medium   | none visible                               | Open. Every content command copies every item. Not counted: the cost is internal, and RC-ENG-3.2's final capture breached none of the eleven budgets. This is a judgement; RC-ENG-7.3 should re-read it.                                                                                                                                                                                     | no     |
-
-## 6. FEATURE-GAPS.md
-
-The primary rows are Onboarding, Command Center, Palette and help, Screens, Scene editor, Board,
-Session, Characters, Maps (Atlas), Notes (Knowledge) and Player app. A §2.1 limit is read as §2.1
-item 2 defines it: a capability a primary surface offers, or the plan promises, that is unavailable
-or incomplete.
-
-Counted, outside the four:
-
-- **Characters.** "History renders journal entries; automatic rest, combat and level-up history still
-  needs event-source wiring" (`app/character/History.tsx:21`). RC-CHR-2.3 promised a feed of
-  "level-ups, rests, combats, downtime"; only journal entries (downtime among them) appear.
-- **Player app.** "Push delivery is unavailable" (`platform/capabilities.ts:166`). That copy renders
-  only in the GM's Settings › Notifications (`screens/settings/Notifications.tsx:17`); nothing under
-  `screens/play/` imports the push client. The limit is real, operator-owned (RC-CLD-2.3, §24) and
-  not one of the four, but it belongs to the Settings row, which is not primary.
-
-Not counted, with the reason:
-
-| Row              | Limit                                                          | Why it is not a §2.1 limit                                                                             |
-| ---------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Palette and help | Authored guides ship in English                                | Localization residue; §2.3 gates the Spanish catalog at RC-1, not M2.5.                                |
-| Scene editor     | Generated widgets need DM review                               | The §0.3 rule 9 guardrail (AI proposes, never disposes).                                               |
-| Board            | Tile status notes and inspector tier descriptions stay English | Localization residue, as above.                                                                        |
-| Board            | Phone list tiles keep their authored height and scroll inside  | RC-CAN-5.5's recovery design for content that outgrows a tile.                                         |
-| Session          | Parchment phase control at 4.43:1                              | Counted once, as DEBT-2026-008.                                                                        |
-| Session          | End the live session to return to Standby                      | The §1.6 D2 posture rule.                                                                              |
-| Session          | Continuity prompts stay English                                | Localization residue.                                                                                  |
-| Characters       | D&D Beyond JSON import diagnostics stay English                | Localization residue.                                                                                  |
-| Maps (Atlas)     | The legacy per-map token array stays in state                  | Internal state; nothing on screen.                                                                     |
-| Notes            | Live co-editing presence is not modeled                        | Neither offered nor promised; the roadmap's "presence" is the companion's `screens/play/Presence.tsx`. |
-| Notes            | History keeps 50 revisions over 30 days                        | Retention bounds (RC-KNW-5.2), not a missing capability.                                               |
-
-The English residues are listed for RC-ENG-7.3, which audits §2.3.
-
-## 7. Blocking stories
-
-Each failure is one story in the ENG-8 epic of [RC_ROADMAP.md](RC_ROADMAP.md#epic-eng-8--early-access-primary-paths-before-platform-depth-p2p3),
-P3, with no dependency of its own. RC-ENG-8.3's `Deps:` now lists all ten, in the story text and in
-§23. The stories were also created in the dispatcher with `task.create`, which files them as
-`proposed`; approving them is the operator's call. RC-ENG-8.3 was running when its dependencies
-changed, and the dispatcher refuses `task.update` on a running task, so its stored dependencies still
-need the operator to pick up the roadmap change. A read-only look at the store at 12:07Z on
-2026-10-15 shows RC-ENG-8.3 `running` with its original 20 dependencies and RC-ENG-8.5 to 8.13
-`proposed`; a second read at 12:41Z, after RC-ENG-8.14 was created from pass D, shows it
-`proposed` too and RC-ENG-8.3 unchanged. Until the ten are added there, the dispatcher does not
-hold this task behind them, and approving it would mark the exit audit done while the gate fails.
-
-| Story       | Size | Finding                    | What it closes                                                                                                             |
-| ----------- | ---- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| RC-ENG-8.5  | S    | A-1                        | A section name typed in the palette goes to that section.                                                                  |
-| RC-ENG-8.6  | M    | B-1                        | Start session never goes live on a DM-only workspace, and the header says what the table sees.                             |
-| RC-ENG-8.7  | M    | B-2 (FRICTIONLESS L4), B-7 | A tile's buttons are never under its overflow footer.                                                                      |
-| RC-ENG-8.8  | L    | C-1, DEBT-2026-006         | A built PC carries the scores, hit dice, initiative and saves the builder shows, and a PC can be built from rolled scores. |
-| RC-ENG-8.9  | M    | DEBT-2026-008              | Parchment's accent on its tint reaches 4.5:1.                                                                              |
-| RC-ENG-8.10 | M    | DEBT-2026-007              | The two built-in system packages' vocabulary renders in Spanish.                                                           |
-| RC-ENG-8.11 | S    | DEBT-2026-004 (b)          | Atlas uses the DS layer components; the import flow is reconciled with the DS wizard.                                      |
-| RC-ENG-8.12 | M    | FEATURE-GAPS Characters    | Character history records rests, combats and level-ups.                                                                    |
-| RC-ENG-8.13 | S    | FEATURE-GAPS Player app    | The push limit moves to the Settings row, where its copy renders.                                                          |
-| RC-ENG-8.14 | S    | D-1                        | An imported map's image renders in the open editor as soon as the import finishes.                                         |
-
-When all ten land, RC-ENG-8.3 runs again: the five golden runs, the a11y gate, the reviews over
-every primary route at the three tiers on the new commit (including the actions pass D added), and DEBT.md and FEATURE-GAPS.md re-read.
-
-## 8. Not checked
-
-- Electron and Android shells; hosted CI.
-- Themes other than the default, except through the contrast gate; Spanish and the pseudo-locale
-  beyond the specs that assert them.
-- A screen reader. Accessible names come from ARIA snapshots and axe.
-- In the review: the camera QR join (no camera on this machine; the companion was joined over the
-  fake LAN), and re-importing a `.dd2vtt` export (the map import was covered with an image).
-- In the phone template-editor pass (BP): the rail and desktop again (group B covered them) and
-  pinch zoom.
-- The review is a model reviewer driving the app, with findings checked against source. It is not a
-  usability test with people.
-
-With pass D, the actions the earlier passes missed have been reviewed at all three tiers, so the
-review now covers every primary route on `ef42291b`, with the exclusions above. Its result is the
-gate 2 failure in §1: five high findings, D-1 among them.
-
-## 9. Reproducing the run, and integration
-
-The review probes were scratch specs and are not committed; they are kept with the evidence. The
-gates are committed. From a clean checkout,
-with `<dir>` a scratch path and `<port>` a free port:
-
-```sh
-git worktree add --detach <dir> ef42291b
-cd <dir> && pnpm install --frozen-lockfile
-cd <dir>/apps/gm-react
-# five times, n = 1..5:
-DNDTOOLS_E2E_PORT=<port> PLAYWRIGHT_JSON_OUTPUT_NAME=<dir>/golden-run<n>.json \
-  pnpm exec playwright test tests/e2e/golden-path.spec.ts \
-  --project=desktop-chromium --project=mobile-chromium --reporter=json,line
-cd <dir> && DNDTOOLS_E2E_PORT=<port> pnpm a11y:gate
-```
-
-The DEBT.md and FEATURE-GAPS.md readings in §5 and §6 are static: the files at `ef42291b` read against
-the source they cite.
-
-This audit holds for the application tree of `ef42291b`. On top of it the branch adds only
-documentation: this file, the planning-index link, the roadmap stories, the run journal, and one
-re-anchored FEATURE-GAPS.md limit (the Shells row cites a roadmap line that the new stories moved
-from 4109 to 4216; `pnpm feature-audit` reports 0 stale anchors after it). Before
-citing this verdict for another commit, run `git diff --stat ef42291b <commit> -- . ':!docs' ':!state'`.
-Empty output means the same application code; anything else means the gates run again.

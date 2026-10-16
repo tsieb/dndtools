@@ -191,3 +191,58 @@ diff --stat ef42291b HEAD -- . ':!docs' ':!state'` empty). p1/p2 failed on a pro
   stale, 0 inventory issues. `auditDocs`: 310 files, 465 links, 0 problems. `parse_roadmap` parses
   RC-ENG-8.14 (S, P3, deps none) and RC-ENG-8.3's deps through 8.14. Prettier `--check` on the
   changed files: clean.
+
+## Attempt 4 (2026-10-16, re-audit after RC-ENG-8.5 to 8.14 landed)
+
+- Read-only store check at ~16:10Z: RC-ENG-8.5 to 8.14 all `succeeded`/`integrated`; RC-ENG-8.3
+  `running`/`implement` with 30 stored dependencies, the ten among them (the operator reconciled the
+  second review finding). Every story's recorded head is an ancestor of local `loop/rc` = `b2ddfc1d`
+  (RC-ENG-8.9's head is the tip). `origin/loop/rc` is `77ae4c82` and behind; the dispatcher's local
+  `loop/rc` is the reference.
+- Rebased the seven audit commits onto `b2ddfc1d` (clean, no conflicts). `git diff --stat b2ddfc1d HEAD
+-- . ':!docs' ':!state'` is empty. Lockfile unchanged since `ef42291b`; deps already installed.
+- 16:16:58Z: gate chain started (`~/.cache/rc-eng-8-3-evidence/rerun-b2ddfc1d/run-gates.sh`, port
+  5481): golden-path.spec.ts ×5 on both profiles, retries 0, then `pnpm a11y:gate`.
+- Static: DEBT.md on `b2ddfc1d` resolves -006 (RC-ENG-8.8), -007 (RC-ENG-8.10) and -008 (RC-ENG-8.9);
+  -004 stays open, re-scoped by RC-ENG-8.11 to part (c) only (GeneratePanel and AssetsPanel pickers,
+  hand-rolled `aria-pressed` chip groups). FEATURE-GAPS.md: the Characters History limit is gone
+  (RC-ENG-8.12) and the push limit sits on the Settings row (RC-ENG-8.13); the Player app row has none.
+- Review worktrees `~/.cache/rc-eng-8-3-rerun-{a,b,c,d}` detached at `b2ddfc1d`, installed. Four passes
+  (A shell/onboarding/CC/palette/Help/screens, B screens/scene editor/Session, C Characters/Notes/play,
+  D Atlas/map editor/import), brief `rerun-b2ddfc1d/review-brief.md`, ports 5511–5514; launched after the
+  gate chain so they do not load the golden runs.
+- Gate chain on `b2ddfc1d` (`rerun-b2ddfc1d/chain.log`): runs 1–5 exit 0, 16:16:58–16:21:55Z, load
+  1.7–4.1; JSON reports parsed: 78 expected, 0 unexpected/flaky/skipped each, 39 per profile, max
+  retry 0. `pnpm a11y:gate` exit 0 (16:21:55–16:23:24Z): 319 contrast pairs + 16 forced-colors checks,
+  axe 61 passed / 1 skipped, 60 scans, 0 critical/serious, 1 moderate (`region`, mobile
+  `/session#combat`), PASS. `tmp/a11y` and `apps/gm-react/test-results/` moved to
+  `rerun-b2ddfc1d/a11y-artifacts/`.
+- Four `ux-ui-reviewer` passes in parallel (~16:25–17:00Z), all completed in-turn. A: 0/0, A-1 fixed.
+  B: 2 high — B2-1 (B-2 still present, now desktop too, after RC-ENG-8.7's 44px Grow floor) and B2-2
+  (no UI changes a scene's visibility; new screens are dm-only) — B-1 fixed. C: 1 critical — C2-1
+  (level-up wizard 609px in a 362/490px column; Next and Discard off-screen under overflow-x hidden on
+  touch) — C-1 fixed. D: 0/0, D-1 fixed. The agents could not write files; condensed reports saved as
+  `rerun-b2ddfc1d/review-{a,b,c,d}/REPORT.md`, probes in `review-*/probes/`.
+- Re-read in source: `LevelUp.tsx:282` (maxWidth only), `Stepper.tsx:118` (nowrap); C2-1 rects in
+  `review-c/r1/phone/levelup-layout.log.json`. `useScreens.ts:194` (`visibility: 'dm-only'`);
+  `SceneMetaPanel`/`useSceneCommands.ts:15-20` draft has no visibility; the only `onVisibility` in the
+  scene editor is per tile (`ScreenEditing.tsx:116`); no app dispatch sends a scene visibility.
+  `WidgetRenderSlot.tsx:494-501` 44px floor; B2-1 HIT lines in `review-b/metrics/log-r2.txt`. All
+  three confirmed.
+- DEBT-2026-004 (c) judged not primary-path (optional editor docks, working `aria-pressed` buttons,
+  review D: no visible friction; size is M2) and stated as a judgement in §5.
+- Filed RC-ENG-8.15 (M), 8.16 (M), 8.17 (S), P3, in the ENG-8 epic; RC-ENG-8.3 `Deps:` through 8.17
+  in the story and §23; §23 header 393 (M 212, S 139, P3 132, open 83) — only the new stories counted;
+  the status cells of 8.5–8.14 are stale (blank), left for `tools/roadmap/sync-status.py`, which
+  rewrites every row and was not run. `parse_roadmap`: 393 stories; RC-ENG-8.3 33 deps, 0 unknown.
+- `task.create` ×3 via `dispatch.py command`, exit 0 (`rerun-b2ddfc1d/task-create-*`). Read-only
+  check at 17:00Z: all three `proposed`; RC-ENG-8.3 `running` with 30 deps (operator to add 8.15–8.17).
+  Mistake: RC-ENG-8.16's stored `owns` carries three non-path tokens (`useScreens.ts:194`,
+  `scene.update-metadata`, `visibility`) — my extraction split on ". Finding" and the text broke the
+  line there. Harmless as fences, but the operator should drop them; not changed here (control state).
+- EARLY_ACCESS.md rewritten for the re-run on `b2ddfc1d` (verdict: not passed, gate 2 only); §10 keeps
+  the first run's verdict and its medium/low descriptions (the earlier ids are re-checked in §4).
+- Validation: re-anchored the FEATURE-GAPS Shells limit 4216 → 4260 (same row `| RC-PLT-1.1 |`, same
+  width); `pnpm feature-audit`: 46 limits, 0 stale, 0 inventory issues. `auditDocs`: 313 files, 467
+  links, 0 problems. Prettier `--check` on the changed files: clean. Review worktrees
+  `~/.cache/rc-eng-8-3-rerun-{a,b,c,d}` removed after checking they were clean; ports 5511–5514 free.

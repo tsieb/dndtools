@@ -349,7 +349,8 @@ Milestone status 2026-09-11: **M0 done · M1 done · M2 88% merged** (18 P2 stor
 in CAN, plus the four new P2 engineering stories) **· M3 not started · M4 not started.** M2.5 (early access, §1.6 D7) was added
 2026-09-12 and has not started. M2.6 (frictionless, §1.7) was added 2026-09-29; RC-ENG-8.3 depends on
 its gate (§1.7 D14). 2026-10-15: M2.6 passed ([FRICTIONLESS.md](FRICTIONLESS.md)); the first M2.5 audit did not
-([EARLY_ACCESS.md](EARLY_ACCESS.md)), and its findings are RC-ENG-8.5 to 8.14.
+([EARLY_ACCESS.md](EARLY_ACCESS.md)), and its findings are RC-ENG-8.5 to 8.14. 2026-10-16: the re-run on
+`b2ddfc1d` did not pass either; its findings are RC-ENG-8.15 to 8.17.
 
 ### 3.3 Parallel lanes and their collision map
 
@@ -3358,13 +3359,15 @@ this epic makes the primary paths releasable first and keeps them that way.
 - **RC-ENG-8.3 — Early-access exit audit.** `M` · P3 · Deps: CAN-7.8, CAN-7.4, CAN-5.4, CAN-5.5,
   CAN-6.4, SES-6.2, UX-3.6, UX-3.7, UX-5.2, 8.4, POL-1.1, POL-1.2, POL-1.4, POL-1.5, POL-1.8,
   POL-1.9, POL-1.11, POL-1.18, POL-1.23, ENG-9.3, 8.5, 8.6, 8.7, 8.8, 8.9, 8.10, 8.11, 8.12, 8.13,
-  8.14 · Owns: `docs/planning/EARLY_ACCESS.md` (new). The M2.5
+  8.14, 8.15, 8.16, 8.17 · Owns: `docs/planning/EARLY_ACCESS.md` (new). The M2.5
   gate: golden paths green on five consecutive runs on both profiles; a `ux-ui-reviewer` pass over
   every primary route at the three tiers with zero high findings; the a11y gate clean; no open
   primary-path entry in DEBT.md; no primary FEATURE-GAPS row carrying a limit beyond the §2.1 four.
   Findings become stories that block this one. First run 2026-10-15 on `ef42291b`: not passed; golden
   paths and a11y gate held; five high review findings, four DEBT entries and two FEATURE-GAPS limits
-  became RC-ENG-8.5 to 8.14. The story stays open until a re-run on a commit carrying them passes.
+  became RC-ENG-8.5 to 8.14. Re-run 2026-10-16 on `b2ddfc1d`, which carries all ten: not passed;
+  gates 1, 3, 4 and 5 held, and the review's one critical and two highs became RC-ENG-8.15 to 8.17.
+  The story stays open until a re-run on a commit carrying those passes.
   Acceptance: EARLY_ACCESS.md records the run, the review and the verdict on one commit.
 - **RC-ENG-8.4 — Emphasis and display-face lint.** `S` · P2 · Owns: `scripts/emphasis-lint.ts`
   (new), `scripts/emphasis-baseline.json` (new). Two design rules the screens break today become
@@ -3477,6 +3480,47 @@ this epic makes the primary paths releasable first and keeps them that way.
   store is content-addressed, so the id is known, as the audio import already does), or re-resolve
   after an asset-store write. Acceptance: the Atlas import spec asserts the image renders in the open
   editor straight after Done, with no missing-image chip, on both profiles.
+- **RC-ENG-8.15 — The combat tile's actions can be tapped at Fit without scrolling.** `M` · P3 · Deps: none ·
+  Owns: `apps/gm-react/src/app/widgets/WidgetRenderSlot.tsx`,
+  `apps/gm-react/src/app/widgets/templates/board/InitiativeCompact.tsx`,
+  `apps/gm-react/src/app/widgets/templates/board/Countdown.tsx`,
+  `apps/gm-react/tests/e2e/tile-overflow-controls.spec.ts`. Finding B2-1 of the RC-ENG-8.3 re-run
+  (EARLY_ACCESS.md §4): RC-ENG-8.7 moved the overflow footer into its own row and gave Grow to fit a
+  44px floor on every tier, which leaves a 32px body on the rail and 46px on desktop. On the live
+  home screen at Fit, the Initiative tracker's Next turn is scrolled out of view on the 834px rail
+  and on desktop, where it was reachable before; taps at its box land on Grow to fit, the tile frame
+  or the tile below, and the Timer's Start sits under its body's "1 more line". The spec passes
+  because it scrolls each button into view before hit-testing. Keep the tile's primary action row
+  outside the scroll region, or keep the footer row thin and extend only Grow's hit area on touch.
+  Acceptance: the spec hit-tests every tile button on the live home screen at 1440, 834 and 390
+  without scrolling first, and each centre receives the tap; the ENG-8.1 detector still passes.
+- **RC-ENG-8.16 — The GM can let players see a screen.** `M` · P3 · Deps: none · Owns:
+  `apps/gm-react/src/screens/sceneEditor/SceneMetaPanel.tsx`,
+  `apps/gm-react/src/screens/sceneEditor/useSceneCommands.ts`,
+  `apps/gm-react/src/screens/sceneEditor/ScreenEditing.tsx`,
+  `apps/gm-react/src/screens/session/Lifecycle.tsx`, `apps/gm-react/src/i18n/messages/en.ts`,
+  `apps/gm-react/src/i18n/messages/es.ts`, `apps/gm-react/tests/e2e/screen-visibility.spec.ts` (new).
+  Finding B2-2 of the RC-ENG-8.3 re-run: every new screen is created DM-only (`useScreens.ts:194`)
+  and no surface changes a scene's visibility. Scene details edits name, description, tags and
+  background; the Stage lists only shareable scenes. A GM who follows the first-session guide,
+  builds a screen and starts a session goes live with "Players see nothing yet", and the Start
+  dialog's "Show … to the table" box is disabled with a hover-only English reason. Only seeded
+  scenes can ever be shown. `scene.update-metadata` already accepts `visibility`. Add a "Who can see
+  this screen" control to scene details, and make the Start dialog's disabled state say, visibly
+  and through the catalog, how to share the screen. Acceptance: an e2e on both profiles builds a
+  screen from a template on a fresh vault, shares it, starts a session on it, and a joined player's
+  stage shows it.
+- **RC-ENG-8.17 — Level-up fits the rail and the phone.** `S` · P3 · Deps: none · Owns:
+  `apps/gm-react/src/app/character/LevelUp.tsx`, `apps/gm-react/src/app/character/LevelUpParts.tsx`,
+  `apps/gm-react/tests/e2e/character-levelup.spec.ts`. Finding C2-1 of the RC-ENG-8.3 re-run,
+  critical: on the sheet's Level up tab the wizard grows to its stepper's unwrapped width (609px), so
+  in a 362px phone column and a 490px rail column Next and Discard level-up sit past the right edge
+  inside `overflow-x: hidden` ancestors. A touch user cannot pass the first step, finish or discard
+  the draft, and the companion sends players to the DM's sheet to level up. The root has a
+  `maxWidth` and no `minWidth: 0`, so the stepper's own horizontal scroll never engages. Constrain
+  the root to its column and let the header's action wrap. Acceptance: the level-up spec runs at 834
+  and 390 with touch, asserts Next, Finish and Discard sit inside the viewport and receive a tap at
+  their centre, and completes a level-up.
 
 ### Epic ENG-9 — Friction is measured (P3)
 
@@ -3969,7 +4013,7 @@ story; most stalls of the last week were roadmap data, not code.
 
 ## 23. Story index
 
-_390 stories. By size: L=42 · M=210 · S=138. By phase: P0=20 · P1=28 · P2=193 · P3=129 · P4=19 · rolling=1. Status (from the dispatcher store): blocked 13 · done 287 · in progress 2 · open 80 · operator 7 · skipped 1. Rendered by `tools/roadmap/sync-status.py`; the store, not this column, is the record._
+_393 stories. By size: L=42 · M=212 · S=139. By phase: P0=20 · P1=28 · P2=193 · P3=132 · P4=19 · rolling=1. Status (from the dispatcher store): blocked 13 · done 287 · in progress 2 · open 83 · operator 7 · skipped 1. Rendered by `tools/roadmap/sync-status.py`; the store, not this column, is the record._
 
 | Id          | Lane        | Story                                                                                                                                                                                                                                                                                                      | Size | Phase   | Deps                                                                                                                                                                                                   | Status               |
 | ----------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------- |
@@ -4303,7 +4347,7 @@ _390 stories. By size: L=42 · M=210 · S=138. By phase: P0=20 · P1=28 · P2=19
 | RC-UX-5.5   | UX          | Navigation review before release                                                                                                                                                                                                                                                                           | S    | P4      | CAN-7.9                                                                                                                                                                                                |                      |
 | RC-ENG-8.1  | Engineering | Golden-path journeys                                                                                                                                                                                                                                                                                       | M    | P2      | none                                                                                                                                                                                                   | done (9cf8265)       |
 | RC-ENG-8.2  | Engineering | Default content never shows an error                                                                                                                                                                                                                                                                       | S    | P2      | none                                                                                                                                                                                                   | done (c8a2c29)       |
-| RC-ENG-8.3  | Engineering | Early-access exit audit                                                                                                                                                                                                                                                                                    | M    | P3      | CAN-7.8, CAN-7.4, CAN-5.4, CAN-5.5, CAN-6.4, SES-6.2, UX-3.6, UX-3.7, UX-5.2, 8.4, POL-1.1, POL-1.2, POL-1.4, POL-1.5, POL-1.8, POL-1.9, POL-1.11, POL-1.18, POL-1.23, ENG-9.3, 8.5–8.14               |                      |
+| RC-ENG-8.3  | Engineering | Early-access exit audit                                                                                                                                                                                                                                                                                    | M    | P3      | CAN-7.8, CAN-7.4, CAN-5.4, CAN-5.5, CAN-6.4, SES-6.2, UX-3.6, UX-3.7, UX-5.2, 8.4, POL-1.1, POL-1.2, POL-1.4, POL-1.5, POL-1.8, POL-1.9, POL-1.11, POL-1.18, POL-1.23, ENG-9.3, 8.5–8.17               |                      |
 | RC-ENG-8.4  | Engineering | Emphasis and display-face lint                                                                                                                                                                                                                                                                             | S    | P2      | none                                                                                                                                                                                                   | done (66d7875)       |
 | RC-ENG-8.5  | Engineering | A section name in the palette goes to the section                                                                                                                                                                                                                                                          | S    | P3      | none                                                                                                                                                                                                   |                      |
 | RC-ENG-8.6  | Engineering | Start session never goes live on a DM-only workspace                                                                                                                                                                                                                                                       | M    | P3      | none                                                                                                                                                                                                   |                      |
@@ -4315,6 +4359,9 @@ _390 stories. By size: L=42 · M=210 · S=138. By phase: P0=20 · P1=28 · P2=19
 | RC-ENG-8.12 | Engineering | Character history records rests, combats and level-ups                                                                                                                                                                                                                                                     | M    | P3      | none                                                                                                                                                                                                   |                      |
 | RC-ENG-8.13 | Engineering | The push limit sits on the Settings row                                                                                                                                                                                                                                                                    | S    | P3      | none                                                                                                                                                                                                   |                      |
 | RC-ENG-8.14 | Engineering | An imported map shows its image as soon as the import finishes                                                                                                                                                                                                                                             | S    | P3      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-8.15 | Engineering | The combat tile's actions can be tapped at Fit without scrolling                                                                                                                                                                                                                                           | M    | P3      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-8.16 | Engineering | The GM can let players see a screen                                                                                                                                                                                                                                                                        | M    | P3      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-8.17 | Engineering | Level-up fits the rail and the phone                                                                                                                                                                                                                                                                       | S    | P3      | none                                                                                                                                                                                                   |                      |
 | RC-WID-6.1  | Widgets     | Commands that cannot run are never installed                                                                                                                                                                                                                                                               | M    | P3      | WID-5.1                                                                                                                                                                                                |                      |
 | RC-WID-6.2  | Widgets     | A GM's own template widget installs enabled and lands on the screen                                                                                                                                                                                                                                        | M    | P3      | 6.1, CAN-8.5                                                                                                                                                                                           |                      |
 | RC-WID-6.3  | Widgets     | The Quick track: make a widget in three questions                                                                                                                                                                                                                                                          | L    | P3      | 6.2, WID-5.3, CAN-7.6, POL-1.1                                                                                                                                                                         |                      |
