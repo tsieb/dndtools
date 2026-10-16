@@ -279,7 +279,9 @@ export function CharacterLevelUpWizard({
 		dispatch({ type: 'character.cancel-advancement', actorId, payload: { characterId } });
 
 	return (
-		<div style={{ maxWidth: 680, margin: '0 auto' }}>
+		// The column's width, never the stepper's: auto margins size a flex item to its content, and the
+		// nowrap step labels made that 609px, pushing Next and Discard past a 362px phone column.
+		<div style={{ width: '100%', maxWidth: 680, minWidth: 0, margin: '0 auto' }}>
 			<WizardHeader draft={draft} name={read.view?.name ?? characterId} onCancel={cancel} />
 			<Stepper
 				steps={steps.map((id) => t(STEP_TITLE[id]))}

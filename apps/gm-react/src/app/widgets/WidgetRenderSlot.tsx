@@ -174,6 +174,8 @@ const SCROLL_KEYS = new Set([
 const GROW_PASSES = 8;
 /** Extra room for text leading when growing the separate scroll region. */
 const FOOTER_CLEARANCE = 4;
+/** The overflow footer's row, painted at 24px at any canvas zoom. */
+const FOOTER_ROW = 'calc(24px / var(--scene-board-scale, 1))';
 /** Above every tile's stack index (a scene's widget order) and below the edit-mode marquee. */
 const GROWN_TILE_Z = 10_000;
 
@@ -443,7 +445,10 @@ export function WidgetRegion({
 						position: 'relative',
 						flex: '0 0 auto',
 						pointerEvents: 'none',
-						minHeight: 22,
+						// One text line, painted at 24px whatever the board's zoom. A touch-sized row
+						// (RC-ENG-8.7's 44px) took 44 of the 76px a rail tile has at Fit, so no 44px control
+						// in the body could rest in view: the footer hid the very action it guarded.
+						minHeight: FOOTER_ROW,
 						display: 'flex',
 						alignItems: 'center',
 						gap: 'var(--space-1)',
@@ -494,9 +499,10 @@ export function WidgetRegion({
 							}}
 							style={{
 								flex: '0 0 auto',
+								alignSelf: 'stretch',
 								pointerEvents: 'auto',
-								minHeight:
-									'calc(max(44px, var(--density-touch-target, 44px)) / var(--scene-board-scale, 1))',
+								// The row's height (24px, the WCAG 2.5.8 minimum) and a touch target's width.
+								minHeight: FOOTER_ROW,
 								minWidth:
 									'calc(max(44px, var(--density-touch-target, 44px)) / var(--scene-board-scale, 1))',
 								font: 'inherit',

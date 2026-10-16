@@ -4,6 +4,7 @@ import {
 	findWidgetDefinition,
 	isLiveScene,
 	listScreensForActor,
+	type SceneVisibility,
 	type ScreenListEntry,
 } from '@dndtools/core';
 import { Toaster } from '../../ds';
@@ -133,6 +134,23 @@ export function useScreenActions() {
 		[run, actorId],
 	);
 
+	/**
+	 * RC-ENG-8.16 — who can see a screen. Every new screen starts GM-only (`createFromTemplate`), and
+	 * the core refuses to put a GM-only scene on the table, so this is the one write that lets a GM
+	 * show players a screen they made. `scene.update-metadata` takes the visibility as it is.
+	 */
+	const setVisibility = useCallback(
+		async (sceneId: string, visibility: SceneVisibility): Promise<Outcome> => {
+			const result = await run({
+				type: 'scene.update-metadata',
+				actorId,
+				payload: { sceneId, visibility },
+			});
+			return result.ok ? null : result.message;
+		},
+		[run, actorId],
+	);
+
 	const duplicate = useCallback(
 		async (sceneId: string, name: string): Promise<{ id: string } | { error: string }> => {
 			const result = await run({
@@ -240,5 +258,5 @@ export function useScreenActions() {
 		[run, runtime, actorId, t],
 	);
 
-	return { setPinned, rename, duplicate, remove, createFromTemplate };
+	return { setPinned, rename, setVisibility, duplicate, remove, createFromTemplate };
 }

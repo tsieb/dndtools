@@ -5015,6 +5015,12 @@ export const en = {
 	'sceneEditor.tagsHelp': 'Comma-separated.',
 	'sceneEditor.tagsPlaceholder': 'dungeon, combat',
 	'sceneEditor.saveDetails': 'Save details',
+	'sceneEditor.whoCanSee': 'Who can see this screen',
+	'sceneEditor.whoCanSeeHelp':
+		'Players see a screen once you show it to the table. A {gm}-only screen can never be shown.',
+	'sceneEditor.whoCanSee.dmOnly': '{gm} only',
+	'sceneEditor.whoCanSee.shared': 'Players, when you show it',
+	'sceneEditor.whoCanSee.playerVisible': 'Every player, any time',
 	'sceneEditor.closeInspector': 'Close inspector',
 	'sceneEditor.settings': 'Settings',
 	'sceneEditor.fixedMapSource': 'This widget’s map source is fixed and can’t be changed here.',

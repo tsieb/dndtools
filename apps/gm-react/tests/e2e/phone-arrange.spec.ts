@@ -140,7 +140,7 @@ test('phone Layout edits at Fit and opens a readable loupe', async ({ page }) =>
 	await noSidewaysControls(page);
 	const tile = overview.locator('[data-testid^="widget-"]').first();
 	const scale = await overview
-		.locator('[style*="--scene-board-scale"]')
+		.locator('[style*="--scene-board-scale:"]')
 		.evaluate((el) => Number((el as HTMLElement).style.getPropertyValue('--scene-board-scale')));
 	expect(scale).toBeLessThan(1);
 	const id = (await tile.getAttribute('data-testid'))!.slice('widget-'.length);

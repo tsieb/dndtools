@@ -179,7 +179,7 @@ test('backgrounds, docks and section bands persist', async ({ page }) => {
 	// 60 board units. A phone edits the canvas at Fit (RC-CAN-8.6), so convert by the painted scale.
 	const scale = await page
 		.getByTestId('scene-board-bounded')
-		.locator('[style*="--scene-board-scale"]')
+		.locator('[style*="--scene-board-scale:"]')
 		.evaluate((el) => Number(getComputedStyle(el).getPropertyValue('--scene-board-scale')) || 1);
 	await page.mouse.move(box.x + 30 * scale, box.y + 50 * scale);
 	await page.mouse.down();

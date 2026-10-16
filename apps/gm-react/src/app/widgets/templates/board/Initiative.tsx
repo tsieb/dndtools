@@ -111,8 +111,10 @@ export function InitiativeTemplate({ widget, data, onCommand }: WidgetTemplatePr
 						/>
 					)}
 				</LiveStats>
-				{/* RC-WID-4.2 — the tile's own operate control; see `NextTurnControl.tsx`. */}
-				<div style={{ display: 'flex', justifyContent: 'flex-end', marginLeft: 'auto' }}>
+				{/* RC-WID-4.2 — the tile's own operate control; see `NextTurnControl.tsx`. It leads the
+				    row when the readout wraps (RC-ENG-8.15): at Fit a rail tile shows about 50px of
+				    body, and a Next turn wrapped under the readout rested out of view. */}
+				<div style={{ display: 'flex', justifyContent: 'flex-end', marginLeft: 'auto', order: -1 }}>
 					<NextTurnControl running={running} onAdvance={advance && (() => advance({}))} />
 				</div>
 			</div>

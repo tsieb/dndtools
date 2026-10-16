@@ -5202,6 +5202,12 @@ export default {
 	'sceneEditor.tagsHelp': '[Çóḿḿá-šéƥáŕáţéď.~~~~ ~~]',
 	'sceneEditor.tagsPlaceholder': '[ďúñğéóñ, çóḿƀáţ~~~~ ~]',
 	'sceneEditor.saveDetails': '[Šáṽé ďéţáíľš~~~~ ]',
+	'sceneEditor.whoCanSee': '[Ŵĥó çáñ šéé ţĥíš šçŕééñ~~~~ ~~~~ ]',
+	'sceneEditor.whoCanSeeHelp':
+		'[Ƥľáýéŕš šéé á šçŕééñ óñçé ýóú šĥóŵ íţ ţó ţĥé ţáƀľé. Á ~~~~ ~~~~ ~~~~ ~~~~ ~~{gm}-óñľý šçŕééñ çáñ ñéṽéŕ ƀé šĥóŵñ.~~~~ ~~~~ ~~~]',
+	'sceneEditor.whoCanSee.dmOnly': '[{gm} óñľý~~]',
+	'sceneEditor.whoCanSee.shared': '[Ƥľáýéŕš, ŵĥéñ ýóú šĥóŵ íţ~~~~ ~~~~ ]',
+	'sceneEditor.whoCanSee.playerVisible': '[Éṽéŕý ƥľáýéŕ, áñý ţíḿé~~~~ ~~~~]',
 	'sceneEditor.closeInspector': '[Çľóšé íñšƥéçţóŕ~~~~ ~]',
 	'sceneEditor.settings': '[Šéţţíñğš~~~~]',
 	'sceneEditor.fixedMapSource':

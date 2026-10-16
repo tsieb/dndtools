@@ -5023,6 +5023,12 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'sceneEditor.tagsHelp': 'Separadas por comas.',
 	'sceneEditor.tagsPlaceholder': 'mazmorra, combate',
 	'sceneEditor.saveDetails': 'Guardar los detalles',
+	'sceneEditor.whoCanSee': 'Quién puede ver esta pantalla',
+	'sceneEditor.whoCanSeeHelp':
+		'Los jugadores ven una pantalla cuando la muestras a la mesa. Una pantalla solo para {gm} nunca se puede mostrar.',
+	'sceneEditor.whoCanSee.dmOnly': 'Solo {gm}',
+	'sceneEditor.whoCanSee.shared': 'Jugadores, cuando la muestres',
+	'sceneEditor.whoCanSee.playerVisible': 'Todos los jugadores, siempre',
 	'sceneEditor.closeInspector': 'Cerrar el inspector',
 	'sceneEditor.settings': 'Configuración',
 	'sceneEditor.fixedMapSource':

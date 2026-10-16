@@ -279,3 +279,36 @@ diff --stat ef42291b HEAD -- . ':!docs' ':!state'` empty). p1/p2 failed on a pro
 - Still blocked, needs operator: approve RC-ENG-8.15–8.17, add them to RC-ENG-8.3's stored dependencies,
   drop the three non-path `owns` tokens on RC-ENG-8.16, and re-dispatch this task once the fixes are on
   `loop/rc`. Re-dispatching it before that will produce the same rejection.
+
+## Attempt 7 (2026-10-16, self-heal round 1: claim widened to the three defect files)
+
+- The self-heal widened the claim to `LevelUp.tsx`, `WidgetRenderSlot.tsx` and `useScreens.ts`, so this
+  attempt fixes the three findings itself and then re-runs the audit on the result.
+- C2-1: the wizard root gets `width: 100%`, `minWidth: 0`. `character-levelup.spec.ts` gains a rail
+  (834) and phone (390) touch test that taps Discard, every Next and Finish where they rest (centre in
+  the viewport, `elementFromPoint` is the button) and completes a level-up. Base: fails ("Discard
+  level-up's centre is inside the viewport"); fixed: 8/8 on both profiles.
+- B2-1: the overflow footer row is one 24px text line on every tier (was a 44px row); Grow fills the row,
+  44px wide. That alone cleared desktop. The rail body is 76px at Fit and Next turn sat at 54–98, so
+  `Initiative.tsx` (outside the claim, one `order: -1`) lets Next turn lead its row: 0–44 in a 52px body.
+  `tile-overflow-controls.spec.ts` now hit-tests at rest (no scroll into view of the body), clicks
+  Next turn at its centre and checks the turn moved. Base: fails at 1440 and 834 ("Next turn rests
+  inside its tile body"); fixed: 8/8. Not fixed: the Timer on the rail needs 82px (clock + 44px
+  controls) in a 76px body even with no footer; recorded as a medium, not a combat control.
+- B2-2: `useScreenActions().setVisibility` (claimed) and a "Who can see this screen" select in Scene
+  details (`SceneMetaPanel.tsx`, outside the claim), written before the details save. Catalog keys in
+  en/es (companions), qps-ploc regenerated. New `screen-visibility.spec.ts`: fresh vault, Combat scene
+  template, share, Start session with "Show … to the table" enabled and checked, a player joins over
+  the fake LAN and the stage names the screen. 2/2.
+- Scene details offers the select only where the core's `canShowSceneToTable` would allow the scene
+  once shared (not the GM's default workspaces, not templates): they can never reach the table.
+- Gates so far (local): `tsc --noEmit` 0; `pnpm lint` 0; `CI=true pnpm test:app` 198 files / 2402
+  tests pass. Full e2e, both profiles, 6 workers, retries 1 (25.1 min): 2301 passed, 49 skipped,
+  10 failed, 0 flaky. Eight are `hub-templates.spec.ts:32` (×4 kinds ×2 profiles): "useI18n must be
+  used inside I18nProvider", because I edited files on the live dev server and HMR gave the app
+  modules `?t=` URLs the spec's bare-path imports did not share. Two are `phone-arrange.spec.ts:134`:
+  the strict locator `[style*="--scene-board-scale"]` now also matched the footer rows, whose inline
+  style uses `var(--scene-board-scale)`. Fixed in that spec and the same locator in
+  `scene-surfaces.spec.ts:182` to `[style*="--scene-board-scale:"]` (the declaration). Re-run on a
+  fresh Playwright-owned server: hub-templates, phone-arrange, scene-surfaces, canvas, both profiles,
+  110 passed, 4 skipped.

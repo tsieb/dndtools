@@ -46,30 +46,64 @@ for (const width of [1440, 834, 390]) {
 		await expect(page.getByRole('region', { name: '2. Initiative Tracker' })).toContainText(
 			'First foe',
 		);
-		const tiles = page.locator('[data-testid^="widget-"][role="group"]');
-		expect(await tiles.count()).toBeGreaterThan(0);
-		for (const tile of await tiles.all()) {
-			for (const button of await tile.getByRole('button').all()) {
-				if (!(await button.isVisible())) continue;
-				// Scrolling is the supported recovery for overflowing content; never grow the tile
-				// or force a click, either of which would conceal a footer intercepting the centre.
-				await button.scrollIntoViewIfNeeded();
-				await expect
-					.poll(
-						() =>
-							button.evaluate((el) => {
-								const box = el.getBoundingClientRect();
-								const hit = document.elementFromPoint(
-									box.x + box.width / 2,
-									box.y + box.height / 2,
-								);
-								return el === hit || el.contains(hit);
-							}),
-						{ message: (await button.getAttribute('aria-label')) ?? (await button.innerText()) },
-					)
-					.toBe(true);
+		// RC-ENG-8.15 — hit-test where everything RESTS: no scrolling into view first, which is how
+		// this spec once passed while Next turn sat below the footer (RC-ENG-8.3 B2-1). The combat
+		// tile's primary action must rest in view on every tier and receive a centre tap.
+		const nextTurn = page
+			.getByRole('region', { name: '2. Initiative Tracker' })
+			.getByRole('button', { name: 'Next turn', exact: true });
+		await expect(nextTurn).toBeVisible();
+		// Scroll the PAGE to the tile (a phone canvas runs below the fold) and leave the tile's body
+		// where it rests.
+		await nextTurn.evaluate((el) => {
+			const region = el.closest<HTMLElement>('[data-widget-region]')!;
+			if (region.scrollTop !== 0) throw new Error('the body is not at rest');
+			el.scrollIntoView({ block: 'center' });
+			region.scrollTop = 0;
+		});
+		const restsInView = await nextTurn.evaluate((el) => {
+			const box = el.getBoundingClientRect();
+			const region = el.closest('[data-widget-region]')!.getBoundingClientRect();
+			return box.top >= region.top - 1 && box.bottom <= region.bottom + 1;
+		});
+		expect(restsInView, 'Next turn rests inside its tile body').toBe(true);
+		// Every control whose centre rests inside its tile's body gets the tap there: no footer, frame
+		// or neighbour covers it. Content scrolled out of a body is that body's to recover.
+		const covered = await page.evaluate(() => {
+			const misses: string[] = [];
+			for (const tile of document.querySelectorAll('[data-testid^="widget-"][role="group"]')) {
+				for (const el of tile.querySelectorAll<HTMLElement>('button')) {
+					const box = el.getBoundingClientRect();
+					if (!box.width || !box.height) continue;
+					const x = box.x + box.width / 2;
+					const y = box.y + box.height / 2;
+					if (x < 0 || y < 0 || x > innerWidth || y > innerHeight) continue;
+					let resting = true;
+					for (let p = el.parentElement; p && p !== tile; p = p.parentElement) {
+						if (getComputedStyle(p).overflowY === 'visible') continue;
+						const clip = p.getBoundingClientRect();
+						if (y < clip.top || y > clip.bottom) resting = false;
+					}
+					if (!resting) continue;
+					const hit = document.elementFromPoint(x, y);
+					if (!(el === hit || el.contains(hit)))
+						misses.push(`${el.getAttribute('aria-label') ?? el.innerText} → ${hit?.tagName}`);
+				}
 			}
-		}
+			return misses;
+		});
+		expect(covered).toEqual([]);
+		await nextTurn.evaluate((el) => {
+			const box = el.getBoundingClientRect();
+			const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+			if (!(el === hit || el.contains(hit))) throw new Error('Next turn is covered');
+		});
+		const turnBefore = await page.evaluate(() => window.__rt!.state.session.combat.turn);
+		const box = (await nextTurn.boundingBox())!;
+		await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+		await expect
+			.poll(() => page.evaluate(() => window.__rt!.state.session.combat.turn))
+			.not.toBe(turnBefore);
 		const footers = page.getByRole('button', { name: /^Grow .* to fit content$/ });
 		expect(await footers.count()).toBeGreaterThan(0);
 		for (const grow of await footers.all()) {
@@ -81,7 +115,9 @@ for (const width of [1440, 834, 390]) {
 			});
 			expect(overlap).toBeLessThanOrEqual(1);
 			const box = (await grow.boundingBox())!;
-			expect(box.height).toBeGreaterThanOrEqual(43.5);
+			// One text row (WCAG 2.5.8's 24px) and a touch target's width: a 44px row hid the body.
+			expect(box.height).toBeGreaterThanOrEqual(23.5);
+			expect(box.height).toBeLessThanOrEqual(30);
 			expect(box.width).toBeGreaterThanOrEqual(43.5);
 			await expect(grow.locator('..')).toHaveCSS('pointer-events', 'none');
 			await expect(grow).toHaveCSS('pointer-events', 'auto');

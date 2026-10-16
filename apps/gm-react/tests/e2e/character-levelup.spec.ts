@@ -113,3 +113,78 @@ test.describe('guided level-up wizard', () => {
 		expect((await stored(page, pc)).level).toBe(1);
 	});
 });
+
+/**
+ * The wizard's controls, tapped where they rest. Asserts the centre is inside the viewport and is the
+ * control itself (`elementFromPoint`), then taps it with the touchscreen: no scrolling into view,
+ * which is what hid RC-ENG-8.3's C2-1 (Next and Discard past the right edge of a column that a finger
+ * cannot scroll sideways).
+ */
+async function tapWhereItRests(page: Page, name: string): Promise<void> {
+	const button = page.getByRole('button', { name, exact: true });
+	await expect(button).toBeVisible();
+	// Vertical page scroll is how a finger reaches the bottom of the wizard; horizontal is not.
+	await button.evaluate((el) => el.scrollIntoView({ block: 'center', inline: 'nearest' }));
+	await page.evaluate(() =>
+		document.querySelectorAll<HTMLElement>('*').forEach((el) => {
+			if (el.scrollLeft > 0) el.scrollLeft = 0;
+		}),
+	);
+	const centre = await button.evaluate((el) => {
+		const r = el.getBoundingClientRect();
+		const x = r.left + r.width / 2;
+		const y = r.top + r.height / 2;
+		const inside = x >= 0 && x <= innerWidth && y >= 0 && y <= innerHeight;
+		const hit = inside ? document.elementFromPoint(x, y) : null;
+		return { x, y, inside, isSelf: !!hit && (hit === el || el.contains(hit)) };
+	});
+	expect(centre.inside, `${name}'s centre is inside the viewport`).toBe(true);
+	expect(centre.isSelf, `a tap at ${name}'s centre lands on it`).toBe(true);
+	await page.touchscreen.tap(centre.x, centre.y);
+}
+
+for (const tier of [
+	{ name: 'rail', viewport: { width: 834, height: 1112 } },
+	{ name: 'phone', viewport: { width: 390, height: 844 } },
+]) {
+	test.describe(`level-up on the sheet, ${tier.name} touch`, () => {
+		test.use({ viewport: tier.viewport, hasTouch: true });
+
+		test('Next, Finish and Discard can be tapped where they rest', async ({ page }) => {
+			test.slow();
+			await markOnboarded(page);
+			await gotoRoute(page, '/characters');
+			await seedFresh(page);
+			await waitReady(page);
+			const pc = await firstPcId(page);
+			const before = await stored(page, pc);
+			await gotoRoute(page, `/characters/${pc}`);
+			await page.getByRole('tab', { name: 'Level up' }).click();
+
+			// Discard first: a draft can be abandoned from the column.
+			await page.getByRole('button', { name: 'Level up (milestone)' }).click();
+			await expect(page.getByLabel('Class', { exact: true })).toBeVisible();
+			await tapWhereItRests(page, 'Discard level-up');
+			await page.getByRole('dialog').getByRole('button', { name: 'Discard level-up' }).click();
+			await expect(page.getByRole('button', { name: 'Level up (milestone)' })).toBeVisible();
+
+			// Then the whole wizard, every step reached by tapping Next where it rests.
+			await page.getByRole('button', { name: 'Level up (milestone)' }).click();
+			await page.getByLabel('Class', { exact: true }).fill('Fighter');
+			await page.getByRole('button', { name: 'Choose', exact: true }).click();
+			await expect(page.getByText('Class saved as Fighter.')).toBeVisible();
+			await tapWhereItRests(page, 'Next');
+			await page.getByRole('button', { name: 'Take the average (5)' }).click();
+			await tapWhereItRests(page, 'Next');
+			await expect(page.getByRole('heading', { name: 'Unlocked' })).toBeVisible();
+			await tapWhereItRests(page, 'Next');
+			await expect(page.getByRole('heading', { name: 'Slots and resources' })).toBeVisible();
+			await tapWhereItRests(page, 'Next');
+			await expect(page.getByRole('heading', { name: 'Review' })).toBeVisible();
+			await tapWhereItRests(page, 'Finish — become level 2');
+
+			await expect.poll(async () => (await stored(page, pc)).level).toBe(2);
+			expect((await stored(page, pc)).maxHp).toBe(before.maxHp + 5);
+		});
+	});
+}

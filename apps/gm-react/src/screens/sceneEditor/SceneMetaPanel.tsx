@@ -1,12 +1,19 @@
-import { findWidgetDefinition, type Scene, type SceneBackground } from '@dndtools/core';
+import {
+	canShowSceneToTable,
+	findWidgetDefinition,
+	type Scene,
+	type SceneBackground,
+	type SceneVisibility,
+} from '@dndtools/core';
 import type React from 'react';
 import { useState, type CSSProperties } from 'react';
-import { Button, Card, Field, IconButton, Input, Select, Textarea } from '../../ds';
+import { Button, Card, Field, IconButton, Input, Select, Textarea, Toaster } from '../../ds';
 import { parseTags } from '../../app/scene-helpers';
 import { Section } from './fields';
 import { PHONE_PANEL_OVERLAY, usePhonePanelBack } from './shared';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useI18n } from '../../i18n';
+import { useScreenActions } from '../screen/useScreens';
 
 const NOTE: CSSProperties = {
 	font: 'var(--text-sm)/1.5 var(--font-sans)',
@@ -20,6 +27,7 @@ const TERTIARY_AS_SECONDARY = {
 /**
  * SceneMetaPanel — rename / re-describe / re-tag the scene AFTER creation, round-tripped through
  * `scene.update-metadata`. A right-docked side panel like the add-widget panel; Escape closes it.
+ * RC-ENG-8.16: it also says who can see the screen, the only place a GM can share one they made.
  */
 export function SceneMetaPanel({
 	scene,
@@ -54,6 +62,11 @@ export function SceneMetaPanel({
 	const [draftName, setDraftName] = useState(name);
 	const [draftDescription, setDraftDescription] = useState(description);
 	const [draftTags, setDraftTags] = useState(tags.join(', '));
+	const [visibility, setVisibility] = useState<SceneVisibility>(scene.visibility);
+	const actions = useScreenActions();
+	// The GM's own workspaces and templates never reach the table whatever they are set to, so the
+	// choice is offered only where it can take effect: the core's rule, asked for a shared copy.
+	const showable = canShowSceneToTable({ ...scene, visibility: 'shared' });
 	return (
 		<Card
 			elevation="overlay"
@@ -142,6 +155,26 @@ export function SceneMetaPanel({
 					}))}
 				/>
 			</Field>
+			{showable && (
+				<Field
+					label={t('sceneEditor.whoCanSee')}
+					htmlFor="scene-meta-visibility"
+					help={t('sceneEditor.whoCanSeeHelp')}
+				>
+					<Select
+						id="scene-meta-visibility"
+						value={visibility}
+						onChange={(e: { target: { value: string } }) =>
+							setVisibility(e.target.value as SceneVisibility)
+						}
+						options={[
+							{ value: 'dm-only', label: t('sceneEditor.whoCanSee.dmOnly') },
+							{ value: 'shared', label: t('sceneEditor.whoCanSee.shared') },
+							{ value: 'player-visible', label: t('sceneEditor.whoCanSee.playerVisible') },
+						]}
+					/>
+				</Field>
+			)}
 			<Section label={t('sceneEditor.docks')}>
 				{scene.widgets.some((widget) => widget.layout.dock) ? (
 					scene.widgets
@@ -191,14 +224,22 @@ export function SceneMetaPanel({
 				size="sm"
 				icon="check"
 				disabled={!draftName.trim()}
-				onClick={() =>
+				onClick={async () => {
+					// Its own write, first: the editor's save carries no visibility (`useSceneCommands`).
+					if (visibility !== scene.visibility) {
+						const failure = await actions.setVisibility(scene.id, visibility);
+						if (failure) {
+							Toaster.error(failure);
+							return;
+						}
+					}
 					onSave({
 						name: draftName.trim(),
 						description: draftDescription.trim(),
 						tags: parseTags(draftTags),
 						visualSettings: { background },
-					})
-				}
+					});
+				}}
 				style={{ alignSelf: 'flex-start' }}
 			>
 				{t('sceneEditor.saveDetails')}
