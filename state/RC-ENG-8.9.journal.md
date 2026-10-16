@@ -67,3 +67,24 @@ tests/e2e/extensions-polish.spec.ts --workers=2`: exit 0, 28 passed (2.4m), desk
   No source, baseline, timeout, tolerance or dispatcher changes made during this retry.
   Committed this diagnostic journal update on the task branch. The full 588-test central gate
   remains a recorded failure requiring an operator rerun; the focused pass does not replace it.
+
+## Tooling gate correction
+
+- Read original gate log:
+  `/home/trinkle/Programming/agent-dispatcher/.state/attempts/ae923017-9a71-4e28-8e21-45bf5214809a/output.log`.
+  Tooling result: 273 passed, 1 failed. `feature-audit.test.ts` identified the stale Session
+  limitation anchor `4.43:1 — DEBT-2026-008` in `docs/requirements/FEATURE-GAPS.md`.
+- Necessary companion path outside the original ownership list:
+  `docs/requirements/FEATURE-GAPS.md`. Removed only the resolved Session contrast limitation;
+  retained its other limitations. The live inventory must reflect the resolved debt. Restoring
+  an obsolete evidence comment or weakening the audit would leave inaccurate documentation.
+- Original central visual log:
+  `/home/trinkle/Programming/agent-dispatcher/.state/attempts/76fa5679-1d58-4162-bb23-8663e4fa0ceb/output.log`:
+  all 588 passed (19.2m) at `02b38082c636c551204b315fc30e40e4fc905659`.
+- Running the full tooling command with the central gate's three-worker limit after this doc fix.
+  No app, baseline, test assertion, or dispatcher control changes.
+
+- Full `pnpm test:tooling --maxWorkers=3`: exit 0, 33 files / 274 tests passed (16.02s).
+  Original output read from `/tmp/rc-eng-8.9-tooling-fix.log`.
+- Prettier and `git diff --check` passed. The companion edit changes only one inventory row.
+  Committed with this journal on the task branch; no push, promotion or dispatcher mutation.
