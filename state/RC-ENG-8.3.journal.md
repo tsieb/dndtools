@@ -265,3 +265,17 @@ diff --stat ef42291b HEAD -- . ':!docs' ':!state'` empty). p1/p2 failed on a pro
 - Blocked, needs operator: approve RC-ENG-8.15–8.17, add them to RC-ENG-8.3's stored dependencies
   (and drop the three non-path `owns` tokens on RC-ENG-8.16 noted in attempt 4), then re-dispatch
   RC-ENG-8.3 once they land on `loop/rc`. Both actions edit control state, which this task may not do.
+
+## Attempt 6 (2026-10-16, after independent review rejected 50f3a67e)
+
+- The review repeats the four findings from attempt 5: C2-1/RC-ENG-8.17, B2-1/RC-ENG-8.15
+  and B2-2/RC-ENG-8.16 are unfixed, and RC-ENG-8.3's stored dependencies leave out 8.15–8.17. It found the
+  documentation accurate and raised nothing against the docs themselves.
+- Read-only check at 17:13Z: `loop/rc` and `origin/loop/rc` are both still `b2ddfc1d`, with no commit on any
+  branch naming RC-ENG-8.15–8.17. In `tasks.sqlite3` all three are still `proposed`; RC-ENG-8.3 is
+  `running` with 30 dependencies ending at RC-ENG-8.14.
+- No re-audit and no change to EARLY_ACCESS.md, RC_ROADMAP.md or README.md. The tree is the one already
+  audited, and the roadmap already lists 8.15–8.17 in the story's `Deps:` and its §23 row.
+- Still blocked, needs operator: approve RC-ENG-8.15–8.17, add them to RC-ENG-8.3's stored dependencies,
+  drop the three non-path `owns` tokens on RC-ENG-8.16, and re-dispatch this task once the fixes are on
+  `loop/rc`. Re-dispatching it before that will produce the same rejection.
