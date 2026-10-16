@@ -160,3 +160,19 @@ tests/e2e/extensions-polish.spec.ts --workers=2`: exit 0, 28 passed (2.4m), desk
   `pnpm test:tooling --maxWorkers=3` exit 0, 33 files / 274 tests
   (original `/tmp/rc-eng-8.9-tooling-rebase.log`).
   The other task files were unchanged by the rebase; no source, spec or baseline edits.
+
+## Rebase onto 77ae4c82b (DEBT.md conflict)
+
+- Rebased the seven task commits onto integration head `77ae4c82b`. Only conflict: `DEBT.md`, where
+  RC-ENG-8.8 removed open DEBT-2026-006 and appended its bullet to `## Resolved`.
+- Resolution keeps both: DEBT-2026-006 and DEBT-2026-008 both leave `## Open` (only DEBT-2026-004
+  and DEBT-2026-009 stay open); `## Resolved` keeps 8.10's 007 bullet, this task's 008 bullet and
+  8.8's 006 bullet unchanged.
+- The base changed the character builder's Identity and Review steps without touching captures, so
+  the parchment `full-builder--*` baselines refreshed here were re-checked:
+  `DNDTOOLS_PW_WORKERS=2 apps/gm-react/tests/visual/run-in-container.sh
+tests/visual/widget-full-builder.spec.ts` exit 0, 15 passed (original
+  `/tmp/rc-eng-8.9-fullbuilder-rebase2.log`). No other overlap with the base's files.
+- After rebase: `pnpm tokens:contrast` exit 0 (106 checks, parchment 21); no `4.43` in
+  `apps/gm-react/tests/`; DEBT-2026-008 sits under `## Resolved`; Prettier check on `DEBT.md` and
+  this journal passed. No source, spec or baseline edits this round.
