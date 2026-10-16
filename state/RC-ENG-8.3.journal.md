@@ -246,3 +246,22 @@ diff --stat ef42291b HEAD -- . ':!docs' ':!state'` empty). p1/p2 failed on a pro
   width); `pnpm feature-audit`: 46 limits, 0 stale, 0 inventory issues. `auditDocs`: 313 files, 467
   links, 0 problems. Prettier `--check` on the changed files: clean. Review worktrees
   `~/.cache/rc-eng-8-3-rerun-{a,b,c,d}` removed after checking they were clean; ports 5511–5514 free.
+
+## Attempt 5 (2026-10-16, after independent review rejected 71b92d85)
+
+- The review approved none of it as completion. Its four findings are C2-1/RC-ENG-8.17, B2-1/RC-ENG-8.15 and
+  B2-2/RC-ENG-8.16 still unfixed, plus the stored dependencies of RC-ENG-8.3 leaving out 8.15–8.17. It
+  confirmed the evidence of attempt 4 (5 golden runs 78/78, a11y PASS, feature-audit and docs audit clean)
+  and judged the audit's documentation candid.
+- Read-only check at 17:09Z: `loop/rc` is still `b2ddfc1d` (it is this branch's merge base; no
+  commit since). RC-ENG-8.15, 8.16 and 8.17 are all still `proposed` in `tasks.sqlite3`, so none
+  has been approved, let alone landed. RC-ENG-8.3's stored `dependencies` is still 30 entries
+  ending at RC-ENG-8.14.
+- The committed roadmap already blocks on them: the story's `Deps:` (RC_ROADMAP.md:3359-3362) and its
+  §23 row both run through 8.17. Nothing more in the owned paths can enforce the block.
+- No re-audit run: the application code is identical to the audited `b2ddfc1d`, so a new run would
+  measure the same tree, and the brief says to re-run only once the finding stories have landed.
+  EARLY_ACCESS.md is unchanged; its verdict (not passed on `b2ddfc1d`) is still current.
+- Blocked, needs operator: approve RC-ENG-8.15–8.17, add them to RC-ENG-8.3's stored dependencies
+  (and drop the three non-path `owns` tokens on RC-ENG-8.16 noted in attempt 4), then re-dispatch
+  RC-ENG-8.3 once they land on `loop/rc`. Both actions edit control state, which this task may not do.
