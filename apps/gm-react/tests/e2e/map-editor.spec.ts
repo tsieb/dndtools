@@ -2176,7 +2176,12 @@ test.describe('map editor — combat range and areas', () => {
  * and dragged the point instead, and Glyph of Warding's pin covered Cellar Ambusher. Only the pin takes
  * a press now, and an unselected point sits under the tokens.
  */
-type Placed = { id: string; label: string; position: { x: number; y: number } };
+type Placed = {
+	id: string;
+	label: string;
+	position: { x: number; y: number };
+	visibility: string;
+};
 
 function readKeep(page: Page): Promise<{ tokens: Placed[]; pois: Placed[] }> {
 	return page.evaluate(() => {
@@ -2186,7 +2191,12 @@ function readKeep(page: Page): Promise<{ tokens: Placed[]; pois: Placed[] }> {
 			}
 		).maps.maps;
 		const keep = Object.values(maps).find((map) => map.name === 'Ruined Keep')!;
-		const pick = (p: Placed) => ({ id: p.id, label: p.label, position: { ...p.position } });
+		const pick = (p: Placed) => ({
+			id: p.id,
+			label: p.label,
+			position: { ...p.position },
+			visibility: p.visibility,
+		});
 		return { tokens: keep.tokens.map(pick), pois: keep.pois.map(pick) };
 	});
 }
@@ -2270,6 +2280,98 @@ for (const tier of [
 				axe.violations.flatMap((v) => v.nodes.map((node) => node.target.join(' '))),
 				'no target-size violation on the seeded map',
 			).toEqual([]);
+		});
+
+		// RC-ENG-8.3 D4-2 — the token fix's mirror image: a token's wrapper and label sat over Broken
+		// Altar's pin on the phone's Atlas detail once points moved under the tokens.
+		test('each seeded point of interest takes a press at its pin, on Atlas and in the editor', async ({
+			page,
+		}) => {
+			test.setTimeout(90_000);
+			await markOnboarded(page);
+			await gotoRoute(page, '/atlas');
+			await page
+				.locator('#main-content')
+				.getByRole('button', { name: /Ruined Keep/ })
+				.first()
+				.click();
+			const pinHits = async (scope: ReturnType<Page['locator']>) => {
+				const hits: Record<string, string | null> = {};
+				for (const name of ['Broken Altar', 'Glyph of Warding']) {
+					const pin = scope.getByRole('button', { name: `POI: ${name}` });
+					await pin.scrollIntoViewIfNeeded();
+					const box = (await pin.boundingBox())!;
+					hits[name] = await page.evaluate(
+						({ x, y }) =>
+							document.elementFromPoint(x, y)?.closest('button')?.getAttribute('aria-label') ??
+							null,
+						{ x: box.x + box.width / 2, y: box.y + box.height / 2 },
+					);
+				}
+				return hits;
+			};
+			const expected = {
+				'Broken Altar': 'POI: Broken Altar',
+				'Glyph of Warding': 'POI: Glyph of Warding',
+			};
+			expect(await pinHits(page.locator('#main-content'))).toEqual(expected);
+			const altar = page
+				.locator('#main-content')
+				.getByRole('button', { name: 'POI: Broken Altar' });
+			const box = (await altar.boundingBox())!;
+			if (tier.touch) await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+			else await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+			await expect(page.getByRole('dialog', { name: 'Broken Altar' })).toBeVisible();
+			await page.keyboard.press('Escape');
+
+			await openEditor(page, 'Ruined Keep');
+			const skipTour = page.getByRole('button', { name: 'Skip tour' });
+			if (await skipTour.isVisible().catch(() => false)) await skipTour.click();
+			expect(await pinHits(editorRoot(page))).toEqual(expected);
+		});
+
+		// RC-ENG-8.3 D4-1 — selecting a point opened its popover with focus on the visibility radios,
+		// so the arrow keys the editor's hint offers ("arrow keys nudge it") turned DM-only into Players.
+		test('arrow keys after selecting a DM-only point never change who can see it', async ({
+			page,
+		}) => {
+			test.skip(tier.touch, 'a keyboard path');
+			test.setTimeout(90_000);
+			await markOnboarded(page);
+			await gotoRoute(page, '/atlas');
+			await page
+				.locator('#main-content')
+				.getByRole('button', { name: /Ruined Keep/ })
+				.first()
+				.click();
+			const glyph = async () =>
+				(await readKeep(page)).pois.find((p) => p.label === 'Glyph of Warding')!;
+			const before = await glyph();
+			expect(before.visibility).toBe('dm-only');
+			const press = async (scope: ReturnType<Page['locator']>) => {
+				const pin = scope.getByRole('button', { name: 'POI: Glyph of Warding' });
+				const box = (await pin.boundingBox())!;
+				await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+				const popover = page.getByRole('dialog', { name: 'Glyph of Warding' });
+				await expect(popover).toBeVisible();
+				await expect(popover).toBeFocused();
+				await page.keyboard.press('ArrowRight');
+				await page.keyboard.press('ArrowRight');
+			};
+
+			// Atlas: the arrows browse; the point keeps its visibility.
+			await press(page.locator('#main-content'));
+			await page.waitForTimeout(300);
+			expect((await glyph()).visibility).toBe('dm-only');
+			await page.keyboard.press('Escape');
+
+			// The editor: the arrows nudge the selected point, and it stays DM-only.
+			await openEditor(page, 'Ruined Keep');
+			const skipTour = page.getByRole('button', { name: 'Skip tour' });
+			if (await skipTour.isVisible().catch(() => false)) await skipTour.click();
+			await press(editorRoot(page));
+			await expect.poll(async () => (await glyph()).position.x).toBeGreaterThan(before.position.x);
+			expect((await glyph()).visibility).toBe('dm-only');
 		});
 	});
 }

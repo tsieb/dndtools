@@ -426,3 +426,23 @@ diff --stat ef42291b HEAD -- . ':!docs' ':!state'` empty). p1/p2 failed on a pro
   width. Measured, both profiles identical, stable ×3: the Map tile's lower controls rest outside its
   body at every tier (3 at 1440, 6 at 834, 2 at 390), the Timer pair at 834 (B3-2), and the combat
   rows' HP/More actions at 390. Recorded as open debt in the spec and the audit, not as a pass.
+- Fourth run on `0033dd551` (evidence `~/.cache/rc-eng-8-3-evidence/run4/`): visual gate 588 passed (no
+  baseline changed); golden ×5 22:40–22:46Z, 78/0/0/0 each, 39 per profile, max retry 0, load 4.7–21
+  at the run starts (the review passes were running); `pnpm a11y:gate` PASS. Review A/B/C/D in
+  parallel (worktrees `~/.cache/rc-eng-8-3-run4-{a..d}`, ports 5521–5524): A3-1, B3-1, B3-5, D3-2, D3-3
+  confirmed fixed; no leak in the generic preview (A and B checked). One new high, D4-1 (pass D, 6/6,
+  desktop): selecting a POI focuses its popover's visibility radios (`Popover.tsx:118-133` focuses the
+  body's first control, `POIPopover.tsx:209-220` puts the SegmentedControl first), so the editor's own
+  "arrow keys nudge it" turns DM-only into Players. Re-read in source and accepted. Regressions of my
+  fixes, medium: A4-1/B4-1 (Share drops focus to the body, no status), D4-2 (a token's wrapper covers
+  Broken Altar's pin on the phone Atlas). Reports saved as `review-*/REPORT.md` (agents cannot write).
+- Fixed on the branch rather than filed (the review loop above rejects a filed-but-open high):
+  D4-1 `Popover` gains `initialFocus: 'panel'`, which `POIPopover` uses (two more crossings, DS files);
+  D4-2 token wrapper and label take no pointer events, drag handlers on the disc; A4-1 focus moves to
+  the enabled box and a `role="status"` line says it is shared (new key `session.start.shared`).
+  Specs: two more Ruined Keep tests per tier (pins hit-test on Atlas and in the editor, tap opens the
+  popover; arrows after selecting Glyph of Warding leave it DM-only, and nudge it in the editor) and
+  the Share focus/status assertions. Negative control against `0033dd551`: 6 failures (all three
+  behaviours, both profiles); with the fixes 16 passed, 2 skipped (keyboard test on the touch tier).
+  Map/Atlas/preview/visibility specs: 201 passed, 7 skipped. `test:app` 2402; lint, typecheck clean;
+  FEATURE-GAPS en.ts anchors re-pointed again (+1), feature-audit 46 limits, 0 stale.

@@ -70,10 +70,11 @@ export function MapMarkers({
 					const d = Math.round(30 * Math.min(2, Math.max(0.7, t.size)));
 					const on = t.id === selectedTokenId;
 					const selectToken = () => onSelectToken?.(on ? null : t.id);
+					// RC-ENG-8.3 D4-2 — as for points of interest, only the disc takes a press: the wrapper
+					// and the label are sized past it and used to cover a pin beside the token.
 					return (
 						<div
 							key={t.id}
-							{...markerDragHandlers('token', t.id, canDrag, selectToken)}
 							style={{
 								position: 'absolute',
 								left: `${v.x * 100}%`,
@@ -83,18 +84,20 @@ export function MapMarkers({
 								flexDirection: 'column',
 								alignItems: 'center',
 								gap: 'var(--space-1)',
-								pointerEvents: markersInteractive ? 'auto' : 'none',
-								cursor: canDrag ? (dragging ? 'grabbing' : 'grab') : 'pointer',
+								pointerEvents: 'none',
 								zIndex: on ? 3 : 2,
 							}}
 						>
 							<button
 								type="button"
+								{...markerDragHandlers('token', t.id, canDrag, selectToken)}
 								aria-label={`Token: ${t.label}`}
 								aria-pressed={on}
 								title={t.label}
 								onClick={clickGuard(selectToken)}
 								style={{
+									pointerEvents: markersInteractive ? 'auto' : 'none',
+									cursor: canDrag ? (dragging ? 'grabbing' : 'grab') : 'pointer',
 									width: d,
 									height: d,
 									borderRadius: 'var(--radius-full)',
@@ -105,7 +108,6 @@ export function MapMarkers({
 									justifyContent: 'center',
 									font: `700 11px ${T.mono}`,
 									color: T.ink,
-									cursor: 'inherit',
 									boxShadow: on ? `0 0 0 3px var(--color-interactive-selected), ${T.ssm}` : T.ssm,
 									padding: 'var(--space-0)',
 								}}

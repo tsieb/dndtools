@@ -326,6 +326,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.start.gmOnly':
 		'Solo {gm} puede ver {scene}, así que no se puede mostrar a la mesa. Compártela antes con los jugadores.',
 	'session.start.share': 'Compartir con los jugadores',
+	'session.start.shared': '{scene} ya está compartida con los jugadores.',
 	'session.start.title': 'Iniciar una sesión',
 	'session.start.description':
 		'Elige la escena que verán los jugadores cuando la sesión esté en vivo.',

@@ -22,6 +22,12 @@ export interface PopoverProps extends Omit<
 	width?: number;
 	footer?: React.ReactNode;
 	children?: React.ReactNode;
+	/**
+	 * Where focus goes on open: the first control in the body (the default), or the panel itself.
+	 * A panel whose first control answers arrow keys (a segmented control) on a surface whose own
+	 * keymap uses the arrows takes `panel`, so an arrow press never edits the control unasked.
+	 */
+	initialFocus?: 'first-control' | 'panel';
 }
 
 import React from 'react';
@@ -72,6 +78,7 @@ export function Popover({
 	footer,
 	style,
 	triggerRef,
+	initialFocus = 'first-control',
 	...rest
 }: PopoverProps) {
 	const ref = React.useRef<HTMLDivElement | null>(null);
@@ -117,6 +124,10 @@ export function Popover({
 		returnFocusRef.current =
 			document.activeElement instanceof HTMLElement ? document.activeElement : null;
 		const t = setTimeout(() => {
+			if (initialFocus === 'panel') {
+				ref.current?.focus();
+				return;
+			}
 			// Excludes disabled controls and tabindex="-1", exactly as Dialog/Sheet's FOCUSABLE does.
 			// The old permissive selector matched the layer menu's `disabled` "Move up" on the top
 			// layer, and `.focus()` on a disabled button silently no-ops — so focus never entered the
@@ -145,7 +156,7 @@ export function Popover({
 			const stranded = !active || active === document.body || !document.contains(active);
 			if (back && stranded && document.contains(back)) back.focus();
 		};
-	}, [open, triggerRef]);
+	}, [open, triggerRef, initialFocus]);
 
 	// Keep the panel inside the viewport. Measured after every render and self-stabilising: once the
 	// correction is applied the natural rect recomputes to the same value, so it settles in one pass.
@@ -195,6 +206,7 @@ export function Popover({
 			ref={ref}
 			role="dialog"
 			aria-label={typeof title === 'string' ? title : undefined}
+			tabIndex={initialFocus === 'panel' ? -1 : undefined}
 			style={{
 				width,
 				maxWidth: '90vw',

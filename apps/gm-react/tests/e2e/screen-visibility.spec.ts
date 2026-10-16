@@ -166,6 +166,9 @@ test('the Start dialog says why a GM-only screen cannot be shown and shares it',
 	await expect(show).toBeEnabled();
 	await expect(show).toBeChecked();
 	await expect(reason).toHaveCount(0);
+	// The button that had focus is gone: focus moves to the box it enabled, and a status says why.
+	await expect(show).toBeFocused();
+	await expect(start.getByRole('status')).toHaveText(`${name} is shared with players.`);
 	await start.getByRole('button', { name: 'Start session', exact: true }).click();
 	await expect(start).toBeHidden();
 	await expect(page.getByText(`Players see ${name}`, { exact: true })).toBeVisible();

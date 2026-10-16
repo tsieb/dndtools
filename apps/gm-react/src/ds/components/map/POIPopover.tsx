@@ -109,6 +109,9 @@ export function POIPopover({
 			title={name}
 			headerAccessory={badge}
 			width={320}
+			// RC-ENG-8.3 D4-1 — the body opens on the visibility control, and the map's arrow keys
+			// nudge or browse. Focusing it turned "arrow keys nudge it" into DM-only → Players.
+			initialFocus="panel"
 			{...rest}
 			footer={
 				<>

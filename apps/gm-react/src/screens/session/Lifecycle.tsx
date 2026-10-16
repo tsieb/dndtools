@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { allowedTransitionsFrom, type SessionWorkflowState } from '@dndtools/core';
 import { Button, Checkbox, Dialog, Field, Icon, Input, Select, StatusDot } from '../../ds';
 import { Seg, T, eb } from '../../app/screen-kit';
@@ -320,14 +320,23 @@ function StartSessionForm({
 	// with the one write that fixes it. The scenes prop re-derives from the runtime, so the box enables.
 	const actions = useScreenActions();
 	const gmOnlyId = useId();
+	const showId = useId();
 	const [sharing, setSharing] = useState(false);
 	const [shareError, setShareError] = useState<string | null>(null);
+	const [sharedId, setSharedId] = useState<string | null>(null);
 	const share = async (id: string) => {
 		setSharing(true);
 		const failure = await actions.setVisibility(id, 'shared');
 		setSharing(false);
 		setShareError(failure);
+		if (!failure) setSharedId(id);
 	};
+	// The Share button unmounts once the scene is shareable; hand focus to the box it enabled (RC-ENG-8.3
+	// A4-1) rather than letting it fall to the page, and say what happened in the status line below.
+	const justShared = !!chosenScene?.shareable && sharedId === chosenScene.id;
+	useEffect(() => {
+		if (justShared) document.getElementById(showId)?.focus();
+	}, [justShared, showId]);
 	return (
 		<Dialog
 			open
@@ -408,6 +417,7 @@ function StartSessionForm({
 					{chosenScene ? (
 						<div style={{ display: 'grid', gap: T.space.two, justifyItems: 'start' }}>
 							<Checkbox
+								id={showId}
 								label={t('session.start.showToTable', { scene: chosenScene.name })}
 								checked={showToTable}
 								disabled={!chosenScene.shareable}
@@ -432,6 +442,9 @@ function StartSessionForm({
 									</Button>
 								</>
 							)}
+							<div role="status" style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
+								{justShared ? t('session.start.shared', { scene: chosenScene.name }) : null}
+							</div>
 							{shareError ? (
 								<div role="alert" style={{ font: `var(--text-xs) ${T.sans}`, color: T.err }}>
 									{shareError}

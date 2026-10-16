@@ -324,6 +324,7 @@ export const en = {
 	'session.start.gmOnly':
 		'Only the {gm} can see {scene}, so it can’t be shown to the table. Share it with players first.',
 	'session.start.share': 'Share with players',
+	'session.start.shared': '{scene} is shared with players.',
 	'session.start.title': 'Start a session',
 	'session.start.description': 'Choose the scene players see once the session is live.',
 	'session.start.modeLabel': 'How to start',
