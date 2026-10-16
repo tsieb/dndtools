@@ -312,3 +312,42 @@ diff --stat ef42291b HEAD -- . ':!docs' ':!state'` empty). p1/p2 failed on a pro
   `scene-surfaces.spec.ts:182` to `[style*="--scene-board-scale:"]` (the declaration). Re-run on a
   fresh Playwright-owned server: hub-templates, phone-arrange, scene-surfaces, canvas, both profiles,
   110 passed, 4 skipped.
+- `loop/rc` moved to `511fc6af4` mid-attempt (lossless PNG re-encode of 171 baselines, RC-ENG-8.9 CI
+  recovery). Committed the fixes as `f1b81db8a` (rebased onto it cleanly).
+- Visual gate (pinned container, 2 workers): 21 goldens failed in `board-polish` (GM Screen, desktop
+  and rail, five themes) and `scene-editor-polish` (Scene details, three tiers); diffs show only the
+  24px footers, Next turn leading its row and the new field. Re-captured 30 in the container
+  (`--update-snapshots=changed`), re-encoded losslessly with the RC-ENG-8.9 ImageMagick script (all
+  30 verified equal RGBA, 270,702 bytes saved): budget 894 files, 37,827.1 KiB of 37,888.0 KiB.
+  Committed as `d24d51bb3`. Full visual gate on it: 588 passed, exit 0 (13.2 min).
+- `d24d51bb3` is the commit the third audit run measures. Review worktrees
+  `~/.cache/rc-eng-8-3-run3-{a,b,c,d}` at it, installed; ports 5521–5524; evidence
+  `~/.cache/rc-eng-8-3-evidence/run3/`.
+- Third run on `d24d51bb3` (evidence `~/.cache/rc-eng-8-3-evidence/run3/`): golden ×5 19:04–19:09Z,
+  78/0/0/0 each, 39 per profile, max retry 0; `pnpm a11y:gate` exit 0, 60 scans, 0/0/1/0 (`region`,
+  `/session#combat`, mobile). Review A/B/C/D in parallel ~19:11–20:02Z (worktrees
+  `~/.cache/rc-eng-8-3-run3-{a..d}`, ports 5521–5524). The agents could not write REPORT.md; their
+  reports are in this conversation's record and condensed into EARLY_ACCESS.md §4.
+- Result: C2-1, B2-1 (Next turn) and B2-2 (sharing) confirmed fixed on every tier. New highs: A3-1
+  ("Any player" preview shows no scene; `Frame.tsx:98-104` raw state, generic preview actor not in
+  permissions), B3-1 (Start dialog's disabled box: hover-only English reason, no route;
+  `Lifecycle.tsx:399-401`), D3-2 (POI wrapper at the tokens' z-index captures token drags;
+  `MapMarkers.tsx:144-178`). All three re-read in source and accepted; A3-1 and D3-2 noted as
+  judgement calls (medium readings stated). Regressions of my fixes, medium: B3-3 (Initiative readout
+  clipped at Fit), C3-1 (stepper labels overlap in the narrowed wizard), B3-4 (Grow 24px on touch),
+  B3-5 (share field offered on the home screen; `canShowSceneToTable` keeps it projectable).
+- Gates 4/5: DEBT.md unchanged; `pnpm feature-audit` failed once on a line anchor my six en.ts keys
+  moved (Plans & cloud, `Subscribe at {host}` 5596 → 5602); re-anchored in place, now 46 limits,
+  0 stale.
+- Filed RC-ENG-8.18 (S), 8.19 (M), 8.20 (M) in the ENG-8 epic and §23 (header 396: M 214, S 140,
+  P3 135, open 86), RC-ENG-8.3 `Deps:` through 8.20 (36, 0 unknown by `parse_roadmap`); notes on
+  8.15–8.17 that the fixes landed in `f1b81db8a`. Kept `loop/rc`, `/play` and a `file:line` out of
+  backticks in Owns text so the parser takes only paths (checked: owns lists are paths only).
+  `task.create` ×3 exit 0, all `proposed` (`run3/task-create-*`). Read-only check at 20:04Z:
+  RC-ENG-8.3 `running`, 30 stored deps through 8.14; 8.15–8.20 `proposed`.
+- EARLY_ACCESS.md rewritten for the third run (verdict: not passed, gate 2 only); §10 keeps the
+  second run's verdict and medium/low descriptions, §11 the first run's. `pnpm gates` 0 (313 docs,
+  467 links); `format:check:changed --base loop/rc` clean; `git diff --check` clean.
+- Needs operator: approve RC-ENG-8.18–8.20; add RC-ENG-8.15–8.20 to RC-ENG-8.3's stored deps;
+  reconcile 8.15 and 8.17 (done here, apart from the Timer, B3-2) and 8.16 (sharing done here, the
+  Start dialog half is 8.19); RC-ENG-8.16's three non-path owns tokens from attempt 4 are still there.
