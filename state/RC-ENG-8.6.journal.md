@@ -185,6 +185,7 @@ base 365d56148: it is not in the reported CI run, so the acceptance criteria do 
 Follow-up for the operator: it has the same fresh-vault assumption (it opens the library, then
 starts a session). A phone-Chromium replay on this head failed at the start dialog, and the same
 sequence passed once New screen → Create screen was added (`/tmp/eng86-android-replay2.log`).
+Re-verified after the revert: `pnpm desktop:smoke` exit 0 on 453f5776f (`/tmp/eng86-ci-smoke-r2.log`).
 Nightly/release Android acceptance will stay red until a task that owns the script adds that
 step. The reverted change is in commit 97576a97d, ready to reuse.
 
