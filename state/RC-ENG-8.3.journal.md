@@ -468,3 +468,25 @@ diff --stat ef42291b HEAD -- . ':!docs' ':!state'` empty). p1/p2 failed on a pro
   Review worktrees `~/.cache/rc-eng-8-3-run4-{a..d}` removed.
 - Needs operator: keep (widen the claim to) or revert the five crossings; reconcile RC-ENG-8.15 to
   8.20 in the store; RC-ENG-8.16's three non-path owns tokens from attempt 4 are still there.
+
+## Attempt 12 (2026-10-16, claim fence refused five paths)
+
+- The fence refused `screens/play/Frame.tsx`, `screens/session/Lifecycle.tsx`,
+  `app/map/canvas/MapMarkers.tsx`, `ds/components/core/Popover.tsx` and `ds/components/map/POIPopover.tsx`
+  (base `511fc6af4`). `loop/rc` is still `511fc6af4`; RC-ENG-8.3 `running`, `self_heal_rounds` 2, so no
+  automatic widening is left; RC-ENG-8.18 to 8.20 still `proposed`.
+- All five KEPT, nothing changed in the app (tree still the audited `d1b4e6e4d`). Each holds the only
+  code for its finding, and no claimed file can host it:
+  - Frame.tsx: A3-1, the companion's generic-preview state (`genericPreviewState`). RC-ENG-8.18's Owns.
+  - Lifecycle.tsx: B3-1, the Start dialog's visible reason, Share action, focus and status (A4-1).
+    RC-ENG-8.19's Owns.
+  - MapMarkers.tsx: D3-2 and D4-2, only pins and token discs take presses. RC-ENG-8.20's Owns.
+  - Popover.tsx and POIPopover.tsx: D4-1, the focus rule that let the editor's arrow keys make a
+    DM-only point player-visible.
+- Reverting them reopens four highs (A3-1, B3-1, D3-2, D4-1); the fifth run's "passed" verdict in
+  EARLY_ACCESS.md would then describe a tree that is not delivered, and the attempt-10 review already
+  rejected a "not passed" verdict with the highs filed as proposed stories. Keeping them is what the
+  fence's own message routes to the operator.
+- Needs operator: either widen RC-ENG-8.3's claim to the five paths (the verdict stands), or revert
+  them, whereupon EARLY_ACCESS.md must be re-run and will not pass until RC-ENG-8.18 to 8.20 and a D4-1
+  story land. Also reconcile RC-ENG-8.15 to 8.20 in the store.
