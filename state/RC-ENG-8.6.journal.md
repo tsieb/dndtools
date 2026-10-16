@@ -132,3 +132,24 @@ Validation (original logs read):
 - Every other spec that drives a session start (golden-path, feature-spotlight, combat,
   responsive, help-menu, player-summary, session-standby, session-polish, table-view), both
   profiles: 365 passed, exit 0, 12.1m (`/tmp/rc-eng-8.6-r3-e2e-related.log`).
+
+## Visual-gate repair (gate run 654e378d, head ccbd20fbe)
+
+Read the original gate log: 586 passed, 2 failed — `widget-full-builder.spec.ts:5` tavern and
+parchment on visual-rail. Both are 5s `toHaveScreenshot` timeouts at "waiting for element to be
+stable" on the /extensions widget builder, not pixel diffs. Nothing in this branch's diff reaches
+the builder: the diff touches session start defaults, the session header, and one parity query.
+
+Re-checks on this head in the pinned container (original logs read):
+
+- The failed spec alone, visual-rail, `--repeat-each=3`: 15 passed.
+- Full suite, `--workers=2`, with another dispatcher worktree's visual container running at the
+  same time (load average ~15/16): 585 passed, 3 failed, all the same stability timeouts on
+  different untouched specs (extensions-polish scholar compendium, golden-routes `/display`
+  high-contrast, extensions-polish rail tavern), with slow neighbours (15-18s) around each
+  (`/tmp/eng86-visual-full.log`).
+- extensions-polish + golden-routes `/display` + widget-full-builder, all profiles,
+  `--repeat-each=3`: 225 passed, exit 0 (`/tmp/eng86-visual-rerun.log`).
+
+Conclusion: a load-driven stall (one per full run, a different spec each time, no pixel diff),
+not a regression. No code or baseline change.
