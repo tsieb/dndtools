@@ -194,3 +194,11 @@ claim. A fresh profile's only scene is the Command Center's DM-only home board. 
 (useSessionView/ProjectionControl) would have to bring back the home-board fallback that this
 story removes, which `session-start-default.spec.ts` now pins. The operator must decide whether
 to widen the claim.
+
+## CI recovery: self-heal round 1 (claim widened to smoke-parity.cjs)
+
+The claim now includes `apps/gm-react/electron/smoke-parity.cjs`. The candidate is unchanged: it
+differs from base 365d56148 only in that file and this journal. The Android acceptance revert
+stands, and that follow-up is still open (see above). Re-verified on 87a510098 (original log
+read): `pnpm desktop:smoke` exit 0, with parity write and verify both passing
+(`/tmp/eng86-ci-smoke-r3.log`). Prettier is clean on both files.
