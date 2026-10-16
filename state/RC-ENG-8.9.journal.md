@@ -45,3 +45,25 @@ tests/e2e/extensions-polish.spec.ts --workers=2`: exit 0, 28 passed (2.4m), desk
   removed Session/Extensions pair exceptions, 170 parchment baselines, resolved debt and journal.
 - Committed on the current task branch. No push, promotion, dispatcher control mutation or agents.
   Central operator gates and independent review remain outstanding.
+
+## Central gate retry
+
+- Current implementation HEAD: `e2d5d3addf101e2276c4222259759dd2ba2345e5`; worktree clean.
+  Headroom tools remain unavailable. Read original central gate output directly:
+  `/home/trinkle/Programming/agent-dispatcher/.state/attempts/0b749777-a208-44f0-ba34-92efed954ff5/output.log`.
+- Central quality and changed-format gates passed. Full pinned visual gate: 585 passed,
+  3 failed (20.2m). Original log lines 594–695 identify readiness/capture timeouts:
+  desktop dungeon board and phone scholar vault loading timed out waiting for screenshot
+  stability; phone scholar marketplace timed out waiting for its three discovery buttons.
+  No pixel-difference assertion or parchment failure was reported.
+- Token lint rerun: exit 0, 106 checks. E2E search still finds no `4.43`, `sharedSegDebt`,
+  or `dsActiveChip` exception. No source or baseline edits justified by the central failures.
+- Rechecking all three failing case names in all three layout tiers, three repetitions each,
+  with the original pinned image, two workers, unchanged timeouts and unchanged baselines:
+  `DNDTOOLS_PW_WORKERS=2 apps/gm-react/tests/visual/run-in-container.sh
+-g 'GM Screen — dungeon|community marketplace — scholar|app shell — scholar' --repeat-each=3`.
+  Original output: `/tmp/rc-eng-8.9-retry-visual.log`. Exit 0: 27 passed (1.2m).
+- All three central failures failed to reproduce across three repetitions and all layouts.
+  No source, baseline, timeout, tolerance or dispatcher changes made during this retry.
+  Committed this diagnostic journal update on the task branch. The full 588-test central gate
+  remains a recorded failure requiring an operator rerun; the focused pass does not replace it.
