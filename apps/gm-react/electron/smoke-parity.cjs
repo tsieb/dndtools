@@ -112,11 +112,21 @@ app.whenReady().then(async () => {
 		await delay(100);
 		assert.ok(win.webContents.getURL().includes('token=second-token'));
 		// A fresh profile starts with an empty campaign (RC-UX-3.6), and a session needs a scene to go
-		// live on. Opening the Screens library creates the Command Center's own home scene, the same
-		// step a DM takes through the hub's "Open scene" button.
+		// live on. The Command Center's own home board is a DM workspace that a start never picks
+		// (RC-ENG-8.6), so create a screen from the library's default template, as a DM would.
 		await win.webContents.executeJavaScript("location.hash = '#/scenes'");
+		const clickEnabled = (selector) =>
+			win.webContents.executeJavaScript(`(() => {
+				const button = document.querySelector(${JSON.stringify(selector)});
+				if (!button || button.disabled) return false;
+				button.click();
+				return true;
+			})()`);
+		await until(() => clickEnabled('[data-testid="screens-new"]'));
+		await until(() => clickEnabled('button[type="submit"][form="new-screen-form"]'));
+		// The dialog closes only after the screen is created (a failed create keeps it open).
 		await until(() =>
-			win.webContents.executeJavaScript("document.body.innerText.includes('New screen')"),
+			win.webContents.executeJavaScript("!document.getElementById('new-screen-form')"),
 		);
 		await win.webContents.executeJavaScript("location.hash = '#/'");
 		await until(() =>

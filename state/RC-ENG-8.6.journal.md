@@ -153,3 +153,27 @@ Re-checks on this head in the pinned container (original logs read):
 
 Conclusion: a load-driven stall (one per full run, a different spec each time, no pixel diff),
 not a regression. No code or baseline change.
+
+## CI recovery: Electron smoke (run 38882124704, head 365d56148)
+
+Read the original failed-job log. Every leg but `Electron smoke (Linux)` passed (ci-gate failed only
+on it). `smoke-parity.cjs` timed out at line 133, waiting for the live badge after it clicked the
+top-bar Start session. Reproduced locally on this head (`/tmp/eng86-ci-smoke-base.log`, exit 1).
+
+Cause: the smoke's fresh profile has only the Command Center home board, created by opening
+/scenes. Before this story the top-bar start fell back to `commandCenter.homeSceneId`. This story
+removes that fallback on purpose (a DM workspace is never a session scene). With nothing
+startable the click only shows the "needs a scene" toast, so the session never goes live.
+
+Fix (test driver only, product behaviour unchanged): the smoke now makes a real screen the way a
+DM does. It opens the library's New screen dialog (`data-testid="screens-new"`), submits the
+default template, and waits for `#new-screen-form` to unmount, which only happens once the create
+has resolved. Name matching could not find the opener (its icon adds to its textContent). An
+`aria-modal` wait never cleared, because another element in that DOM also carries `aria-modal`.
+Every later assertion (badge on, End live session, confirm, badge off) is unchanged.
+`apps/gm-react/electron/smoke-parity.cjs` is outside the claim. Crossing into it was necessary
+because that file holds the stale fixture assumption, and the claim offers no other repair.
+
+Validation (original logs read): `DISPLAY=:0 pnpm desktop:smoke` passed 3/3 on this head with the fix
+(`/tmp/eng86-ci-smoke-final-{1,2,3}.log`, exit 0, parity write + verify included). Prettier clean.
+ESLint ignores `electron/*.cjs`.
