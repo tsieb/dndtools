@@ -178,12 +178,18 @@ Validation (original logs read): `DISPLAY=:0 pnpm desktop:smoke` passed 3/3 on t
 (`/tmp/eng86-ci-smoke-final-{1,2,3}.log`, exit 0, parity write + verify included). Prettier clean.
 ESLint ignores `electron/*.cjs`.
 
-Same root cause, same commit series: `scripts/android-emulator-acceptance.sh` (nightly + release,
-not in the failed CI run) also only opened the library before Start session. A phone-Chromium
-replay of its sequence on this head (throwaway spec, since deleted; `/tmp/eng86-android-replay2.log`)
-failed: the start dialog never opened. The same sequence plus New screen → Create screen
-passed through "Players see". The script now takes that step, failing loudly on every hop. Its
-source test `tests/unit/android-emulator-acceptance.test.ts`: 20 passed (`/tmp/eng86-android-unit.log`);
-`bash -n` clean. Not run on an emulator: there is no local JDK and the local emulator segfaults.
-Nightly android acceptance is the real check. This file is also outside the claim; the reason
-for crossing it is the same as for the smoke.
+## CI recovery: claim-fence feedback
+
+The gate refused two paths outside the claim. Reverted `scripts/android-emulator-acceptance.sh` to
+base 365d56148: it is not in the reported CI run, so the acceptance criteria do not require it.
+Follow-up for the operator: it has the same fresh-vault assumption (it opens the library, then
+starts a session). A phone-Chromium replay on this head failed at the start dialog, and the same
+sequence passed once New screen → Create screen was added (`/tmp/eng86-android-replay2.log`).
+Nightly/release Android acceptance will stay red until a task that owns the script adds that
+step. The reverted change is in commit 97576a97d, ready to reuse.
+
+Kept `apps/gm-react/electron/smoke-parity.cjs`: the reported failure cannot be fixed inside the
+claim. A fresh profile's only scene is the Command Center's DM-only home board. Any in-claim fix
+(useSessionView/ProjectionControl) would have to bring back the home-board fallback that this
+story removes, which `session-start-default.spec.ts` now pins. The operator must decide whether
+to widen the claim.
