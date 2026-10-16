@@ -371,3 +371,18 @@ diff --stat ef42291b HEAD -- . ':!docs' ':!state'` empty). p1/p2 failed on a pro
   either way (A3-1, B3-1, D3-2), filed as RC-ENG-8.18 to 8.20.
 - Needs operator: widen RC-ENG-8.3's claim to the two paths (or drop the fixes and re-run the audit);
   the earlier asks stand (approve 8.18–8.20, add 8.15–8.20 to the stored deps, reconcile 8.15–8.17).
+
+## Attempt 9 (2026-10-16, self-heal round 2: claim widened to Initiative.tsx and SceneMetaPanel.tsx)
+
+- The claim now covers every application file `f1b81db8a` changes; the others it touches are
+  companions (catalogs, qps-ploc, e2e specs, visual baselines). Nothing reverted, nothing changed in
+  the app: the delivered tree is still the audited `d24d51bb3` (`git diff --stat d24d51bb3 HEAD -- .
+':!docs' ':!state'` is empty). `screen-visibility.spec.ts` matches its committed version.
+- Read-only check at 20:39Z: `loop/rc` is still `511fc6af4`, this branch's base. RC-ENG-8.3 `running`
+  with 30 stored deps; RC-ENG-8.15 to 8.20 all `proposed`.
+- Not done, on purpose: B3-5 (the share field on the home screen) is now in an owned file, but it is
+  a medium that belongs to RC-ENG-8.19, and changing app code here would leave EARLY_ACCESS.md
+  describing a tree that is no longer the delivered one.
+- EARLY_ACCESS.md stands: third run on `d24d51bb3`, not passed (A3-1, B3-1, D3-2 →
+  RC-ENG-8.18 to 8.20). Needs operator, unchanged: approve 8.18–8.20, add 8.15–8.20 to RC-ENG-8.3's
+  stored deps, reconcile 8.15–8.17 (landed here), drop RC-ENG-8.16's three non-path owns tokens.
