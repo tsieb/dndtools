@@ -114,3 +114,22 @@ tests/e2e/extensions-polish.spec.ts --workers=2`: exit 0, 28 passed (2.4m), desk
   The five mobile skips are pre-existing: the board has no responsive layout.
 - Only the missing parchment swatch PNG and journal changed. Formatting/diff checks passed.
   No push, promotion, agent spawning or dispatcher control changes.
+
+## Claim-gate response
+
+- Retained the required browser swatch baseline under the explicit exception in the retry
+  instructions. The claim gate remains blocked pending an operator decision to widen the claim;
+  no claim or dispatcher state was changed.
+- Flagged path:
+  `apps/gm-react/tests/e2e/themes.spec.ts-snapshots/theme-parchment-desktop-chromium-linux.png`.
+- Compared directly with the gate's specified base `365d561486c74cfdd0dfb6d911e7518dba138298`:
+  exactly 576 pixels change from #9a5418 to #945016; all other 91,296 pixels are unchanged.
+  This is the 24x24 accent swatch painted from the real stylesheet. The existing test requires
+  threshold 0 and maxDiffPixels 0. Reverting this PNG would restore the demonstrated browser
+  acceptance failure while retaining the requested AA token correction.
+- The acceptance criteria require the accent/tint correction and parchment capture refresh.
+  This separate E2E snapshot is a necessary companion capture outside the listed visual directory.
+  Restoring the old token would undo the fix; relaxing the test would weaken its exact-color gate.
+- Re-read original `/tmp/rc-eng-8.9-themes-verify.log`: prior full themes run passed 13 tests with
+  5 intentional mobile skips. No new browser run was needed for this journal-only response.
+- Committed the required-path rationale for operator review. No push, promotion or new agents.
