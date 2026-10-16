@@ -22,18 +22,6 @@ const TRACKER_QUERY = `/@fs${fileURLToPath(new URL('../../../../packages/core/sr
 const THEMES = ['tavern', 'parchment', 'scholar', 'dungeon', 'high-contrast'] as const;
 const STRICT = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'];
 
-/**
- * The one known exception, outside this surface: the shared screen-kit `Seg` (the session phase
- * control) paints its selected option in parchment's accent-on-tint pair, 4.43:1 — DEBT-2026-008,
- * owned by the design system. Only that control and that exact pair are let through.
- */
-function sharedSegDebt(node: { target: unknown[]; failureSummary?: string }): boolean {
-	return (
-		node.target.join(' ').includes('[role="radio"]') &&
-		/foreground color: #9a5418, background color: #f0e0c8/.test(node.failureSummary ?? '')
-	);
-}
-
 /** Settle entrances (a dialog mid-fade measures as a contrast failure), then scan without the shell. */
 async function axe(page: Page, label: string, tags: string[] = STRICT) {
 	await page.evaluate(async () => {
@@ -60,9 +48,7 @@ async function axe(page: Page, label: string, tags: string[] = STRICT) {
 	const found = result.violations
 		.map((violation) => ({
 			id: violation.id,
-			nodes: violation.nodes
-				.filter((node) => !(violation.id === 'color-contrast' && sharedSegDebt(node)))
-				.map((node) => node.target.join(' ')),
+			nodes: violation.nodes.map((node) => node.target.join(' ')),
 		}))
 		.filter((violation) => violation.nodes.length > 0);
 	expect(found, label).toEqual([]);

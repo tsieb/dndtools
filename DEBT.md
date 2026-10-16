@@ -30,25 +30,6 @@ a `TODO(APP)` that survives a quarter gets an entry here before merge.
   Tool rails, map/POI/combatant selection, the widget definition disclosure, favorites and
   multi-select declarations are not single-choice segmented groups and are not part of this debt.
 
-### DEBT-2026-008 — parchment's accent text on the accent tint is 4.43:1
-
-- Severity: medium · Owner: design system · Resolution window: 2026 Q4
-- Impact: in the parchment theme, `--color-accent` (#9a5418) on `--color-accent-subtle` (#f0e0c8)
-  measures 4.43:1, under WCAG AA's 4.5:1 for small text. Everything that paints that pair fails axe
-  `color-contrast` on parchment: the DS `Button variant="accent"` (Done on the scene editor and the
-  GM Screen) and the widget-body kit's accent `Chip` (the Dice and Character tiles). The per-surface
-  fix would drift from the tokens; the pair itself needs a darker accent or a lighter tint, which
-  re-baselines every parchment capture.
-- Targets: `apps/gm-react/src/styles/tokens/colors.css` (parchment block),
-  `apps/gm-react/src/app/widget-body-kit.tsx`, `scripts/token-contrast-lint.ts` (add the pair).
-- Status: open — found by RC-POL-1.3, whose axe spec (`scene-editor-polish.spec.ts`) names this one
-  pair as its only exception, on parchment only. RC-POL-1.17 (Settings) moved every inline use of
-  the pair to primary ink; on parchment the selected screen-kit `Seg` option, the DS `Avatar`
-  initials and the accent role `Badge` on the Players roster still paint it. RC-POL-1.4 (Session)
-  inks the initiative avatars' initials, takes the accent tint off the active combat row and makes the
-  dice Roll and quick-panel Next turn `primary`; its theme scan (`session-polish.spec.ts`) lets through
-  only the session phase `Seg`'s selected option, the one use left on that surface.
-
 ### DEBT-2026-009 — every content command copies every content item
 
 - Severity: medium · Owner: core · Resolution window: 2026 Q4
@@ -72,6 +53,14 @@ a `TODO(APP)` that survives a quarter gets an entry here before merge.
   `custom:` package keeps its authored words, even an unedited fork whose words equal a built-in's.
   Spanish phrasing accommodates both conjuros and habilidades; provider tests render all fourteen
   affected strings for both packages and cover custom words, forks and locale changes.
+
+- DEBT-2026-008 — parchment's accent text on the accent tint: resolved by RC-ENG-8.9.
+  `--color-accent` darkened from `#9a5418` to `#945016` against the unchanged `--color-accent-subtle`
+  (`#f0e0c8`), raising the pair from 4.43:1 to 4.74:1; the phase `Seg`, accent `Button`, widget-kit
+  `Chip`, `Avatar` initials and accent `Badge` inherit it with no component overrides.
+  `scripts/token-contrast-lint.ts` asserts the pair at 4.5:1 or more in all five themes, the Session
+  and Extensions theme scans dropped their parchment exceptions, and the parchment captures were
+  re-baselined in the pinned Playwright container.
 
 - DEBT-2026-001 — typed platform-preferences layer: resolved by RC-UX-4.1
   (`apps/gm-react/src/platform/preferences.ts`; the exception manifest went from 21 entries to 3).

@@ -162,7 +162,7 @@
 	--color-text-inverse: #fdf8f0;
 	--color-text-link: #8a4a16;
 	--color-text-link-visited: #6a360f;
-	--color-accent: #9a5418; /* burnt-sienna gold, deep enough for AA on vellum */
+	--color-accent: #945016; /* burnt-sienna gold; 4.74:1 on the accent tint (AA) */
 	--color-accent-hover: #b3651f;
 	--color-accent-active: #7c4111;
 	--color-accent-subtle: #f0e0c8;

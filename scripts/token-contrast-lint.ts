@@ -73,6 +73,12 @@ function pairsForTheme(): Pair[] {
 		{ fg: '--color-accent', bg: '--color-bg', min: 4.5, label: 'accent text on page' },
 		{ fg: '--color-accent', bg: '--color-surface', min: 4.5, label: 'accent text on surface' },
 		{
+			fg: '--color-accent',
+			bg: '--color-accent-subtle',
+			min: 4.5,
+			label: 'accent text on accent tint',
+		},
+		{
 			fg: '--color-accent-foreground',
 			bg: '--color-accent',
 			min: 4.5,

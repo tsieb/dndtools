@@ -277,16 +277,8 @@ test('player projection: DM-only custom fields never reach a player, and preview
 });
 
 test('every tab meets text contrast in all five themes', async ({ page }) => {
-	// Two known exceptions, both outside this surface and both parchment token pairs owned by the
-	// design system (recorded for the DS lane in the RC-POL-1.14 journal): the DS SystemPackageCard's
-	// "Active" chip draws --color-accent on --color-accent-subtle (4.43:1), and the Theme studio's
-	// preview sample exists to show DS components (HPBar, Badge, VisibilityChip) exactly as the theme
-	// draws them, tertiary text included. This surface no longer uses accent badges or tertiary text
-	// itself. Everything else must pass in every theme.
-	const dsActiveChip = (theme: string, tab: string, summary: string | undefined) =>
-		theme === 'parchment' &&
-		tab === 'System' &&
-		/foreground color: #9a5418, background color: #f0e0c8/.test(summary ?? '');
+	// The Theme studio preview retains its separate DS component/tertiary-text exclusion.
+	// All other content, including the System package's Active chip, must pass in every theme.
 	for (const theme of ['tavern', 'parchment', 'scholar', 'dungeon', 'high-contrast']) {
 		await page.evaluate((value) => {
 			document.documentElement.dataset.theme = value;
@@ -301,9 +293,7 @@ test('every tab meets text contrast in all five themes', async ({ page }) => {
 				.analyze();
 			expect(
 				result.violations.flatMap((v) =>
-					v.nodes
-						.filter((n) => !dsActiveChip(theme, tab, n.failureSummary))
-						.map((n) => `${theme}/${tab}: ${n.target} ${n.failureSummary}`),
+					v.nodes.map((n) => `${theme}/${tab}: ${n.target} ${n.failureSummary}`),
 				),
 			).toEqual([]);
 		}
