@@ -67,3 +67,24 @@
 - Fresh Prettier check on all five owned files passed; `git diff --check` passed.
 - No Headroom tools available. No agents, push, promotion, or dispatcher control edits.
 - Central operator gates and independent review remain pending; no browser/visual gate claimed.
+
+## Visual-gate feedback investigation
+
+- Read the original output of attempt `b7522d46-d8c5-4b5b-9fe0-39e875b0ed5f`:
+  587 passed, one failed. The phone/parchment GM Screen test timed out after 5 seconds
+  waiting for `/board` to redirect to `/screen/`; it did not reach the screenshot assertion.
+- The original error context showed English chrome and `Loading your vault…`. `App.tsx`
+  uses that fallback while lazy routes load, including `BoardAlias`. Runtime hydration alone
+  does not guarantee that route loading and home-screen provisioning have completed.
+  This is consistent with a route-readiness timing failure, not evidence of a Spanish pixel diff.
+- Pinned-container reproduction, unchanged code and baselines:
+  `apps/gm-react/tests/visual/run-in-container.sh tests/visual/board-polish.spec.ts --project=visual-phone --grep parchment --repeat-each=3`
+  passed all 3 repetitions (exit 0). The reported failure did not reproduce.
+- No Headroom tools available; inspected native original log output and the error-context file.
+  No application fix or baseline update is justified by the evidence so far.
+- Broader pinned comparison:
+  `apps/gm-react/tests/visual/run-in-container.sh tests/visual/board-polish.spec.ts --update-snapshots=none --workers=2`
+  passed all 15 tests across five themes and three viewport projects (exit 0, 49.3 seconds).
+- Journal formatting and whitespace checks passed. Only this journal changed; the implementation
+  and baselines remain intact. The full 588-test gate has not been rerun locally and its prior
+  failure is not claimed fixed. Central validation and independent review remain pending.
