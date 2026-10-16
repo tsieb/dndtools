@@ -133,3 +133,17 @@ tests/e2e/extensions-polish.spec.ts --workers=2`: exit 0, 28 passed (2.4m), desk
 - Re-read original `/tmp/rc-eng-8.9-themes-verify.log`: prior full themes run passed 13 tests with
   5 intentional mobile skips. No new browser run was needed for this journal-only response.
 - Committed the required-path rationale for operator review. No push, promotion or new agents.
+
+## Self-heal round 2 (claim widened)
+
+- The claim now includes
+  `apps/gm-react/tests/e2e/themes.spec.ts-snapshots/theme-parchment-desktop-chromium-linux.png`;
+  the committed baseline is kept unchanged as instructed.
+- Re-verified at `2c1ef90df`: `pnpm tokens:contrast` exit 0 (106 checks, parchment 21) with the
+  accent-on-tint pair asserted at 4.5:1; no e2e spec contains a `4.43` exception;
+  DEBT-2026-008 sits under `## Resolved`.
+- Remaining `4.43:1` mentions are explanatory comments in unowned app files (QuickPanel,
+  CombatantItem, DiceTray, Settings Tools) and an old RC-POL-1.3 journal, not spec exceptions.
+  Left untouched to stay inside the claim.
+- `loop/rc` is 5 commits ahead (RC-ENG-8.10 i18n/journals); no overlap with this task's paths.
+- No source, baseline, push, promotion, agent or dispatcher-state changes this round.
