@@ -5,7 +5,8 @@
 - Task branch: `dispatch/dndtools/cd23b19622939b768714`.
 - Translate shipped 5e and Generic vocabulary in the UI value producer for Spanish;
   preserve customized vocabulary and English behavior. No core schema changes.
-- Complete vocabulary matching survives vault hydration. The producer receives vocabulary,
+- Initial implementation (superseded by the custom fork follow-up below): complete vocabulary
+  matching survives vault hydration. The producer receives vocabulary,
   not package identity: an exactly identical copy is treated as the shipped vocabulary;
   any authored word change preserves the entire authored set.
 - Adjust Spanish sentences to accommodate masculine conjuros and feminine habilidades.
@@ -53,3 +54,16 @@
   outside a provider; catching that would invert the i18n → runtime layering).
 - The crossing is one JSX prop (`packageId={activePackage.id}`); no behavior change for English.
 - Task expected to block for the operator to decide whether to widen the claim.
+
+## Self-heal round 1: widened claim
+
+- The scheduled task now explicitly includes `apps/gm-react/src/app/SystemContext.tsx` and
+  instructs retaining the package-id crossing. The prior claim-scope blocker is addressed by
+  that authorization; the existing implementation commits remain intact on the task branch.
+- Re-inspected all fourteen Spanish message assertions for both shipped packages, custom
+  vocabulary and unedited-fork pass-through, and the Resolved entry for DEBT-2026-007.
+- Fresh i18n validation: 4 test files, 54 tests passed (exit 0).
+- Fresh gm-react typecheck and focused ESLint on all four owned TypeScript files passed (exit 0).
+- Fresh Prettier check on all five owned files passed; `git diff --check` passed.
+- No Headroom tools available. No agents, push, promotion, or dispatcher control edits.
+- Central operator gates and independent review remain pending; no browser/visual gate claimed.
