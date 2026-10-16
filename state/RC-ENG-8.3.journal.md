@@ -351,3 +351,22 @@ diff --stat ef42291b HEAD -- . ':!docs' ':!state'` empty). p1/p2 failed on a pro
 - Needs operator: approve RC-ENG-8.18–8.20; add RC-ENG-8.15–8.20 to RC-ENG-8.3's stored deps;
   reconcile 8.15 and 8.17 (done here, apart from the Timer, B3-2) and 8.16 (sharing done here, the
   Start dialog half is 8.19); RC-ENG-8.16's three non-path owns tokens from attempt 4 are still there.
+
+## Attempt 8 (2026-10-16, claim fence refused two paths)
+
+- The fence refused `apps/gm-react/src/app/widgets/templates/board/Initiative.tsx` and
+  `apps/gm-react/src/screens/sceneEditor/SceneMetaPanel.tsx` (base `511fc6af4`). Both kept, for the
+  operator to decide whether to widen the claim; nothing else changed. `loop/rc` still `511fc6af4`.
+- Initiative.tsx (`order: -1`, one line): measured at the rail's Fit, Next turn sat at 54–98px in a
+  body that is 76px with no footer at all, so no change confined to `WidgetRenderSlot.tsx` can bring
+  it into view; B2-1/RC-ENG-8.15 needs the control to lead its row. Reverted, the rail case of
+  `tile-overflow-controls.spec.ts` fails ("Next turn rests inside its tile body").
+- SceneMetaPanel.tsx (the "Who can see this screen" field): B2-2/RC-ENG-8.16 needs a control a GM can
+  use, and none of the three claimed files renders a screen surface; `useScreens.ts` holds the write
+  (`setVisibility`), the panel only mounts it. Reverted, `screen-visibility.spec.ts` cannot share a
+  screen and the second run's B2-2 is back.
+- Reverting either also makes EARLY_ACCESS.md false for the delivered tree: the third run measured
+  `d24d51bb3`, which carries both, and found C2-1, B2-1 and B2-2 fixed. The verdict is "not passed"
+  either way (A3-1, B3-1, D3-2), filed as RC-ENG-8.18 to 8.20.
+- Needs operator: widen RC-ENG-8.3's claim to the two paths (or drop the fixes and re-run the audit);
+  the earlier asks stand (approve 8.18–8.20, add 8.15–8.20 to the stored deps, reconcile 8.15–8.17).
