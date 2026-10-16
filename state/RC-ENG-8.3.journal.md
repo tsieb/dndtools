@@ -359,8 +359,9 @@ diff --stat ef42291b HEAD -- . ':!docs' ':!state'` empty). p1/p2 failed on a pro
   operator to decide whether to widen the claim; nothing else changed. `loop/rc` still `511fc6af4`.
 - Initiative.tsx (`order: -1`, one line): measured at the rail's Fit, Next turn sat at 54–98px in a
   body that is 76px with no footer at all, so no change confined to `WidgetRenderSlot.tsx` can bring
-  it into view; B2-1/RC-ENG-8.15 needs the control to lead its row. Reverted, the rail case of
-  `tile-overflow-controls.spec.ts` fails ("Next turn rests inside its tile body").
+  it into view; B2-1/RC-ENG-8.15 needs the control to lead its row. Checked: with only this file
+  reverted to `511fc6af4`, `tile-overflow-controls.spec.ts` fails at 834 and 1440 on both profiles
+  ("Next turn rests inside its tile body"), 4 of 8; restored afterwards.
 - SceneMetaPanel.tsx (the "Who can see this screen" field): B2-2/RC-ENG-8.16 needs a control a GM can
   use, and none of the three claimed files renders a screen surface; `useScreens.ts` holds the write
   (`setVisibility`), the panel only mounts it. Reverted, `screen-visibility.spec.ts` cannot share a
