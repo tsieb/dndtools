@@ -1,8 +1,10 @@
 import {
 	MAP_IMPORT_MAX_ASSET_BYTES,
 	NATIVE_ASSET_MIME_TYPES,
+	assetId,
 	deriveGridCalibration,
 	deriveImportScale,
+	hashAssetBytes,
 	previewMapImport,
 	type MapGridCalibration,
 	type MapGridShape,
@@ -13,7 +15,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import type { MessageKey } from '../../i18n';
 import { useI18n } from '../../i18n';
-import { putAssetBytes } from '../../platform/storage/assetStore';
+import { deleteAssetBytes, hasAssetBytes, putAssetBytes } from '../../platform/storage/assetStore';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { type CellBox } from './ImportMapPanels';
 import { type ImportResultSummary } from './ImportMapSteps';
@@ -207,6 +209,26 @@ export function useImportMap({
 		if (busy) return;
 		setBusy(true);
 		setCommitError(null);
+		// RC-ENG-8.14 — store the REAL bytes BEFORE the commit. The store is content-addressed with the
+		// same hash id the core metadata record gets, so the id is known up front (as the audio import
+		// does). Dispatching first put the asset id into state while the store was still empty: the
+		// open editor resolved the id once, missed, and showed "isn't on this device" until reopened.
+		// A byte-store failure is still reported honestly on the result step — the metadata record
+		// stands, the raster just won't render. `freshBytesId` is set only when THIS import wrote the
+		// blob, so a refused commit never deletes bytes another map or library entry already uses.
+		let byteError: string | null = null;
+		let freshBytesId: string | null = null;
+		if (source === 'native' && picked) {
+			try {
+				const id = assetId(hashAssetBytes(picked.bytes));
+				const had = await hasAssetBytes(id);
+				await putAssetBytes(picked.bytes, picked.file.type);
+				if (!had) freshBytesId = id;
+			} catch (err) {
+				byteError = err instanceof Error ? err.message : String(err);
+			}
+		}
+		let committed = false;
 		try {
 			const res = await runtime.dispatch(
 				source === 'native'
@@ -243,17 +265,7 @@ export function useImportMap({
 						  }>
 						| undefined
 				)?.find((e) => e.kind === 'map.import-committed');
-				// Store the REAL bytes in the app-side content-addressed store (same hash id as the core
-				// metadata record, so the canvas can resolve them). A byte-store failure is reported
-				// honestly on the result step — the metadata record stands, the raster just won't render.
-				let byteError: string | null = null;
-				if (source === 'native' && picked) {
-					try {
-						await putAssetBytes(picked.bytes, picked.file.type);
-					} catch (err) {
-						byteError = err instanceof Error ? err.message : String(err);
-					}
-				}
+				committed = true;
 				// RC-MAP-3.2 — the calibration follow-ups. Each is its own durable core command, dispatched
 				// only after the asset itself landed, and each refusal is collected rather than thrown
 				// away: an accepted image with a refused scale must not read as a clean import.
@@ -326,6 +338,13 @@ export function useImportMap({
 			// the wizard sat on the preview step looking as though the click had never registered.
 			setCommitError(error instanceof Error ? error.message : t('mapImport.failed'));
 		} finally {
+			if (!committed && freshBytesId) {
+				try {
+					await deleteAssetBytes(freshBytesId);
+				} catch {
+					// Best-effort; an orphaned blob is reclaimed by the store's garbage collection.
+				}
+			}
 			setBusy(false);
 		}
 	}

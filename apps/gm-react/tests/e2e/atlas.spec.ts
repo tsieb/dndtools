@@ -1,4 +1,5 @@
 import { expect, test, type TestInfo } from '@playwright/test';
+import { statSync } from 'node:fs';
 import { dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
 
 function isPhone(testInfo: TestInfo): boolean {
@@ -418,6 +419,20 @@ test.describe('atlas: the raster import wizard calibrates the map it imports', (
 		// Fail closed: traced walls are DM only until the DM reveals them.
 		expect(landed.tracedVisibility).toBe('dm-only');
 		expect(landed.tracedWalls).toBeGreaterThan(0);
+
+		// RC-ENG-8.14 — the image is on the canvas the moment the wizard closes. The commit used to
+		// land before the bytes did, so the open editor resolved the new asset id once, missed, and
+		// sat on "this map's image isn't on this device" until the map was closed and reopened.
+		await dialog.getByRole('button', { name: 'Done' }).click();
+		await expect(dialog).toBeHidden();
+		const raster = page.getByRole('application').locator('image[href^="blob:"]');
+		await expect(raster).toHaveCount(1);
+		const rasterBytes = await raster.evaluate(async (el) => {
+			const res = await fetch(el.getAttribute('href')!);
+			return (await res.blob()).size;
+		});
+		expect(rasterBytes).toBe(statSync(FIXTURE).size);
+		await expect(page.getByText(/image isn’t on this device/)).toHaveCount(0);
 	});
 });
 
