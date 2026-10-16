@@ -446,3 +446,25 @@ diff --stat ef42291b HEAD -- . ':!docs' ':!state'` empty). p1/p2 failed on a pro
   behaviours, both profiles); with the fixes 16 passed, 2 skipped (keyboard test on the touch tier).
   Map/Atlas/preview/visibility specs: 201 passed, 7 skipped. `test:app` 2402; lint, typecheck clean;
   FEATURE-GAPS en.ts anchors re-pointed again (+1), feature-audit 46 limits, 0 stale.
+- Fifth run on `d1b4e6e4d` (evidence `~/.cache/rc-eng-8-3-evidence/run5/`): visual gate 588 passed (no
+  baseline changed); review A/B/C/D ~22:56–23:36Z in the run-4 worktrees moved to `d1b4e6e4d`:
+  **0 critical, 0 high**. D4-1, A4-1/B4-1, D4-2 fixed (2 runs per tier, pointer and keyboard); A3-1,
+  B3-1, B3-5, D3-2, D3-3, C2-1, C-1, B2-1, B-1 still fixed. New mediums A5-1, B5-1 (regression: the
+  Share focus effect re-fires when the Scene select returns to the shared screen), C5-1, C5-2 (level-up
+  HP leaves out CON; re-read in source, held medium as a judgement), D5-1, D5-2, D5-3 (regression: a
+  token takes a press only on its 30px disc); lows A5-2, C5-3. Golden ×5 23:15–23:20Z, 78/0/0/0 each,
+  max retry 0, load 1.2–2.5; `pnpm a11y:gate` PASS (60 scans, 0/0/1/0, `region` on `/session#combat`
+  mobile). Full e2e both profiles, 6 workers, retries 1: 2326 passed, 51 skipped, 1 flaky
+  (`companion-preview.spec.ts:219`; base `511fc6af4` fails it 1/20, `d1b4e6e4d` 0/20). DEBT.md
+  unchanged; feature-audit 46/0 after re-pointing the RC-PLT-1.1 roadmap anchor (4307 → 4324).
+- Verdict recorded: **M2.5 passes on `d1b4e6e4d`**, conditional on the operator keeping the five
+  crossings (Frame, Lifecycle, MapMarkers, Popover, POIPopover) and merging this branch; RC-ENG-8.15
+  to 8.20 still `proposed` in the store. RC-ENG-8.15's acceptance as written is not met (17 tile
+  controls rest outside their body at Fit, recorded as an exact list in the spec); said so in
+  EARLY_ACCESS.md §7 and the roadmap. Lifecycle.tsx is 521 lines (warn-only 500 target).
+- Docs: EARLY_ACCESS.md rewritten (fifth run §1–§9, fourth §10, third §11, second §12, first §13);
+  RC_ROADMAP.md §3.2 status, RC-ENG-8.3 text, notes on 8.15, 8.16, 8.18–8.20; planning README line.
+  `pnpm gates` 0 (313 docs, 466 links); `format:check:changed --base loop/rc` clean; diff --check clean.
+  Review worktrees `~/.cache/rc-eng-8-3-run4-{a..d}` removed.
+- Needs operator: keep (widen the claim to) or revert the five crossings; reconcile RC-ENG-8.15 to
+  8.20 in the store; RC-ENG-8.16's three non-path owns tokens from attempt 4 are still there.

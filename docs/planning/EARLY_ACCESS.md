@@ -1,14 +1,14 @@
 # Early-access exit audit (RC-ENG-8.3, the M2.5 gate)
 
-Third run, 2026-10-16, on **`d24d51bb3`**: the dispatcher's `loop/rc` (`511fc6af4`, which is the second
-run's `b2ddfc1d` plus a lossless re-encode of 171 visual baselines) with two commits from this
-story's branch. `f1b81db8a` fixes the second run's three findings (RC-ENG-8.15 to 8.17), and
-`d24d51bb3` re-baselines the 30 visual goldens those fixes change. The finding stories were still
-`proposed` in the dispatcher's store, so the self-heal round that re-dispatched this story widened its
-claim to the three defect files and the fixes were made here ([§7](#7-blocking-stories)). Everything
-in §1 to §9 was measured on `d24d51bb3`. The second run, on `b2ddfc1d`, is kept in
-[§10](#10-the-second-run-on-b2ddfc1d) and the first, on `ef42291b`, in
-[§11](#11-the-first-run-on-ef42291b).
+Fifth run, 2026-10-16, on **`d1b4e6e4d`**: the dispatcher's `loop/rc` (`511fc6af4`) with this story's
+branch on top. The branch fixes every high finding the earlier runs filed (RC-ENG-8.15 to 8.20) and
+the one the fourth run found, in four commits: `f1b81db8a` and `d24d51bb3` (the second run's three,
+with 30 re-baselined visual goldens), `0033dd551` (the third run's three) and `d1b4e6e4d` (the fourth
+run's high and two regressions of `0033dd551`). Everything in §1 to §9 was measured on `d1b4e6e4d`.
+The fourth run, on `0033dd551`, is kept in [§10](#10-the-fourth-run-on-0033dd551), the third, on
+`d24d51bb3`, in [§11](#11-the-third-run-on-d24d51bb3), the second, on `b2ddfc1d`, in
+[§12](#12-the-second-run-on-b2ddfc1d) and the first, on `ef42291b`, in
+[§13](#13-the-first-run-on-ef42291b).
 
 The gate, from the story and [§3.2 M2.5](RC_ROADMAP.md#32-milestones):
 
@@ -34,47 +34,46 @@ polish.
 
 ## 1. Verdict
 
-**M2.5 does not pass on `d24d51bb3`.** Gates 1, 3, 4 and 5 pass. Gate 2 fails: the review found no
-critical finding and three high ones, all new in this run.
+**M2.5 passes on `d1b4e6e4d`.** All five gates hold:
 
-- **A3-1 (high).** With a session live and the table shown a scene, previewing "Any player" from the
-  top bar shows a stage that says "Your DM has not shown a scene yet". A GM checking what players
-  see is told they see nothing.
-- **B3-1 (high).** Every new screen starts GM-only, and the Start dialog offers it with "Show … to
-  the table" disabled. The only reason is a hover tooltip in English, and nothing points to where
-  sharing is set. This is the half of RC-ENG-8.16 that the fix in `f1b81db8a` did not cover.
-- **D3-2 (high).** On the demo vault's Ruined Keep at default zoom on the phone, a drag from a
-  seeded token's centre moves a nearby point of interest instead, because the point's label takes
-  the press. It also happens on desktop for one token.
+1. the golden paths: 78 of 78 in each of five consecutive runs, 39 per profile, no retry;
+2. the review: four passes over every primary route at the three tiers, zero critical and zero high
+   findings, each earlier high re-tested with its original reproduction;
+3. `pnpm a11y:gate`: PASS, no critical or serious violation in 60 route-and-profile scans;
+4. DEBT.md: no open primary-path entry (unchanged since the second run);
+5. FEATURE-GAPS.md: no primary row with a limit beyond the §2.1 four (46 declared limits, 0 stale).
 
-The second run's critical and two highs are fixed. C2-1 (level-up off-screen on touch), B2-1 (Next
-turn unreachable at Fit) and B2-2 (no way to share a screen) were each re-tested with their original
-reproduction on every tier they apply to. The fixes caused two medium regressions (B3-3, C3-1) and
-widened FRICTIONLESS M2 (B3-4). The Timer part of B2-1 remains on the rail, as medium B3-2.
+The verdict holds for the application tree of `d1b4e6e4d` and for nothing else. Three conditions go
+with it:
 
-The three findings are filed as RC-ENG-8.18 to 8.20 ([§7](#7-blocking-stories)), added to
-RC-ENG-8.3's `Deps:` in the roadmap and created in the dispatcher as `proposed`. RC-ENG-8.3 is not
-complete: the story closes only when a run on an application commit carrying those three passes all
-five gates.
+- **The fixes are on this story's branch, not yet on `loop/rc`.** Five of the files they change are
+  outside RC-ENG-8.3's claim: `screens/play/Frame.tsx`, `screens/session/Lifecycle.tsx` and
+  `app/map/canvas/MapMarkers.tsx` (each the Owns of the story for its finding, RC-ENG-8.18 to 8.20)
+  and `ds/components/core/Popover.tsx` and `ds/components/map/POIPopover.tsx` (D4-1). Both commits
+  name them for the operator ([§7](#7-stories)). If any of them is reverted, the verdict no longer
+  holds and the gates run again.
+- **RC-ENG-8.15 to 8.20 are still `proposed` in the dispatcher's store.** Their work is done on this
+  branch and confirmed by the review; reconciling the store is the operator's call.
+- **The review's medium findings are friction, not passes.** There are 7 new mediums and 2 new lows
+  in this run, and the earlier runs' open mediums (§4, §10). They do not block M2.5 and are recorded
+  for the operator to file. Two are regressions of this branch's fixes (B5-1, D5-3).
 
-What holds: the five golden journeys passed 50 of 50 times across ten profile-runs with no retry,
-and the axe gate reports no critical or serious violation on 60 route-and-profile scans.
+Two readings are judgements, as in the earlier runs: DEBT-2026-004 (c) is not counted as
+primary-path (§5), and C5-2, level-up hit points that leave out the Constitution modifier, is held
+at medium (§4).
 
 ## 2. Golden paths
 
 `golden-path.spec.ts` on `desktop-chromium` and `mobile-chromium` together, retries 0, five
-consecutive runs, 2026-10-16 19:04:28–19:09:15Z: **78 passed, 0 failed, 0 flaky, 0 skipped in each
+consecutive runs, 2026-10-16 23:15:45–23:20:33Z: **78 passed, 0 failed, 0 flaky, 0 skipped in each
 run** (39 per profile). The 78 are the five journeys (first run, prep, Standby to live, knowledge
 capture, a player joining over the fake LAN) and the detector and seeded-defect fixtures that prove
 each journey assertion fails on a planted defect. The highest retry index in all five JSON reports
-is 0. The machine's load average was 2.8–3.8 at the run starts.
-
-The journeys still go live on a seeded shareable scene and join a specific player, so they pass with
-A3-1 and B3-1 present. None of them drags a token.
+is 0. The machine's load average was 1.2–2.5 at the run starts.
 
 ## 3. Accessibility gate
 
-`pnpm a11y:gate` on `d24d51bb3` (19:09:15–19:10:38Z, straight after run 5), exit 0:
+`pnpm a11y:gate` on `d1b4e6e4d` (23:20:33–23:21:56Z, straight after run 5), exit 0:
 
 - non-text contrast: 319 pair checks across five themes and 16 forced-colors remap checks passed;
 - axe on both profiles: 61 passed, 1 skipped (the phone-only `/board` Layout test on
@@ -82,46 +81,50 @@ A3-1 and B3-1 present. None of them drags a token.
 - report over 60 route-and-profile scans, all 60 worker artifacts present: 0 critical, 0 serious,
   1 moderate, 0 minor; 0 blocking; 0 approved known violations; "Gate result: PASS".
 
-The moderate one is axe `region` on `/session#combat` on `mobile-chromium`, as in both earlier runs
-(FRICTIONLESS.md L12). The gate scans its own seeded routes; the `target-size` violation pass D
-found on the seeded Ruined Keep map (D3-3) is on a route state the gate does not reach.
+The moderate one is axe `region` on `/session#combat` on `mobile-chromium`, as in every earlier run
+(FRICTIONLESS.md L12). The gate scans its own seeded routes. Pass D also ran axe (wcag2a/aa, 21a/aa,
+22aa) on the seeded Ruined Keep's detail and editor, which the gate does not reach: no violation,
+including `target-size`, on any tier.
 
 ## 4. The review
 
 Four passes of the project's `ux-ui-reviewer` agent (`.claude/agents/ux-ui-reviewer.md`), one per
-group of routes, each in its own detached worktree at `d24d51bb3` with its own dev server, run in
-parallel after the gates (about 19:11–20:02Z). Each drove the app with the repo's Playwright through
-scratch probe specs built on `tests/e2e/_helpers.ts`, starting from the second run's probes, at
-1440×900 (desktop, mouse), 834×1112 (rail, touch) and 390×844 (phone, touch), default theme,
-English. The shared brief gave them the severity scale above, the second run's audit to re-check,
-FRICTIONLESS.md's open items and the four code paths the fixes changed, required the second run's
-critical and highs to be re-tested with their original reproduction, and required every critical or
-high finding to reproduce in two separate runs. I re-read the source behind each high finding before
-accepting it. Screenshots, ARIA snapshots, per-state metrics and the probes stay in the audit's
-scratch directory and are not committed.
+group of routes, each in its own detached worktree at `d1b4e6e4d` with its own dev server, run in
+parallel (about 22:56–23:36Z, before the gates). Each drove the app with the repo's Playwright
+through scratch probe specs built on `tests/e2e/_helpers.ts`, re-running and extending the fourth
+run's probes, at 1440×900 (desktop, mouse), 834×1112 (rail, touch) and 390×844 (phone, touch),
+default theme, English. The shared brief gave them the severity scale above, the fourth run's
+reports and the third run's audit to re-check, FRICTIONLESS.md's open items and the four code paths
+`d1b4e6e4d` changed; it required every route in each group to be loaded at every tier, the fourth
+run's high and regressions to be re-tested with their original reproduction two runs per tier, and
+every critical or high finding to reproduce in two separate runs. I re-read the source behind each
+high finding before accepting it, in this run and the fourth. Screenshots, ARIA snapshots,
+per-state metrics, the probes and each pass's report stay in the audit's scratch directory and are
+not committed.
 
-| Group | Routes                                                                                                                                 | Critical | High | Medium | Low |
-| ----- | -------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---- | ------ | --- |
-| A     | Onboarding, Command Center (fresh, seeded, demo, live), the shell, palette and Help with the shortcut list, `/screens`                 | 0        | 1    | 3      | 2   |
-| B     | `/screen/:id` (home and four templates, view and edit), `/scene/:id` and the template editor on all three tiers, `/session`            | 0        | 1    | 5      | 2   |
-| C     | Characters, the builder and level-up, character History, Notes, `/play` joined over the fake LAN                                       | 0        | 0    | 2      | 3   |
-| D     | Atlas and its Layers panel, the map editor (token drag, fog, POI, Generate, Assets), image and external-scene import, `.dd2vtt` export | 0        | 1    | 2      | 4   |
+| Group | Routes                                                                                                                                     | Critical | High | Medium | Low |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------- | ---- | ------ | --- |
+| A     | Onboarding, Command Center (fresh, seeded, demo, live), the shell, palette and Help with the shortcut list, `/screens`, Preview as         | 0        | 0    | 1      | 1   |
+| B     | `/screen/:id` (home and four templates, view and edit, idle and live), `/scene/:id` and the template editor on all three tiers, `/session` | 0        | 0    | 1      | 0   |
+| C     | Characters, the builder and level-up, character History, Notes, `/play` joined over the fake LAN                                           | 0        | 0    | 2      | 1   |
+| D     | Atlas and its Layers panel, the map editor (tokens, POIs, fog, Generate, Assets), image and external-scene import, `.dd2vtt` export        | 0        | 0    | 3      | 0   |
 
-The counts are this run's new ids (A3-5 and B3-4 are the same item, seen by two passes). Every route
-was loaded at all three tiers, with the gaps listed in [§8](#8-not-checked). No page overflowed
-horizontally at any tier. The only console message any probe saw is D2-7's React ref warning when
-the map editor's Generate panel opens; there was no page error.
+The counts are this run's new ids. Every route was loaded at all three tiers, with the gaps listed in
+[§8](#8-not-checked). No page overflowed horizontally at any tier. The only console message any probe
+saw is D2-7's React ref warning when the map editor's Generate panel opens; there was no page error.
 
-### The second run's critical and highs, re-tested
+### The earlier highs and regressions, re-tested
 
-| Id   | Status              | Evidence                                                                                                                                                                                                                                                                                                                                    |
-| ---- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| C2-1 | fixed               | 2 runs on each of rail, phone and desktop. The wizard is its column's width (362px on the phone, was 609px; 458px on the rail); every control was tapped where it rests after a vertical scroll only: Discard and its confirm, Choose, Next ×4, Take the average, Finish. Level 2 was stored, max HP 31 → 36, in all six runs.              |
-| B2-1 | fixed for Next turn | 3 runs × 3 tiers on the demo vault's live home screen at Fit, no tile body scrolled. Next turn rests inside its body and hit-tests as itself at centre, top and bottom; a centre tap advanced the turn in 9 of 9 runs. Bodies: 52px on the rail, 66px on desktop, under a 24px footer. The Timer on the rail does not fit: B3-2.            |
-| B2-2 | fixed for sharing   | Passes A (from the first-session guide, 2 runs × 3 tiers) and B (fresh vault, 3 runs × 3 tiers, and a player over the fake LAN on 2 runs × 3 tiers). "Who can see this screen" in Scene details stores the choice; the Start dialog's box is then enabled and checked, the header names the screen, and the joined player's stage shows it. |
-
-The first run's highs stay fixed: A-1 (pass A, 2 runs × 3 tiers), B-1 (pass B, 3 × 3), C-1 (pass C,
-13 builds across the tiers) and D-1 (pass D, 6 of 6).
+| Id          | Status | Evidence                                                                                                                                                                                                                                                                                                  |
+| ----------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D4-1        | fixed  | Desktop keyboard, 2 runs each from a mouse click, Enter on a pin and a new POI from the POI tool, in the editor and on `/atlas`. Focus lands on the popover panel; arrows nudge the point in the editor and change nothing on Atlas; visibility stays `dm-only`; Tab still reaches every popover control. |
+| A4-1 / B4-1 | fixed  | 2 pointer and 2 keyboard runs × 3 tiers in each of passes A and B. After Share, focus is on the enabled, checked box inside the dialog and the `role="status"` line reads "… is shared with players.".                                                                                                    |
+| D4-2        | fixed  | 2 runs × 3 tiers. Both seeded pins hit-test as themselves on Atlas's detail and in the editor, and a tap opens the popover.                                                                                                                                                                               |
+| A3-1        | fixed  | 2 runs × 3 tiers × 2 vaults, Any player and Observer (36 previews with the control). The stage names the scene the session header names; nothing DM-only or another player's appears.                                                                                                                     |
+| B3-1, B3-5  | fixed  | 2 runs × 3 tiers. The reason is visible (12px, 7.06:1), catalogued and tied by `aria-describedby`; Share enables the box; the session goes live with the screen shown to a LAN player. No visibility field on the GM's workspace screens.                                                                 |
+| D3-2, D3-3  | fixed  | 2 runs × 3 tiers. Each seeded token's centre hit-tests as the token; a drag moves only the token and survives a reload; axe reports no `target-size`.                                                                                                                                                     |
+| C2-1, C-1   | fixed  | Level-up tapped at rest on every tier, 6 of 6; 26 builder builds with no mismatch between the Review card, the sheet and the store.                                                                                                                                                                       |
+| B2-1, B-1   | fixed  | 2 runs × 3 tiers. Next turn hit-tests as itself at Fit and a centre tap advanced the turn 6 of 6; Start session never goes live on the GM's home screen.                                                                                                                                                  |
 
 ### Critical
 
@@ -129,51 +132,290 @@ None.
 
 ### High
 
-- **A3-1 · Top bar › Preview › "Any player", every tier · the preview says no scene is shown while
-  one is.** With a session live and `/session` reading "Players see Harbor of Saltreach" (seeded) or
-  "Players see DM screen" (a fresh vault's shared screen), Preview as "Any player" opens the
-  companion with "Session live" in its heading and "Your DM has not shown a scene yet" on its stage.
-  A preview as a specific player shows the scene. On a fresh vault before a party exists, "Any
-  player" is the only player preview. `apps/gm-react/src/screens/play/Frame.tsx:98-104` builds the
-  preview from the raw `runtime.state`, where the generic preview actor is not in
-  `permissions.actors`; `resolveCommandCenterHome` then answers `unknown-actor`
-  (`packages/core/src/queries/command-center-home.ts:218`) and the stage has no scene name. The core
-  already has `permissionsWithPreviewActors` (`packages/core/src/queries/preview-mode.ts:149`).
-  Reproduced 18 of 18 (2 runs × 3 tiers × 3 vault states). None of the three fixes touched these
-  files; the second run's B2-2 note that "a player's preview reads 'Your DM has not shown a scene
-  yet'" was partly this. Held high because the preview is the GM's one check before the table and
-  it contradicts the session header on every vault; the case for medium is that real joined players
-  see the scene. I re-read the three locations; they agree.
-- **B3-1 · `/session` and the top bar, every tier · the Start dialog gives no visible reason or
-  route when the screen is GM-only.** Every new screen starts GM-only
-  (`apps/gm-react/src/screens/screen/useScreens.ts:212`), including the one the first-session guide
-  makes. The Start dialog offers it with "Show … to the table" unchecked and disabled; the reason is
-  `title="DM-only scenes cannot be shown to the table."`
-  (`apps/gm-react/src/screens/session/Lifecycle.tsx:399-401`): hover only, English outside the
-  catalog, absent on touch, and pointing nowhere. The control that shares the screen is in Scene
-  details, behind Edit layout and a pencil named "Edit scene name, description & tags". RC-ENG-8.16
-  asked for both halves; `f1b81db8a` delivered the sharing control only. Reproduced 3 runs × 3 tiers
-  (pass B) and 2 × 3 (pass A, as A3-2, rated medium there). Held high, as pass B argues, because the
-  disabled control is on the default path and explains nothing where the GM fails; the screen
-  header's "DM only" is not visible from the dialog. I re-read `Lifecycle.tsx:396-405`.
-- **D3-2 · Map editor, phone (and one token on desktop) · dragging a seeded token from its centre
-  moves a point of interest instead.** On the demo vault's Ruined Keep at default zoom on the phone,
-  Sir Caldwell's centre is covered by Broken Altar's marker wrapper: 8 of 25 sample points on the
-  token hit it, a tap at its centre selects nothing, and a Select & move drag from the centre leaves
-  the token in place and moves Broken Altar from (0.300, 0.280) to (0.426, 0.297), announced only as
-  "Saved on this device". Cellar Ambusher's centre drags Glyph of Warding on the phone and on desktop.
-  Each point of interest's wrapper is sized to its pin and label, carries pointer events and the drag
-  handlers, and sits at the tokens' `zIndex: 2` after them in the DOM
-  (`apps/gm-react/src/app/map/canvas/MapMarkers.tsx:144-178`; tokens at `:76-88`). Undo restores the
-  point, and a drag from the token's edge works. Reproduced 3 of 3 on the phone, 2 of 2 for Cellar
-  Ambusher on desktop and the phone. The code predates all three runs. Held high because moving a
-  token is the editor's primary table action and the wrong object moves without a word; the case for
-  medium is the first run's D-2, a wrong edit on drag rated medium, and the visible jump plus Undo. I
-  re-read the marker code; it agrees.
+None.
 
 ### Medium
 
-None of these blocks M2.5. They are recorded for the operator to file or fold into the stories in §7.
+None of these blocks M2.5. They are recorded for the operator to file or fold into stories.
+
+- **A5-1** Starting or ending a session from `/session` drops focus to `<body>`: the dialog's opener
+  (Start session, End session) unmounts as the workflow changes, after the dialog has already handed
+  focus back to it (`app/widgets/builtin/SessionBody.tsx:222,231-232`, `platform/returnFocus.ts:31`).
+  The next Tab lands on the replacing control. 2 runs × 3 tiers.
+- **B5-1** Regression of `d1b4e6e4d`: in the Start dialog, arrowing the Scene select away from a
+  just-shared screen and back moves focus to the "Show … to the table" box, because the focus effect
+  keys on the selected scene (`screens/session/Lifecycle.tsx:336-339`). 2 runs × 3 tiers.
+- **C5-1** The builder's Attacks & kit step starts every character at AC 13, HP 10, speed 30 and a
+  "Longsword +4 · 1d8+2", whatever the class, ancestry and scores, and the Review card shows them
+  beside the derived values with nothing marking them as defaults
+  (`app/charBuilder/index.tsx:160-165`). Editable on a labelled step.
+- **C5-2** Level-up hit points leave out the Constitution modifier: "Take the average (5)" saves 5 and
+  the roll is a bare `1d8` (`app/character/LevelUp.tsx:182-184,255-259,326-333`); the core adds the
+  value as given. Brother Calloway (CON 14) goes from 31 to 36, not 38. Held at medium because the
+  value is shown and editable on the step and the package model is not 5e-only; the case for high is
+  that the guided path stores a wrong maximum at every level for most characters. I re-read the
+  source; it agrees.
+- **D5-1** In the map editor with nothing selected, an arrow jumps to the nearest point of interest
+  and selects it, and the next arrow moves that point instead of browsing on
+  (`app/map/keyboard.ts:175-202`). Undo restores it. Before `d1b4e6e4d` the same press changed its
+  visibility (D4-1).
+- **D5-2** The POI popover is cut by the canvas edge: on the phone a point at about 45% height opens
+  it under the tool options bar, and on the rail Broken Altar's is cut by the tool rail. Placement
+  is chosen from the point's fraction, not the free pixels (`app/map/canvas/MapMarkers.tsx:204`).
+  Predates `d1b4e6e4d`.
+- **D5-3** Regression of `d1b4e6e4d`: on touch, a token takes a press only on its 30×30 disc; in the
+  fourth run the 62×46 wrapper with its label did. Above WCAG 2.5.8's 24px and a centre tap works,
+  so it widens FRICTIONLESS M2 rather than reopening D3-2. A transparent 44px hit area on the disc
+  keeps D4-2 fixed (`MapMarkers.tsx:74-101`).
+
+Still present from the fourth run, at medium (described in [§10](#10-the-fourth-run-on-0033dd551)):
+A3-2 (the top bar's Start still goes live on a GM-only screen without the dialog), B4-2, B4-3, B4-4,
+C4-1, C4-2 and C4-3. Still present from the third run: B3-2 and the other tile controls resting
+outside their body at Fit, B3-3, A3-5/B3-4, C3-1, C3-2 and D3-1.
+
+`tile-overflow-controls.spec.ts` lists every control resting outside its tile body on the seeded live
+home and compares the list to an exact set per width (3 at 1440, 8 at 834, 6 at 390). It passes
+because the set is recorded, not because the controls are reachable where they rest; a new clipped
+control, or a fixed one, fails it until the set changes.
+
+### Low
+
+A5-2 the phone's screen toolbar has no side gutter · C5-3 the companion's Journal labels automatic
+rest, combat and level-up entries "Note". From the fourth run, still present: A4-2, B4-5, B4-6, C4-4
+to C4-7, D4-3 to D4-5.
+
+### The earlier findings, re-checked
+
+Each pass reported every earlier id in its routes. Still present at their recorded severity: A2-1 to
+A2-8; B2-3, B2-4 (partly fixed), B2-5, B2-7, B2-8; C2-2 to C2-4; D2-1 to D2-4, D2-7, D2-8, D2-11;
+from the first run A-2 to A-6, A-8 to A-10, A-13, A-14, B-3, B-5 to B-8, C-2 (fixed on the rail),
+C-3 (phone only), C-13 to C-15, C-17, C-19, C-20, C-22, C-24, D-2 to D-9, D-11, D-12, C-7, C-9 to
+C-12, C-18, C-25, C-26. C-16 is partly fixed (the attack inputs are named, with no visible labels).
+Not re-checked this run: A-7, A-11, A-12, A3-3, A3-4, A4-2, B-4, B-9 to B-14, BP-1 to BP-11 (the
+template editor ran clean end to end on every tier), B3-6, B3-7, D2-5, D2-6, D2-9, D2-10, C-8. BP-9
+did not reproduce.
+
+FRICTIONLESS.md: L4 stays fixed. M2 is wider (B4-3, D5-3, C4-3, C4-7). M1, M3, M5, M6, M7, L2, L3,
+L6, L10, L11 and L12 still hold as recorded; L1 and L5 were not re-checked.
+
+## 5. DEBT.md
+
+An entry counts as primary-path when its stated impact is visible to a GM or player on a primary
+surface in a configuration the product ships (the default or a selectable theme, locale or system).
+`DEBT.md` is unchanged since the second run (`git log 511fc6af4..d1b4e6e4d -- DEBT.md` is empty), and
+so is the code its open entries cite.
+
+| Entry         | Severity | Status on `d1b4e6e4d`                                                                                                                                                                                                                                                                                                                                                                                   | Counts |
+| ------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| DEBT-2026-004 | low      | Open, re-scoped by RC-ENG-8.11 to part (c): the generator category and preset pickers (`app/map/generate/GeneratePanel.tsx`) and the asset category pickers (`app/map/dock/AssetsPanel.tsx`) are hand-rolled `aria-pressed` buttons rather than the DS `SegmentedControl`. Part (b) is resolved: Atlas composes `LayerRow` inside `LayerPanel`, and the entry records why the composed import conforms. | no     |
+| DEBT-2026-009 | medium   | Open. Every content command copies every item. Not counted: the cost is internal, and RC-ENG-3.2's final capture breached none of the eleven budgets. This is a judgement; RC-ENG-7.3 should re-read it.                                                                                                                                                                                                | no     |
+
+DEBT-2026-004 (c) is a judgement, as in the earlier runs. Pass D re-checked it in the fourth and
+fifth runs: the pickers look consistent with the editor chrome, and the friction they cause is their
+size on touch (69×24), which is FRICTIONLESS M2 (medium), not this entry. If the operator reads (c)
+as primary-path, gate 4 fails on it.
+
+## 6. FEATURE-GAPS.md
+
+The primary rows are Onboarding, Command Center, Palette and help, Screens, Scene editor, Board,
+Session, Characters, Maps (Atlas), Notes (Knowledge) and Player app. A §2.1 limit is read as §2.1
+item 2 defines it: a capability a primary surface offers, or the plan promises, that is unavailable
+or incomplete.
+
+None is counted. The primary rows and their limits are unchanged since the second run.
+`pnpm feature-audit` reports 46 declared limits, 0 stale, 0 inventory issues on `d1b4e6e4d`. The
+catalog keys `0033dd551` and `d1b4e6e4d` added moved eight `en.ts` line anchors (in the Session,
+Extensions, Community, Plans & cloud, Settings and Public wiki rows) by three and then one line; each
+was re-pointed in place, same digit count, so no table row re-padded. The roadmap notes this run
+added moved the Shells and platform row's anchor on RC-PLT-1.1's §23 row from line 4307 to 4324,
+re-pointed in the documentation commit; that row is not primary.
+
+One review finding sits close to this gate: C4-2, a character can never be removed (no command, no
+control). No row declares it, so it is a review medium here, not a declared limit. If the operator
+records it on the Characters row as a missing capability, gate 5 fails on it until it is built.
+
+The primary rows' remaining limits, with the reason each is not a §2.1 limit:
+
+| Row              | Limit                                                          | Why it is not a §2.1 limit                                                                             |
+| ---------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Palette and help | Authored guides ship in English                                | Localization residue; §2.3 gates the Spanish catalog at RC-1, not M2.5.                                |
+| Scene editor     | Generated widgets need DM review                               | The §0.3 rule 9 guardrail (AI proposes, never disposes).                                               |
+| Board            | Tile status notes and inspector tier descriptions stay English | Localization residue, as above.                                                                        |
+| Board            | Phone list tiles keep their authored height and scroll inside  | RC-CAN-5.5's recovery design for content that outgrows a tile.                                         |
+| Session          | End the live session to return to Standby                      | The §1.6 D2 posture rule.                                                                              |
+| Session          | Continuity prompts stay English                                | Localization residue.                                                                                  |
+| Characters       | D&D Beyond JSON import diagnostics stay English                | Localization residue.                                                                                  |
+| Maps (Atlas)     | The legacy per-map token array stays in state                  | Internal state; nothing on screen.                                                                     |
+| Notes            | Live co-editing presence is not modeled                        | Neither offered nor promised; the roadmap's "presence" is the companion's `screens/play/Presence.tsx`. |
+| Notes            | History keeps 50 revisions over 30 days                        | Retention bounds (RC-KNW-5.2), not a missing capability.                                               |
+
+The English residues are listed for RC-ENG-7.3, which audits §2.3.
+
+## 7. Stories
+
+No new blocking story. The fourth run's one high, D4-1, was fixed on this branch in `d1b4e6e4d` and
+confirmed fixed by this run before a verdict was recorded, so it was not filed.
+
+Every blocking story the earlier runs filed is done on this branch. Their dispatcher entries were
+still `proposed` at a read-only check on 2026-10-16; marking them, and whether to keep the
+crossings, is the operator's call.
+
+| Story       | Finding    | Fixed in                 | Confirmed by          | Outside RC-ENG-8.3's claim                         |
+| ----------- | ---------- | ------------------------ | --------------------- | -------------------------------------------------- |
+| RC-ENG-8.15 | B2-1       | `f1b81db8a`              | third to fifth runs   | — (`Initiative.tsx` was widened by self-heal)      |
+| RC-ENG-8.16 | B2-2       | `f1b81db8a`, `0033dd551` | third to fifth runs   | `Lifecycle.tsx` (its Start-dialog half, as 8.19)   |
+| RC-ENG-8.17 | C2-1       | `f1b81db8a`              | third to fifth runs   | —                                                  |
+| RC-ENG-8.18 | A3-1       | `0033dd551`              | fourth and fifth runs | `screens/play/Frame.tsx`                           |
+| RC-ENG-8.19 | B3-1, B3-5 | `0033dd551`, `d1b4e6e4d` | fourth and fifth runs | `screens/session/Lifecycle.tsx`                    |
+| RC-ENG-8.20 | D3-2, D3-3 | `0033dd551`, `d1b4e6e4d` | fourth and fifth runs | `app/map/canvas/MapMarkers.tsx`                    |
+| (none)      | D4-1       | `d1b4e6e4d`              | fifth run             | `ds/components/core/Popover.tsx`, `POIPopover.tsx` |
+
+RC-ENG-8.15 is done for its finding (Next turn rests in view and takes the tap on every tier) but
+not for its acceptance as written, which asks that every tile button take a centre tap where it
+rests: 17 controls across the three widths still rest outside their tile body (the Map tile's lower
+controls, the Timer pair on the rail, the phone canvas's combat-row actions), and
+`tile-overflow-controls.spec.ts` records them as an exact list rather than passing them (§4). The
+review holds them at medium. Closing that acceptance, or narrowing it, is the operator's call. RC-ENG-8.20
+asked to move the seeded token off the glyph "if the overlap remains"; with only the pins and discs
+taking presses, both seeded tokens' centres hit-test as themselves and axe finds no `target-size`, so
+the seed was left as it is.
+
+Each fix has an e2e on both profiles that fails on the commit before it and passes on it:
+
+- `companion-preview.spec.ts` "Any player sees the scene the session shows the table" (A3-1), and
+  `screen-visibility.spec.ts` on a fresh vault (A3-1 and B3-1, with the Share focus and status for
+  A4-1) and on the home screen (B3-5);
+- `map-editor.spec.ts`, the seeded Ruined Keep at 390×844 with touch and 1440×900 with a mouse: each
+  token dragged from its centre with no point moving, axe `target-size` (D3-2, D3-3); each pin
+  hit-tested and tapped on Atlas and in the editor (D4-2); arrows after selecting the DM-only Glyph of
+  Warding on Atlas and in the editor (D4-1).
+
+The RC-CHR-6.5 test "Any player uses the generic actor without borrowing the demo seat character or
+scene" assumed the generic preview's stage is empty; it now re-points the demo seat at another scene
+and asserts the stage shows the table's scene and not the seat's.
+
+Before the gates on `d1b4e6e4d`: the full e2e suite on both profiles (2,326 passed, 51 skipped,
+1 flaky: `companion-preview.spec.ts:219`, Escape from a Demo Player 2 preview staying on `/play`,
+which fails 1 in 20 on `511fc6af4` and passed 20 of 20 on `d1b4e6e4d`), `pnpm test:app` (2,402
+tests), `pnpm lint`, `pnpm typecheck`, `pnpm feature-audit` and the pinned-container visual suite
+(588 passed; no baseline changed in the fourth or fifth run).
+
+## 8. Not checked
+
+- Electron and Android shells; hosted CI.
+- Themes other than the default, except through the contrast gate and the visual suite; Spanish
+  and the pseudo-locale beyond the specs that assert them.
+- A screen reader. Accessible names and status announcements come from ARIA snapshots, axe and the
+  live region's DOM, not from a reader.
+- In the review: the camera QR join (no camera on this machine; the companion was joined over the
+  fake LAN); the earlier ids listed as not re-checked in §4.
+- The review is a model reviewer driving the app, with the high findings checked against source. It
+  is not a usability test with people.
+
+## 9. Reproducing the run, and integration
+
+The review probes were scratch specs and are not committed; they are kept with the evidence. The
+gates are committed. From a clean checkout, with `<dir>` a scratch path and `<port>` a free port:
+
+```sh
+git worktree add --detach <dir> d1b4e6e4d
+cd <dir> && pnpm install --frozen-lockfile
+cd <dir>/apps/gm-react
+# five times, n = 1..5:
+DNDTOOLS_E2E_PORT=<port> PLAYWRIGHT_JSON_OUTPUT_NAME=<dir>/golden-run<n>.json \
+  pnpm exec playwright test tests/e2e/golden-path.spec.ts \
+  --project=desktop-chromium --project=mobile-chromium --reporter=json,line
+cd <dir> && DNDTOOLS_E2E_PORT=<port> pnpm a11y:gate
+```
+
+The DEBT.md and FEATURE-GAPS.md readings in §5 and §6 are static: the files at `d1b4e6e4d` read
+against the source they cite.
+
+This audit holds for the application tree of `d1b4e6e4d`. The commit after it adds only
+documentation: this file, the roadmap notes, the planning index, one FEATURE-GAPS.md anchor and the
+run journal. Before citing this verdict for
+another commit (the merge of this branch into `loop/rc`, say), run
+`git diff --stat d1b4e6e4d <commit> -- . ':!docs' ':!state'`. Empty output means the same application
+code; anything else means the gates run again.
+
+## 10. The fourth run, on `0033dd551`
+
+Run 2026-10-16 on `0033dd551`, `loop/rc` plus this branch's fixes for the second and third runs'
+findings, with the same gates and method. The visual suite passed (588) with no baseline changed.
+
+**Verdict: not passed.** Gates 1, 3, 4 and 5 held: 78 of 78 in each of five golden runs (22:40–22:46Z,
+load 4.7–21 at the run starts, with the review passes running), and the a11y gate PASS with the same
+one moderate. The review confirmed A3-1, B3-1, B3-5, D3-2 and D3-3 fixed and found no leak in the
+generic preview. Gate 2 failed on one new high:
+
+- **D4-1 (high)**: selecting a point of interest opened its popover with focus on the visibility
+  radios, because `Popover` focuses the body's first control (`ds/components/core/Popover.tsx:118-133`)
+  and `POIPopover` puts the `SegmentedControl` first (`ds/components/map/POIPopover.tsx:209-220`). The
+  map editor's own hint says arrow keys nudge the selection, so following it turned a DM-only point
+  player-visible, announced only as "Saved on this device". 6 of 6 on desktop, in the editor and on
+  `/atlas`. The code dates from September.
+
+It was fixed in `d1b4e6e4d` with two regressions of `0033dd551` found in the same run (A4-1/B4-1 and
+D4-2), and the fifth run confirmed all three.
+
+### The fourth run's medium and low findings
+
+Their status on `d1b4e6e4d` is in §4.
+
+- **A4-1 / B4-1** (fixed in `d1b4e6e4d`) "Share with players" unmounted with focus on it, and nothing
+  announced the share.
+- **A3-2** (narrowed) The `/session` Start dialog now explains and shares a GM-only screen, but the
+  top bar's Start still goes live on one without the dialog, with the toast "Session started…"
+  (`app/ProjectionControl.tsx:52-74,150`).
+- **B4-2** On the Command Center's scenes card, a GM-only screen that went live is badged "Live" with
+  the players' eye icon while `/session` says "Players see nothing yet"
+  (`app/widgets/templates/HubParts.tsx:153-156`).
+- **B4-3** Every DS dialog's Close is 30×30 on the rail and the phone (`ds/components/overlay/Dialog.tsx:458-459`).
+- **B4-4** On the phone's list view in live combat, the Initiative tile shows one of six combatants
+  with no cue that more exist; its compact tracker scrolls inside its own box
+  (`InitiativeCompact.tsx:176`).
+- **C4-1** The seeded PCs show SPEED "—", INIT "—", HIT DICE "0/0 d8" and no save proficiencies on the
+  DM sheet and the companion; the seed sets only class, background, abilities, HP and AC
+  (`runtime/demo-seed.ts:49-75`), and the sheet does not derive INIT from DEX
+  (`screens/characters/sheet/CombatPanel.tsx:61-69`). Supersedes C-5 and absorbs C-4.
+- **C4-2** A character can never be removed: no command archives or deletes one, and no control
+  offers it.
+- **C4-3** A note's Edit and Push-to-players controls are 28×28 on touch
+  (`screens/knowledge/NoteViewer.tsx:355-370`).
+- **D4-2** (fixed in `d1b4e6e4d`) Once points of interest sat under tokens, a token's wrapper covered
+  Broken Altar's pin on the phone's Atlas detail.
+- Low: A4-2 the "Any player" identity card says "Your own character" · B4-5 Share persists if the GM
+  then cancels · B4-6 the companion's Journal says no scene has been shown while the stage shows one ·
+  C4-4 the stage's handout preview prints raw markdown · C4-5 the sheet header's class line is raw
+  lower case · C4-6 companion journal disclosures 17px tall on the rail · C4-7 coin steppers and
+  Damage/Heal 1 at 28×28 · D4-3 tokens draw over point labels · D4-4 "Players" in the popover is
+  "Player visible" elsewhere · D4-5 a point's label no longer takes a click.
+
+## 11. The third run, on `d24d51bb3`
+
+Run 2026-10-16 on `d24d51bb3`, `loop/rc` plus this branch's fixes for the second run's findings
+(`f1b81db8a`, with 30 visual goldens re-baselined in `d24d51bb3`), with the same gates and method.
+
+**Verdict: not passed.** Gates 1, 3, 4 and 5 held: 78 of 78 in each of five golden runs and the a11y
+gate clean with the same one moderate. The review confirmed C2-1, B2-1 (for Next turn) and B2-2 (for
+sharing) fixed. Gate 2 failed on three new highs:
+
+- **A3-1**: with a session live and the table shown a scene, previewing "Any player" from the top bar
+  showed a stage saying "Your DM has not shown a scene yet". The generic preview actor was not in the
+  stored permissions and had no player-view assignment, so the companion's reads answered
+  `unknown-actor` (`screens/play/Frame.tsx`, `packages/core/src/queries/command-center-home.ts:218`).
+- **B3-1**: every new screen starts GM-only, and the Start dialog offered it with "Show … to the
+  table" disabled, the reason only a hover `title` in English and nothing pointing to where sharing
+  is set (`screens/session/Lifecycle.tsx:399-401`).
+- **D3-2**: on the demo vault's Ruined Keep at default zoom on the phone, a drag from Sir Caldwell's
+  centre moved Broken Altar instead, because each point's wrapper, sized to its pin and label, took
+  the press at the tokens' z-index (`app/map/canvas/MapMarkers.tsx:144-178`).
+
+They became RC-ENG-8.18 to 8.20. The fourth run (§10) found all three fixed.
+
+### The third run's medium and low findings
+
+Their status on `d1b4e6e4d` is in §4.
 
 - **A3-2** (with A2-1, A2-2) The share control is hard to find from the start path: the guide still
   makes "DM screen" from the DM screen template, top-bar Start goes live on a GM-only screen with a
@@ -212,9 +454,7 @@ None of these blocks M2.5. They are recorded for the operator to file or fold in
   covered by Glyph of Warding, in Ruined Keep's detail and editor on every tier. The content side of
   D3-2; RC-ENG-8.20 covers it.
 
-### Low
-
-A3-4 Scene details drops an unsaved "Who can see" change on close, like its other fields (read in
+Low: A3-4 Scene details drops an unsaved "Who can see" change on close, like its other fields (read in
 code) · A3-6 desktop's live top bar gives no hint that players see nothing on a GM-only screen ·
 B3-7 in a wide Initiative tile Next turn now sits left of the readout, so visual and DOM order differ
 · B3-8 the phone list's Initiative tile has Next turn at 93×25 · C3-3 the History tab's empty state
@@ -224,147 +464,7 @@ Notes · D3-4 focus falls to the body after Create map · D3-5 Generate's sticky
 Presets row on the phone · D3-6 generator descriptions use engineering jargon ("Delaunay/MST graph")
 · D3-7 the map editor's Undo and Redo are disabled with no reason when there is no history.
 
-### The earlier findings, re-checked
-
-Still present at their recorded severity: A2-1 to A2-9; B2-3 (the Map tile's own scroll hides
-Project to players at Fit on the rail and desktop), B2-4 (part of B3-1), B2-6; C2-2 to C2-4; D2-1 to
-D2-10, with D2-11 now confirmed (the "Your notes are connected" tip covers Atlas's Layers panel after
-the first layer edit; low). From the first run, still present: A-2 to A-14 (A-12 not re-measured);
-B-3, B-5, B-6, B-8, B-14, BP-1, BP-8; C-2 (now fixed on the rail), C-3 (phone only), C-4 to C-6,
-C-13 to C-15, C-17, C-19 to C-22, C-24; C-7 to C-12, C-18, C-25, C-26; D-2 to D-9, D-11, D-12. Not
-re-checked: B2-5, B2-7, B2-8, B-9 to B-13, BP-2 to BP-7, BP-10, BP-11, C-16, D2-9. BP-9 did not
-reproduce. The second run's descriptions are kept in [§10](#10-the-second-run-on-b2ddfc1d), the
-first run's in [§11](#11-the-first-run-on-ef42291b).
-
-FRICTIONLESS.md: L4 is fixed (Next turn rests in view at Fit). M2 is wider: Grow to fit and Restore
-at 24px on touch (B3-4), alongside the earlier sub-44px targets. M1, M3, M5, M6, M7, L1, L2, L3, L6,
-L10 and L12 still hold as recorded; L5 was not re-checked. None other was found fixed.
-
-## 5. DEBT.md
-
-An entry counts as primary-path when its stated impact is visible to a GM or player on a primary
-surface in a configuration the product ships (the default or a selectable theme, locale or system).
-`DEBT.md` is unchanged since the second run, and so is the code its open entries cite.
-
-| Entry         | Severity | Status on `d24d51bb3`                                                                                                                                                                                                                                                                                                                                                                                   | Counts |
-| ------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| DEBT-2026-004 | low      | Open, re-scoped by RC-ENG-8.11 to part (c): the generator category and preset pickers (`app/map/generate/GeneratePanel.tsx`) and the asset category pickers (`app/map/dock/AssetsPanel.tsx`) are hand-rolled `aria-pressed` buttons rather than the DS `SegmentedControl`. Part (b) is resolved: Atlas composes `LayerRow` inside `LayerPanel`, and the entry records why the composed import conforms. | no     |
-| DEBT-2026-009 | medium   | Open. Every content command copies every item. Not counted: the cost is internal, and RC-ENG-3.2's final capture breached none of the eleven budgets. This is a judgement; RC-ENG-7.3 should re-read it.                                                                                                                                                                                                | no     |
-
-DEBT-2026-004 (c) is a judgement, as in the second run. Pass D re-checked it: on desktop the Assets
-categories are a plain text list and Generate's chips match the editor chrome, and on touch they are
-69×24 and about 23px tall, which is FRICTIONLESS M2 (medium), not this entry. If the operator reads
-(c) as primary-path, gate 4 fails on it.
-
-## 6. FEATURE-GAPS.md
-
-The primary rows are Onboarding, Command Center, Palette and help, Screens, Scene editor, Board,
-Session, Characters, Maps (Atlas), Notes (Knowledge) and Player app. A §2.1 limit is read as §2.1
-item 2 defines it: a capability a primary surface offers, or the plan promises, that is unavailable
-or incomplete.
-
-None is counted. The primary rows and their limits are unchanged since the second run.
-`pnpm feature-audit` reports 46 declared limits, 0 stale, 0 inventory issues, after two line anchors
-were re-pointed: the six catalog keys `f1b81db8a` added moved the Plans & cloud row's
-`Subscribe at {host}` anchor in `en.ts` from line 5596 to 5602, and the stories this run filed moved
-the Shells and platform row's anchor on RC-PLT-1.1's §23 row in RC_ROADMAP.md from line 4260 to line
-4307; neither row is primary. A3-1, B3-1 and D3-2 are review findings, not declared limits: no row
-claims the preview, the Start dialog's reasons or marker hit areas.
-
-The primary rows' remaining limits, with the reason each is not a §2.1 limit:
-
-| Row              | Limit                                                          | Why it is not a §2.1 limit                                                                             |
-| ---------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Palette and help | Authored guides ship in English                                | Localization residue; §2.3 gates the Spanish catalog at RC-1, not M2.5.                                |
-| Scene editor     | Generated widgets need DM review                               | The §0.3 rule 9 guardrail (AI proposes, never disposes).                                               |
-| Board            | Tile status notes and inspector tier descriptions stay English | Localization residue, as above.                                                                        |
-| Board            | Phone list tiles keep their authored height and scroll inside  | RC-CAN-5.5's recovery design for content that outgrows a tile.                                         |
-| Session          | End the live session to return to Standby                      | The §1.6 D2 posture rule.                                                                              |
-| Session          | Continuity prompts stay English                                | Localization residue.                                                                                  |
-| Characters       | D&D Beyond JSON import diagnostics stay English                | Localization residue.                                                                                  |
-| Maps (Atlas)     | The legacy per-map token array stays in state                  | Internal state; nothing on screen.                                                                     |
-| Notes            | Live co-editing presence is not modeled                        | Neither offered nor promised; the roadmap's "presence" is the companion's `screens/play/Presence.tsx`. |
-| Notes            | History keeps 50 revisions over 30 days                        | Retention bounds (RC-KNW-5.2), not a missing capability.                                               |
-
-The English residues are listed for RC-ENG-7.3, which audits §2.3.
-
-## 7. Blocking stories
-
-The second run's three stories were `proposed` in the dispatcher's store, not approved, when this
-story was re-dispatched with its claim widened to `LevelUp.tsx`, `WidgetRenderSlot.tsx` and
-`useScreens.ts`. The fixes were therefore made on this branch in `f1b81db8a`. Two files outside that
-claim were needed and are named in its commit message: `Initiative.tsx` (one `order: -1`; Next turn
-rested at 54–98px in a 76px rail body even with no footer) and `SceneMetaPanel.tsx` (the share field,
-the surface RC-ENG-8.16 names). Each fix has an e2e that fails on the base and passes on the fix, on
-both profiles: `character-levelup.spec.ts` (taps at rest at 834 and 390 with touch),
-`tile-overflow-controls.spec.ts` (hit-tests at rest, advances the turn) and the new
-`screen-visibility.spec.ts` (fresh vault to a joined player's stage). Before the audit, on the fix
-commit: the full e2e suite on both profiles (2,301 passed; the ten failures were two specs, one an
-artefact of editing files under a live dev server and one a locator the footer change made
-ambiguous, fixed in `f1b81db8a` and passing on re-run), `pnpm test:app` (2,402 tests),
-`pnpm lint`, `tsc`, and the pinned-container visual suite (588 passed after re-baselining 30
-images, re-encoded losslessly to stay inside the 37 MiB budget).
-
-RC-ENG-8.15 and 8.17 are complete as written apart from B3-2; RC-ENG-8.16 is complete for sharing,
-and its Start-dialog half is RC-ENG-8.19. Their store entries are still `proposed`; reconciling them
-is the operator's call.
-
-Each new blocking finding is one story in the ENG-8 epic of
-[RC_ROADMAP.md](RC_ROADMAP.md#epic-eng-8--early-access-primary-paths-before-platform-depth-p2p3), P3,
-with no dependency of its own. RC-ENG-8.3's `Deps:` lists all three, in the story text and in §23.
-They were created in the dispatcher with `task.create`, which files them as `proposed`; approving
-them is the operator's call. RC-ENG-8.3 is running, and the dispatcher refuses `task.update` on a
-running task, so its stored dependencies (30, through RC-ENG-8.14, at a read-only check at 20:04Z)
-need the operator to add RC-ENG-8.15 to 8.20.
-
-| Story       | Size | Finding                | What it closes                                                                                                       |
-| ----------- | ---- | ---------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| RC-ENG-8.18 | S    | A3-1                   | Previewing "Any player" shows the scene the table sees.                                                              |
-| RC-ENG-8.19 | M    | B3-1 (with A3-2, B3-5) | The Start dialog says visibly why a GM-only screen cannot be shown and how to share it; no field on the home screen. |
-| RC-ENG-8.20 | M    | D3-2 (with D3-3)       | A press on a token reaches the token, not a point of interest's label; the seeded overlap goes.                      |
-
-When all three land, RC-ENG-8.3 runs again: the five golden runs, the a11y gate, the four review
-passes over every primary route at the three tiers on the new commit, and DEBT.md and
-FEATURE-GAPS.md re-read.
-
-## 8. Not checked
-
-- Electron and Android shells; hosted CI.
-- Themes other than the default, except through the contrast gate and the visual suite; Spanish
-  and the pseudo-locale beyond the specs that assert them.
-- A screen reader. Accessible names come from ARIA snapshots and axe.
-- In the review: the camera QR join (no camera on this machine; the companion was joined over the
-  fake LAN); Start session with no startable screen (B2-5); the builder's attack fields (C-16); the
-  earlier ids listed as not re-checked in §4.
-- The review is a model reviewer driving the app, with the high findings checked against source. It
-  is not a usability test with people.
-
-## 9. Reproducing the run, and integration
-
-The review probes were scratch specs and are not committed; they are kept with the evidence. The
-gates are committed. From a clean checkout, with `<dir>` a scratch path and `<port>` a free port:
-
-```sh
-git worktree add --detach <dir> d24d51bb3
-cd <dir> && pnpm install --frozen-lockfile
-cd <dir>/apps/gm-react
-# five times, n = 1..5:
-DNDTOOLS_E2E_PORT=<port> PLAYWRIGHT_JSON_OUTPUT_NAME=<dir>/golden-run<n>.json \
-  pnpm exec playwright test tests/e2e/golden-path.spec.ts \
-  --project=desktop-chromium --project=mobile-chromium --reporter=json,line
-cd <dir> && DNDTOOLS_E2E_PORT=<port> pnpm a11y:gate
-```
-
-The DEBT.md and FEATURE-GAPS.md readings in §5 and §6 are static: the files at `d24d51bb3` read
-against the source they cite.
-
-This audit holds for the application tree of `d24d51bb3`. The commit after it adds only
-documentation: this file, the roadmap stories, the run journal, and the two re-pointed
-FEATURE-GAPS.md line anchors. Before citing this verdict for another commit, run
-`git diff --stat d24d51bb3 <commit> -- . ':!docs' ':!state'`. Empty output means the same application
-code; anything else means the gates run again.
-
-## 10. The second run, on `b2ddfc1d`
+## 12. The second run, on `b2ddfc1d`
 
 Run 2026-10-16 on `b2ddfc1d`, the dispatcher's `loop/rc` after RC-ENG-8.5 to 8.14 landed, with the
 same gates and method (four route groups).
@@ -381,11 +481,11 @@ gate clean with the same one moderate; DEBT-2026-006, -007 and -008 resolved and
   visibility, so only seeded scenes could ever be shown to players.
 
 They became RC-ENG-8.15 to 8.17. The first run's highs A-1, B-1, C-1 and D-1 were fixed. The third
-run above found the three fixed, with the Start dialog's half of RC-ENG-8.16 still open (B3-1).
+run (§11) found the three fixed, with the Start dialog's half of RC-ENG-8.16 still open (B3-1).
 
 ### The second run's medium and low findings
 
-Their status on `d24d51bb3` is in §4.
+Their status on `d1b4e6e4d` is in §4.
 
 - **A2-1** (also B2-5) On a fresh vault, Start session from the top bar or `/session` answers with
   the toast "Create a scene first — a session needs a scene to show players." and no action; the app
@@ -437,7 +537,7 @@ imported image · D2-9 read-only Atlas layer rows are Tab stops with raw English
 Select tool group's pop-out opens over the canvas by default · D2-11 (unconfirmed) the "Your notes are
 connected" tip can sit over Atlas's Layers panel.
 
-## 11. The first run, on `ef42291b`
+## 13. The first run, on `ef42291b`
 
 Run 2026-10-15 on `ef42291b`, with the same gates and method (three route groups, then a phone
 template-editor pass and a pass for five actions the first groups had not reached).
@@ -454,12 +554,12 @@ clean with the same one moderate). Gates 2, 4 and 5 failed:
 - two primary FEATURE-GAPS limits outside the §2.1 four: Characters History without rest, combat or
   level-up events, and a push limit on the Player app row that `/play` never showed.
 
-They became RC-ENG-8.5 to 8.14. The second run (§10) found A-1, B-1, C-1 and D-1 fixed, the DEBT entries
+They became RC-ENG-8.5 to 8.14. The second run (§12) found A-1, B-1, C-1 and D-1 fixed, the DEBT entries
 and limits resolved, and B-2 still present as B2-1.
 
 ### The first run's medium findings
 
-Their status on `d24d51bb3` is in §4.
+Their status on `d1b4e6e4d` is in §4.
 
 - **A-2** The NavRail's Search is 28×28 on the touch rail.
 - **A-3** One glyph serves two or three destinations on the rail and in More (DM screen and

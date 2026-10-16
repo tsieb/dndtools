@@ -351,7 +351,9 @@ in CAN, plus the four new P2 engineering stories) **· M3 not started · M4 not 
 its gate (§1.7 D14). 2026-10-15: M2.6 passed ([FRICTIONLESS.md](FRICTIONLESS.md)); the first M2.5 audit did not
 ([EARLY_ACCESS.md](EARLY_ACCESS.md)), and its findings are RC-ENG-8.5 to 8.14. 2026-10-16: the re-run on
 `b2ddfc1d` did not pass either; its findings are RC-ENG-8.15 to 8.17. The third run, on `d24d51bb3`
-(`loop/rc` plus their fixes), did not pass; its findings are RC-ENG-8.18 to 8.20.
+(`loop/rc` plus their fixes), did not pass; its findings are RC-ENG-8.18 to 8.20. The fourth run, on
+`0033dd551` (their fixes), found one new high, fixed in `d1b4e6e4d`; the fifth run, on `d1b4e6e4d`,
+passed all five gates. M2.5 holds for that application tree once RC-ENG-8.3's branch is merged.
 
 ### 3.3 Parallel lanes and their collision map
 
@@ -3370,7 +3372,11 @@ this epic makes the primary paths releasable first and keeps them that way.
   gates 1, 3, 4 and 5 held, and the review's one critical and two highs became RC-ENG-8.15 to 8.17.
   Third run 2026-10-16 on `d24d51bb3`, loop/rc plus fixes for those three made on this story's
   branch: not passed; gates 1, 3, 4 and 5 held, the three were confirmed fixed, and three new highs
-  became RC-ENG-8.18 to 8.20. The story stays open until a run on a commit carrying those passes.
+  became RC-ENG-8.18 to 8.20. Fourth run on `0033dd551`, the branch's fixes for those three: not
+  passed on one new high (D4-1, a POI popover's focus let the editor's arrow keys change who can see
+  the point), fixed in `d1b4e6e4d`. Fifth run 2026-10-16 on `d1b4e6e4d`: **passed**; all five gates
+  held and the review found no critical or high finding. The fixes cross five files outside this
+  story's claim, named in EARLY_ACCESS.md §7 for the operator.
   Acceptance: EARLY_ACCESS.md records the run, the review and the verdict on one commit.
 - **RC-ENG-8.4 — Emphasis and display-face lint.** `S` · P2 · Owns: `scripts/emphasis-lint.ts`
   (new), `scripts/emphasis-baseline.json` (new). Two design rules the screens break today become
@@ -3499,6 +3505,9 @@ this epic makes the primary paths releasable first and keeps them that way.
   without scrolling first, and each centre receives the tap; the ENG-8.1 detector still passes.
   Fixed on RC-ENG-8.3's branch in `f1b81db8a` (24px footer row, Next turn leads its row) and
   confirmed by the third run; the Timer on the rail still rests below its footer (medium B3-2).
+  The acceptance as written is not met: at Fit 17 tile controls (the Map tile's lower controls, the
+  Timer pair on the rail, the phone canvas's combat-row actions) rest outside their body, which the
+  spec now records as an exact list (EARLY_ACCESS.md §4).
 - **RC-ENG-8.16 — The GM can let players see a screen.** `M` · P3 · Deps: none · Owns:
   `apps/gm-react/src/screens/sceneEditor/SceneMetaPanel.tsx`,
   `apps/gm-react/src/screens/sceneEditor/useSceneCommands.ts`,
@@ -3516,7 +3525,7 @@ this epic makes the primary paths releasable first and keeps them that way.
   screen from a template on a fresh vault, shares it, starts a session on it, and a joined player's
   stage shows it.
   Sharing landed on RC-ENG-8.3's branch in `f1b81db8a` and the third run confirmed it; the Start
-  dialog half did not, and is RC-ENG-8.19.
+  dialog half did not, and is RC-ENG-8.19, done on the same branch.
 - **RC-ENG-8.17 — Level-up fits the rail and the phone.** `S` · P3 · Deps: none · Owns:
   `apps/gm-react/src/app/character/LevelUp.tsx`, `apps/gm-react/src/app/character/LevelUpParts.tsx`,
   `apps/gm-react/tests/e2e/character-levelup.spec.ts`. Finding C2-1 of the RC-ENG-8.3 re-run,
@@ -3541,6 +3550,8 @@ this epic makes the primary paths releasable first and keeps them that way.
   vault before a party exists, "Any player" is the only player preview. Acceptance: an e2e on both
   profiles previews "Any player" on a live seeded vault and on a fresh vault with a shared screen,
   and the stage names the scene the session header says players see.
+  Fixed on RC-ENG-8.3's branch in `0033dd551`: the generic preview also lacked a player-view
+  assignment, so it now reads the table view as its own. Confirmed by the fourth and fifth runs.
 - **RC-ENG-8.19 — The Start dialog says how to share a GM-only screen.** `M` · P3 · Deps: none ·
   Owns: `apps/gm-react/src/screens/session/Lifecycle.tsx`,
   `apps/gm-react/src/screens/sceneEditor/SceneMetaPanel.tsx`, `apps/gm-react/src/i18n/messages/en.ts`,
@@ -3556,6 +3567,9 @@ this epic makes the primary paths releasable first and keeps them that way.
   Acceptance: `screen-visibility.spec.ts` on both profiles reaches the Start dialog on a fresh
   vault's GM-only screen, reads the visible reason, follows its action to share the screen and goes
   live with it shown; the home screen's Scene details has no visibility field.
+  Fixed on RC-ENG-8.3's branch in `0033dd551`, with focus and a status line after the share in
+  `d1b4e6e4d`; confirmed by the fourth and fifth runs. The top bar's Start still skips the dialog
+  (A3-2, medium).
 - **RC-ENG-8.20 — A token under a point of interest can be dragged.** `M` · P3 · Deps: none · Owns:
   `apps/gm-react/src/app/map/canvas/MapMarkers.tsx`, `packages/core/src/state/map-state.ts`,
   `apps/gm-react/tests/e2e/map-editor.spec.ts`. Finding D3-2 of the RC-ENG-8.3 third run, with D3-3:
@@ -3568,6 +3582,9 @@ this epic makes the primary paths releasable first and keeps them that way.
   the seeded token off the glyph if the overlap remains. Acceptance: an e2e at 390×844 with touch and
   at 1440×900 drags each seeded Ruined Keep token from its centre and reads back that the token moved
   and no point of interest did; axe reports no `target-size` violation on the seeded map.
+  Fixed on RC-ENG-8.3's branch in `0033dd551` (pins) and `d1b4e6e4d` (token discs); the seed was
+  left in place, since both tokens' centres now take the press and axe finds no `target-size`.
+  Confirmed by the fourth and fifth runs.
 
 ### Epic ENG-9 — Friction is measured (P3)
 
