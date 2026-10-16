@@ -176,3 +176,39 @@ tests/visual/widget-full-builder.spec.ts` exit 0, 15 passed (original
 - After rebase: `pnpm tokens:contrast` exit 0 (106 checks, parchment 21); no `4.43` in
   `apps/gm-react/tests/`; DEBT-2026-008 sits under `## Resolved`; Prettier check on `DEBT.md` and
   this journal passed. No source, spec or baseline edits this round.
+
+## CI recovery b2ddfc1d619a (2026-10-16)
+
+- Read original failed logs for both attempts of GitHub run 38930665290. Both fail before
+  browser comparison: 894 visual baselines total 39,406.8 KiB, exceeding the 37 MiB budget
+  (37,888.0 KiB). `ci-gate` correctly propagates that failure; all other required legs passed.
+- Reproduced with `node apps/gm-react/tests/visual/check-baseline-budget.mjs` on task HEAD
+  `b2ddfc1d619a003090cf588b4e326aabb95463ba`: exit 1 with the identical count and sizes.
+- Headroom tools are unavailable. Original logs: `/var/tmp/ci-b2dd-failed.log` and
+  `/var/tmp/ci-b2dd-attempt1.log`. No additional agents or dispatcher changes.
+- Repair: losslessly re-encode only the 170 owned parchment visual PNGs refreshed by RC-ENG-8.9.
+  ImageMagick uses RGB PNG, compression level 9, filter 1, and strips ancillary metadata.
+  Before accepting each smaller output, compare dimensions and the complete decoded 8-bit RGBA
+  byte stream with the original; reject any pixel change. Keep originals if encoding grows.
+  Script and original verification output: `/var/tmp/ci-b2dd-optimize.py` and
+  `/var/tmp/ci-b2dd-optimize.log`. No application pixels, assertions, budget or workflows change.
+- Lossless verification completed: all 170 PNGs passed dimensions/RGBA equality, all shrank,
+  saving 1,901,012 bytes. The existing budget regression gate now passes unchanged:
+  894 files, 37,550.3 KiB of 37,888.0 KiB. Prettier and `git diff --check` pass.
+- Additional pngjs cross-check was unavailable (`MODULE_NOT_FOUND`); the completed ImageMagick
+  full-byte comparison is the pixel preservation evidence. Pinned parchment browser comparison
+  is running with two workers; original output: `/var/tmp/ci-b2dd-visual.log`.
+- Pinned parchment comparison: exit 1, 125 passed / 1 failed (4.7m). Original log read in full
+  around the failure: phone `player sheet parchment` timed out at the unchanged 5-second
+  screenshot capture, after fonts loaded and before a comparison result. No pixel mismatch
+  was reported. This additional failure is distinct from GitHub's deterministic size-budget
+  failure. No test assertions, timeouts or unowned player test changed.
+- Focused phone player comparison with one worker and three repetitions is running, with
+  original output in `/var/tmp/ci-b2dd-player.log`. This does not replace the full-run result.
+- Focused phone player comparison: exit 0, 3 passed (16.9s), unchanged assertions and baselines.
+  The broader run remains 125 passed / 1 capture timeout; no claim of a fully green visual suite.
+- Final size-budget check: exit 0, 894 files / 37,550.3 KiB. All 170 changed images preserve
+  original pixels exactly. Existing budget regression coverage fails on the pre-repair candidate
+  and passes on this repair, without raising limits or changing workflow protections.
+- Retained scope: 170 owned PNG encodings and this journal only. No push, promotion, dispatcher
+  edits or agents. Central gates and independent review remain the operator's next stage.
