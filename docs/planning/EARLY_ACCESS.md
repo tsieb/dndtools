@@ -46,12 +46,12 @@ polish.
 The verdict holds for the application tree of `d1b4e6e4d` and for nothing else. Three conditions go
 with it:
 
-- **The fixes are on this story's branch, not yet on `loop/rc`.** Five of the files they change are
-  outside RC-ENG-8.3's claim: `screens/play/Frame.tsx`, `screens/session/Lifecycle.tsx` and
+- **The fixes are on this story's branch, not yet on `loop/rc`.** Five of the files they change were
+  outside RC-ENG-8.3's original claim: `screens/play/Frame.tsx`, `screens/session/Lifecycle.tsx` and
   `app/map/canvas/MapMarkers.tsx` (each the Owns of the story for its finding, RC-ENG-8.18 to 8.20)
-  and `ds/components/core/Popover.tsx` and `ds/components/map/POIPopover.tsx` (D4-1). Both commits
-  name them for the operator ([§7](#7-stories)). If any of them is reverted, the verdict no longer
-  holds and the gates run again.
+  and `ds/components/core/Popover.tsx` and `ds/components/map/POIPopover.tsx` (D4-1). On 2026-10-17
+  the operator kept all five and widened the claim to them ([§7](#7-stories)). If any of them is
+  reverted later, the verdict no longer holds and the gates run again.
 - **RC-ENG-8.15 to 8.20 are still `proposed` in the dispatcher's store.** Their work is done on this
   branch and confirmed by the review; reconciling the store is the operator's call.
 - **The review's medium findings are friction, not passes.** There are 7 new mediums and 2 new lows
@@ -257,10 +257,11 @@ No new blocking story. The fourth run's one high, D4-1, was fixed on this branch
 confirmed fixed by this run before a verdict was recorded, so it was not filed.
 
 Every blocking story the earlier runs filed is done on this branch. Their dispatcher entries were
-still `proposed` at a read-only check on 2026-10-16; marking them, and whether to keep the
-crossings, is the operator's call.
+still `proposed` at a read-only check on 2026-10-16, and stay so until the operator reconciles them
+after this story lands. The crossings in the last column were kept by the operator on 2026-10-17,
+who widened RC-ENG-8.3's claim to them.
 
-| Story       | Finding    | Fixed in                 | Confirmed by          | Outside RC-ENG-8.3's claim                         |
+| Story       | Finding    | Fixed in                 | Confirmed by          | Outside RC-ENG-8.3's original claim                |
 | ----------- | ---------- | ------------------------ | --------------------- | -------------------------------------------------- |
 | RC-ENG-8.15 | B2-1       | `f1b81db8a`              | third to fifth runs   | — (`Initiative.tsx` was widened by self-heal)      |
 | RC-ENG-8.16 | B2-2       | `f1b81db8a`, `0033dd551` | third to fifth runs   | `Lifecycle.tsx` (its Start-dialog half, as 8.19)   |

@@ -3375,8 +3375,8 @@ this epic makes the primary paths releasable first and keeps them that way.
   became RC-ENG-8.18 to 8.20. Fourth run on `0033dd551`, the branch's fixes for those three: not
   passed on one new high (D4-1, a POI popover's focus let the editor's arrow keys change who can see
   the point), fixed in `d1b4e6e4d`. Fifth run 2026-10-16 on `d1b4e6e4d`: **passed**; all five gates
-  held and the review found no critical or high finding. The fixes cross five files outside this
-  story's claim, named in EARLY_ACCESS.md §7 for the operator.
+  held and the review found no critical or high finding. The five files its fixes cross (EARLY_ACCESS.md
+  §7) were kept by the operator, who widened this story's claim to them on 2026-10-17.
   Acceptance: EARLY_ACCESS.md records the run, the review and the verdict on one commit.
 - **RC-ENG-8.4 — Emphasis and display-face lint.** `S` · P2 · Owns: `scripts/emphasis-lint.ts`
   (new), `scripts/emphasis-baseline.json` (new). Two design rules the screens break today become

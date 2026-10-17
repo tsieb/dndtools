@@ -490,3 +490,15 @@ diff --stat ef42291b HEAD -- . ':!docs' ':!state'` empty). p1/p2 failed on a pro
 - Needs operator: either widen RC-ENG-8.3's claim to the five paths (the verdict stands), or revert
   them, whereupon EARLY_ACCESS.md must be re-run and will not pass until RC-ENG-8.18 to 8.20 and a D4-1
   story land. Also reconcile RC-ENG-8.15 to 8.20 in the store.
+
+## Attempt 13 (2026-10-17, operator kept the five crossings and widened the claim)
+
+- Operator brief: keep Frame.tsx, Lifecycle.tsx, MapMarkers.tsx, Popover.tsx and POIPopover.tsx; do not
+  revert or re-run; the fifth run's verdict on `d1b4e6e4d` stands. `loop/rc` is still `511fc6af4` (an
+  ancestor of HEAD), so no rebase and no anchor moves from the base.
+- No application change: `git diff --stat d1b4e6e4d HEAD -- . ':!docs' ':!state'` is empty.
+- Docs only: EARLY_ACCESS.md §1 and §7 and the RC-ENG-8.3 roadmap text now say the operator kept the
+  five files and widened the claim (2026-10-17), instead of "for the operator". The roadmap sentence
+  was rewritten to the same line count, so the FEATURE-GAPS anchor on RC-PLT-1.1's §23 row (4324)
+  still holds: `pnpm feature-audit` 46 limits, 0 stale. RC-ENG-8.15 to 8.20 left `proposed` in the
+  store, as the brief asks.
