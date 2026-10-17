@@ -502,3 +502,16 @@ diff --stat ef42291b HEAD -- . ':!docs' ':!state'` empty). p1/p2 failed on a pro
   was rewritten to the same line count, so the FEATURE-GAPS anchor on RC-PLT-1.1's §23 row (4324)
   still holds: `pnpm feature-audit` 46 limits, 0 stale. RC-ENG-8.15 to 8.20 left `proposed` in the
   store, as the brief asks.
+
+## Attempt 14 (2026-10-17, visual gate failed once on 0588ecc0b)
+
+- Original log (`attempts/9ad16d0c-…/output.log`): 587 passed, 1 failed:
+  `palette-help.spec.ts:8` scholar on `visual-rail`, `toHaveScreenshot(shortcuts--scholar.png)` timed
+  out after 5s at "waiting for element to be stable". No pixel diff was reported. The application
+  tree is `d1b4e6e4d`'s, where the same gate passed 588/588 twice, and no file this story changes
+  touches the palette, Help or the shortcut list.
+- Re-checked in the pinned container on `0588ecc0b` (`loop/rc` still `511fc6af4`): `palette-help.spec.ts`
+  on `visual-rail` ×5 repeats, 25 passed; then the full gate as the wrapper runs it
+  (`--update-snapshots=none --workers=2`), 588 passed (14.0 min). Logs:
+  `~/.cache/rc-eng-8-3-evidence/attempt14/`. Read as the visual suite's known one-off load stall;
+  nothing re-baselined, no app or doc change.
