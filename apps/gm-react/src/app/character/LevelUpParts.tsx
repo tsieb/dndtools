@@ -163,10 +163,13 @@ function LevelBadgeRow({
 	subtitle: string;
 	action?: ReactNode;
 }) {
+	// The action wraps under the title rather than squeezing it: in a 362px phone column the badge,
+	// the title and Discard level-up do not fit on one line.
 	return (
 		<div
 			style={{
 				display: 'flex',
+				flexWrap: 'wrap',
 				alignItems: 'center',
 				gap: 'var(--space-4)',
 				padding: 'var(--space-4) var(--space-5)',
@@ -192,11 +195,11 @@ function LevelBadgeRow({
 			>
 				{badge}
 			</span>
-			<div style={{ flex: 1, minWidth: 0 }}>
+			<div style={{ flex: '1 1 10rem', minWidth: 0 }}>
 				<div style={{ font: `700 var(--text-lg) ${T.sans}` }}>{title}</div>
 				<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>{subtitle}</div>
 			</div>
-			{action}
+			{action && <div style={{ marginLeft: 'auto' }}>{action}</div>}
 		</div>
 	);
 }

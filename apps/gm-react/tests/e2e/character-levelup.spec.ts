@@ -135,10 +135,13 @@ async function tapWhereItRests(page: Page, name: string): Promise<void> {
 		const x = r.left + r.width / 2;
 		const y = r.top + r.height / 2;
 		const inside = x >= 0 && x <= innerWidth && y >= 0 && y <= innerHeight;
+		// The whole control across, not just its centre: a half-clipped Next is still a defect.
+		const across = r.left >= 0 && r.right <= innerWidth;
 		const hit = inside ? document.elementFromPoint(x, y) : null;
-		return { x, y, inside, isSelf: !!hit && (hit === el || el.contains(hit)) };
+		return { x, y, inside, across, isSelf: !!hit && (hit === el || el.contains(hit)) };
 	});
 	expect(centre.inside, `${name}'s centre is inside the viewport`).toBe(true);
+	expect(centre.across, `${name} sits inside the viewport's width`).toBe(true);
 	expect(centre.isSelf, `a tap at ${name}'s centre lands on it`).toBe(true);
 	await page.touchscreen.tap(centre.x, centre.y);
 }
