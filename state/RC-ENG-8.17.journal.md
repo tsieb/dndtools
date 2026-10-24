@@ -43,3 +43,5 @@
   cand 60/60, base 60/60. The failure does not reproduce on its own, on either side, and the
   level-up header is not on `/session`'s render path for that capture. Reading: load stall on a
   busy host, not a regression; no baseline touched.
+- Full visual suite in the pinned container on 6ead48374 (same app code as f69130961), the
+  gate's exact argv (`--update-snapshots=none --workers=2`): 588 passed (16.9m), exit 0.
