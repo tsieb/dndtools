@@ -24,3 +24,22 @@
   fail on mobile-chromium ("Discard level-up's centre is inside the viewport"); restored.
 - `character-resources`, `player-polish`, `character-history`, `responsive` specs: 186 passed.
 - prettier, eslint on the changed files, `tsc --noEmit` (gm-react): clean.
+
+## Visual gate on f69130961 (2026-10-24)
+
+- The pinned-container visual gate failed 2 of 588, both timeouts on routes this change does not
+  render: `session-polish.spec.ts:32` tavern on visual-desktop (`toHaveScreenshot` waited 5s for
+  the combat-idle illustration to be stable) and `palette-help.spec.ts:8` high-contrast on
+  visual-rail (Help dialog's `Version` line not found in 5s). No visual spec opens the level-up
+  wizard (`grep -rl "Level up|level-up|levelUp|LevelBadge" tests/visual` is empty), and the diff
+  is `LevelUpParts.tsx`, the level-up e2e spec and this journal.
+- Re-run of both specs in the pinned container, `--repeat-each=3`, every tier: 108 passed.
+- Full visual suite in the pinned container on f69130961: 587 passed, 1 failed —
+  `session-polish.spec.ts:32` again, this time dungeon on visual-rail, and again a 5s wait
+  (`toBeVisible` on the combat-idle illustration: element not found). A different theme and tier
+  than the gate's failure, and a run that overlapped two other branches' visual runs (12:20, 12:39).
+- Interleaved A/B on that test (`-g "combat empty state" --repeat-each=4`, every tier; base =
+  `LevelUpParts.tsx` from HEAD~1, the only app file in the diff): cand 60/60, base 60/60,
+  cand 60/60, base 60/60. The failure does not reproduce on its own, on either side, and the
+  level-up header is not on `/session`'s render path for that capture. Reading: load stall on a
+  busy host, not a regression; no baseline touched.
