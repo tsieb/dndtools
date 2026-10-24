@@ -97,12 +97,13 @@ export function CountdownTemplate({ widget, data, onCommand }: WidgetTemplatePro
 
 	return (
 		// RC-CAN-5.5 — the controls sit beside the clock when the tile is wide enough and wrap into a
-		// row under it when not. Stacked, two touch-size controls were taller than the default
+		// row above it when not. Stacked, two touch-size controls were taller than the default
 		// rail-tier tile and clipped the second one. `minHeight`, not `height`: a centred body taller
 		// than its tile would also overflow upward, where no scroll reaches.
 		<div
 			style={{
 				display: 'flex',
+				flexDirection: 'row-reverse',
 				flexWrap: 'wrap',
 				alignItems: 'center',
 				alignContent: 'center',
@@ -110,7 +111,7 @@ export function CountdownTemplate({ widget, data, onCommand }: WidgetTemplatePro
 				minHeight: '100%',
 			}}
 		>
-			<div style={{ minWidth: 0 }}>
+			<div style={{ minWidth: 0, marginRight: 'auto' }}>
 				{/* `timer` is a live region that is OFF by default: the figure is readable on demand
 				    without narrating every tick. Urgency was colour alone; the warning shape survives
 				    forced-colors mode, which repaints the red and the amber as one system colour. */}
@@ -136,7 +137,8 @@ export function CountdownTemplate({ widget, data, onCommand }: WidgetTemplatePro
 			<div
 				ref={controlsRef}
 				style={{
-					marginLeft: 'auto',
+					// Keep the actions in the first flex row when Fit makes the clock wrap.
+					order: -1,
 					display: 'flex',
 					flexWrap: 'wrap',
 					justifyContent: 'flex-end',

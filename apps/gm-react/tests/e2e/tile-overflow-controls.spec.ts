@@ -6,12 +6,11 @@ import { gotoRoute, markOnboarded, preferPhoneCanvas, journeySurfaceIssues } fro
  * the phone canvas at 390px). Each is still reachable by scrolling that body, which the
  * unrecoverable-clip detector above checks; none of them takes a tap where it rests, so this list is
  * open debt, not a pass. It is exact: a control newly clipped, or one fixed, fails here until this
- * list and docs/planning/EARLY_ACCESS.md (RC-ENG-8.3 §4) both say so. The Timer pair on the rail is
- * the third run's B3-2.
+ * list is updated. The historical audit is docs/planning/EARLY_ACCESS.md (RC-ENG-8.3 §4);
+ * RC-ENG-8.15 removes its Timer pair (B3-2). This is not full acceptance while exceptions remain.
  */
 const MAP = 'Map, Maps widget › ';
 const COMBAT = 'Initiative Tracker, Combat widget › ';
-const TIMER = 'Timer, Dice & Timers widget › ';
 const KNOWN_CLIPPED: Record<number, string[]> = {
 	1440: [`${MAP}Hide combat overlay`, `${MAP}Open in editor`, `${MAP}Project to players`],
 	834: [
@@ -21,12 +20,14 @@ const KNOWN_CLIPPED: Record<number, string[]> = {
 		`${MAP}Hide combat overlay`,
 		`${MAP}Open in editor`,
 		`${MAP}Project to players`,
-		`${TIMER}Start 60-second timer`,
-		`${TIMER}Add 60 seconds to the timer`,
 	],
 	390: [
+		`${MAP}Zoom in`,
+		`${MAP}Zoom out`,
 		`${MAP}Fit`,
 		`${MAP}Hide combat overlay`,
+		`${MAP}Open in editor`,
+		`${MAP}Project to players`,
 		`${COMBAT}Adjust hit points — First foe`,
 		`${COMBAT}More actions — First foe`,
 		`${COMBAT}Adjust hit points — Second foe`,
@@ -35,7 +36,9 @@ const KNOWN_CLIPPED: Record<number, string[]> = {
 };
 
 for (const width of [1440, 834, 390]) {
-	test(`live home tile controls receive centre taps at ${width}px`, async ({ page }) => {
+	test(`live home primary actions receive centre taps and audit remaining controls at ${width}px`, async ({
+		page,
+	}) => {
 		await page.setViewportSize({ width, height: 1112 });
 		await markOnboarded(page);
 		await preferPhoneCanvas(page);
@@ -91,8 +94,8 @@ for (const width of [1440, 834, 390]) {
 		await nextTurn.evaluate((el) => {
 			const region = el.closest<HTMLElement>('[data-widget-region]')!;
 			if (region.scrollTop !== 0) throw new Error('the body is not at rest');
-			el.scrollIntoView({ block: 'center' });
-			region.scrollTop = 0;
+			el.closest('[data-testid^="widget-"][role="group"]')!.scrollIntoView({ block: 'center' });
+			if (region.scrollTop !== 0) throw new Error('page scrolling moved the tile body');
 		});
 		const restsInView = await nextTurn.evaluate((el) => {
 			const box = el.getBoundingClientRect();
@@ -109,12 +112,16 @@ for (const width of [1440, 834, 390]) {
 			for (const tile of document.querySelectorAll<HTMLElement>(
 				'[data-testid^="widget-"][role="group"]',
 			)) {
+				tile.scrollIntoView({ block: 'center' });
+				for (const node of tile.querySelectorAll<HTMLElement>('*')) {
+					if (node.scrollTop || node.scrollLeft)
+						throw new Error('tile content scrolled before hit-testing');
+				}
 				for (const el of tile.querySelectorAll<HTMLElement>('button')) {
 					const box = el.getBoundingClientRect();
 					if (!box.width || !box.height) continue;
 					const x = box.x + box.width / 2;
 					const y = box.y + box.height / 2;
-					if (x < 0 || y < 0 || x > innerWidth || y > innerHeight) continue;
 					let resting = true;
 					for (let p = el.parentElement; p && p !== tile; p = p.parentElement) {
 						if (getComputedStyle(p).overflowY === 'visible') continue;
@@ -135,6 +142,7 @@ for (const width of [1440, 834, 390]) {
 		expect(covered).toEqual([]);
 		expect(clipped, 'controls resting outside their tile body').toEqual(KNOWN_CLIPPED[width]);
 		await nextTurn.evaluate((el) => {
+			el.closest('[data-testid^="widget-"][role="group"]')!.scrollIntoView({ block: 'center' });
 			const box = el.getBoundingClientRect();
 			const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
 			if (!(el === hit || el.contains(hit))) throw new Error('Next turn is covered');
@@ -145,6 +153,29 @@ for (const width of [1440, 834, 390]) {
 		await expect
 			.poll(() => page.evaluate(() => window.__rt!.state.session.combat.turn))
 			.not.toBe(turnBefore);
+		const timer = page.getByRole('region', { name: '4. Timer' });
+		await timer.evaluate((el) => {
+			el.closest('[data-testid^="widget-"][role="group"]')!.scrollIntoView({ block: 'center' });
+		});
+		const transport = timer.getByRole('button', { name: 'Start 60-second timer', exact: true });
+		await expect(transport).toBeVisible();
+		// Check both default Timer actions before the first tap.
+		for (const action of await timer.getByRole('button').all()) {
+			await action.evaluate((el) => {
+				for (let p = el.parentElement; p && !p.matches('[role="group"]'); p = p.parentElement) {
+					if (p.scrollTop || p.scrollLeft) throw new Error('Timer was scrolled');
+				}
+				const box = el.getBoundingClientRect();
+				const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+				if (!(el === hit || el.contains(hit))) throw new Error(`${el.textContent} is covered`);
+			});
+		}
+		const transportBox = (await transport.boundingBox())!;
+		await page.mouse.click(
+			transportBox.x + transportBox.width / 2,
+			transportBox.y + transportBox.height / 2,
+		);
+		await expect(timer.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
 		const footers = page.getByRole('button', { name: /^Grow .* to fit content$/ });
 		expect(await footers.count()).toBeGreaterThan(0);
 		for (const grow of await footers.all()) {
