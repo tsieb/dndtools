@@ -2242,6 +2242,18 @@ for (const tier of [
 				'Cellar Ambusher',
 				'Sir Caldwell',
 			]);
+			// Measure the untouched seed: dragging first can hide an overlapping target.
+			const axe = await new AxeBuilder({ page })
+				.include('[role="application"]')
+				.withRules(['target-size'])
+				.analyze();
+			const checked = axe.passes.find((rule) => rule.id === 'target-size')?.nodes.length ?? 0;
+			expect(checked, 'axe measured the map markers').toBeGreaterThanOrEqual(4);
+			expect(
+				axe.violations.flatMap((v) => v.nodes.map((node) => node.target.join(' '))),
+				'no target-size violation on the seeded map',
+			).toEqual([]);
+
 			for (const seeded of before.tokens) {
 				const button = editorRoot(page).getByRole('button', { name: `Token: ${seeded.label}` });
 				const box = (await button.boundingBox())!;
@@ -2269,17 +2281,6 @@ for (const tier of [
 					.not.toEqual(seeded.position);
 				expect((await readKeep(page)).pois, 'no point of interest moved').toEqual(before.pois);
 			}
-
-			const axe = await new AxeBuilder({ page })
-				.include('[role="application"]')
-				.withRules(['target-size'])
-				.analyze();
-			const checked = axe.passes.find((rule) => rule.id === 'target-size')?.nodes.length ?? 0;
-			expect(checked, 'axe measured the map markers').toBeGreaterThanOrEqual(4);
-			expect(
-				axe.violations.flatMap((v) => v.nodes.map((node) => node.target.join(' '))),
-				'no target-size violation on the seeded map',
-			).toEqual([]);
 		});
 
 		// RC-ENG-8.3 D4-2 — the token fix's mirror image: a token's wrapper and label sat over Broken
