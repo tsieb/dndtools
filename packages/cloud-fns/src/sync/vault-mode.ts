@@ -25,7 +25,13 @@ import {
 	isVaultPrivacyMode,
 	type RegisteredVaultPrivacyMode,
 } from '@dndtools/core';
-import { batchDeleteItems, getItem, putItemConditional } from '../lib/aws.ts';
+import { getItem, transactQuotaWrite } from '../lib/aws.ts';
+import {
+	ensureVaultUsage,
+	VaultUsageConflict,
+	MAX_VAULT_CIPHERTEXT_BYTES,
+	MAX_VAULT_OPERATIONS,
+} from './vault-usage.ts';
 
 const SYNC_OPS_TABLE = process.env.SYNC_OPS_TABLE!;
 
@@ -138,8 +144,13 @@ export async function readVaultModeRegistration(owner: VaultOwner): Promise<Vaul
 		console.error('vault mode read failed closed', { sub: owner.sub.slice(0, 8), err });
 		throw new VaultModeUnavailable('vault mode registration could not be read');
 	}
-	if (!row) return { ...UNREGISTERED };
-	return parseRegistration(row, owner);
+	const registration = row ? parseRegistration(row, owner) : { ...UNREGISTERED };
+	// Read the fence AFTER the registration: a purge that removed a row we just read must
+	// invalidate it. Even a leftover row from an interrupted/older writer cannot grant consent.
+	const usage = await readVaultUsage(owner);
+	if (usage && usage.state !== 'active') return { ...UNREGISTERED };
+	if (row && !usage) throw new VaultModeUnavailable('vault mode has no active usage marker');
+	return registration;
 }
 
 /**
@@ -220,7 +231,7 @@ function parseConsentRequest(body: string | undefined): {
 	return { mode: 'private-e2ee' };
 }
 
-async function vaultAcceptsWrites(owner: VaultOwner): Promise<boolean> {
+async function readVaultUsage(owner: VaultOwner): Promise<Record<string, string> | undefined> {
 	let usage: Record<string, string> | undefined;
 	try {
 		usage = await getItem(SYNC_OPS_TABLE, { vaultId: partitionKey(owner), sk: USAGE_SK }, true);
@@ -228,8 +239,10 @@ async function vaultAcceptsWrites(owner: VaultOwner): Promise<boolean> {
 		console.error('vault mode purge-state read failed closed', { sub: owner.sub.slice(0, 8), err });
 		throw new VaultModeUnavailable('vault state could not be read');
 	}
-	// No usage row: the vault never stored ciphertext, so no purge can be running.
-	return !usage || usage.state === 'active';
+	if (usage && !['active', 'deleting', 'deleted'].includes(usage.state)) {
+		throw new VaultModeUnavailable('vault state is malformed');
+	}
+	return usage;
 }
 
 /**
@@ -243,6 +256,14 @@ export async function recordVaultModeConsent(
 ): Promise<VaultModeRegistration> {
 	const request = parseConsentRequest(body);
 	const current = await readVaultModeRegistration(owner);
+	// Share ciphertext's conditional initializer so an absent marker is fenced without
+	// resetting legacy quota counters or overwriting a concurrently installed tombstone.
+	try {
+		await ensureVaultUsage(partitionKey(owner));
+	} catch (err) {
+		if (err instanceof VaultUsageConflict) throw new VaultModeConflict(err.message);
+		throw new VaultModeUnavailable('vault state could not be initialized');
+	}
 	if (
 		current.registered &&
 		current.mode === request.mode &&
@@ -250,40 +271,44 @@ export async function recordVaultModeConsent(
 	) {
 		return current; // replay: keep the original consent time
 	}
-	const purging = 'This cloud backup is being removed and cannot record a storage mode.';
-	if (!(await vaultAcceptsWrites(owner))) throw new VaultModeConflict(purging);
 	const key = registrationKey(owner);
 	const consentedAt = new Date().toISOString();
 	const generation = current.generation + 1;
-	const written = await putItemConditional(
-		SYNC_OPS_TABLE,
-		{
-			...key,
-			ownerSub: owner.sub,
-			mode: request.mode,
-			consentVersion: request.consentVersion,
-			consentedAt,
-			generation,
-			schemaVersion: Number(REGISTRATION_SCHEMA_VERSION),
-			updatedAt: consentedAt,
-		},
-		current.registered
-			? {
-					expression: '#generation = :generation AND #owner = :owner',
-					names: { '#generation': 'generation', '#owner': 'ownerSub' },
-					values: { ':generation': current.generation, ':owner': owner.sub },
-				}
-			: { expression: 'attribute_not_exists(#vault)', names: { '#vault': 'vaultId' } },
-	);
-	if (!written) {
+	const written = await transactQuotaWrite(SYNC_OPS_TABLE, {
+		usageKey: { vaultId: partitionKey(owner), sk: USAGE_SK },
+		// Zero deltas serialize consent against deletion without consuming ciphertext quota.
+		byteDelta: 0,
+		operationDelta: 0,
+		maxBytes: MAX_VAULT_CIPHERTEXT_BYTES,
+		maxOperations: MAX_VAULT_OPERATIONS,
+		items: [
+			{
+				item: {
+					...key,
+					ownerSub: owner.sub,
+					mode: request.mode,
+					consentVersion: request.consentVersion,
+					consentedAt,
+					generation,
+					schemaVersion: Number(REGISTRATION_SCHEMA_VERSION),
+					updatedAt: consentedAt,
+				},
+				condition: current.registered
+					? {
+							expression: '#generation = :generation AND #owner = :owner',
+							names: { '#generation': 'generation', '#owner': 'ownerSub' },
+							values: { ':generation': current.generation, ':owner': owner.sub },
+						}
+					: { expression: 'attribute_not_exists(#vault)', names: { '#vault': 'vaultId' } },
+			},
+		],
+	});
+	if (written !== 'written') {
 		throw new VaultModeConflict('The storage mode changed on another device. Try again.');
 	}
-	// Account purge writes its marker before it lists rows. Re-reading after our write means either
-	// the purge listing sees this row, or this check sees the marker and removes the row itself.
-	if (!(await vaultAcceptsWrites(owner))) {
-		await batchDeleteItems(SYNC_OPS_TABLE, [key]);
-		throw new VaultModeConflict(purging);
-	}
+	// No compensating delete or post-write read is needed: either this transaction commits
+	// before the purge marker (and purge lists the row), or the active-state condition fails.
+	// A lost response or process interruption cannot leave consent behind a completed purge.
 	return {
 		mode: request.mode,
 		registered: true,

@@ -19,22 +19,16 @@ const fake = vi.hoisted(() => ({
 	reads: [] as Array<{ table: string; key: Record<string, string>; consistent: boolean }>,
 	beforeWrite: undefined as undefined | (() => void),
 	afterWrite: undefined as undefined | (() => void),
+	beforeInitialize: undefined as undefined | (() => void),
 }));
 
-vi.mock('../lib/aws.ts', () => ({
-	getItem: async (table: string, key: Record<string, string>, consistent = false) => {
-		fake.reads.push({ table, key, consistent });
-		if (key.sk === 'usage#quota' && fake.usageReadFails) throw new Error('simulated usage outage');
-		if (key.sk === 'mode#registration' && fake.readFails) throw new Error('simulated outage');
-		const row = fake.items.get(`${key.vaultId}|${key.sk}`);
-		return row ? { ...row } : undefined;
-	},
-	putItemConditional: async (
+vi.mock('../lib/aws.ts', () => {
+	const put = async (
 		_table: string,
 		obj: Record<string, string | number | undefined>,
 		condition: { expression: string; values?: Record<string, string | number> },
 	) => {
-		fake.beforeWrite?.();
+		if (obj.sk === 'usage#quota') fake.beforeInitialize?.();
 		if (fake.writeFails) throw new Error('simulated write outage');
 		const key = `${obj.vaultId}|${obj.sk}`;
 		const existing = fake.items.get(key);
@@ -56,13 +50,34 @@ vi.mock('../lib/aws.ts', () => ({
 			if (value !== undefined) row[name] = String(value);
 		}
 		fake.items.set(key, row);
-		fake.afterWrite?.();
 		return true;
-	},
-	batchDeleteItems: async (_table: string, keys: Array<Record<string, string>>) => {
-		for (const key of keys) fake.items.delete(`${key.vaultId}|${key.sk}`);
-	},
-}));
+	};
+	return {
+		getItem: async (table: string, key: Record<string, string>, consistent = false) => {
+			fake.reads.push({ table, key, consistent });
+			if (key.sk === 'usage#quota' && fake.usageReadFails)
+				throw new Error('simulated usage outage');
+			if (key.sk === 'mode#registration' && fake.readFails) throw new Error('simulated outage');
+			const row = fake.items.get(`${key.vaultId}|${key.sk}`);
+			return row ? { ...row } : undefined;
+		},
+		putItemConditional: put,
+		queryPartition: async (_table: string, pk: { value: string }) =>
+			[...fake.items.values()].filter((row) => row.vaultId === pk.value),
+		transactQuotaWrite: async (_table: string, write: import('../lib/aws.ts').QuotaWrite) => {
+			fake.beforeWrite?.();
+			const usage = fake.items.get(`${write.usageKey.vaultId}|${write.usageKey.sk}`);
+			if (!usage || usage.state !== 'active') return 'quota-exceeded';
+			const { item, condition } = write.items[0]!;
+			if (!(await put(_table, item, condition))) return 'item-conflict';
+			fake.afterWrite?.();
+			return 'written';
+		},
+		batchDeleteItems: async (_table: string, keys: Array<Record<string, string>>) => {
+			for (const key of keys) fake.items.delete(`${key.vaultId}|${key.sk}`);
+		},
+	};
+});
 
 const gate = vi.hoisted(() => ({ approved: false }));
 vi.mock('@dndtools/core', async (importOriginal) => {
@@ -108,6 +123,7 @@ beforeEach(() => {
 	fake.writeFails = false;
 	fake.beforeWrite = undefined;
 	fake.afterWrite = undefined;
+	fake.beforeInitialize = undefined;
 	gate.approved = false;
 	vi.mocked(core.isPlaintextUploadPermitted).mockClear();
 });
@@ -140,6 +156,7 @@ describe('an absent registration reads as Private', () => {
 				key: { vaultId: 'alice-sub#primary', sk: MODE_REGISTRATION_SK },
 				consistent: true,
 			},
+			{ table: 'ops', key: { vaultId: 'alice-sub#primary', sk: 'usage#quota' }, consistent: true },
 		]);
 	});
 });
@@ -327,23 +344,104 @@ describe('consent writes', () => {
 	});
 
 	it('does not record a mode on a vault that is being purged', async () => {
-		fake.items.set('alice-sub#primary|usage#quota', { state: 'deleting' });
+		fake.items.set('alice-sub#primary|usage#quota', {
+			state: 'deleting',
+			storedBytes: '0',
+			operationCount: '0',
+		});
 		await expect(recordVaultModeConsent(alice, enhanced)).rejects.toBeInstanceOf(VaultModeConflict);
 		expect(fake.items.has(rowKey(alice))).toBe(false);
 	});
 
-	it('removes its own row when a purge starts between the write and the re-check', async () => {
-		fake.afterWrite = () => {
-			fake.afterWrite = undefined;
-			fake.items.set('alice-sub#primary|usage#quota', { state: 'deleting' });
+	it.each(['deleting', 'deleted'])(
+		'never honors leftover consent behind a %s marker',
+		async (state) => {
+			await recordVaultModeConsent(alice, enhanced);
+			fake.items.set('alice-sub#primary|usage#quota', {
+				state,
+				storedBytes: '0',
+				operationCount: '0',
+			});
+			expect(await readVaultModeRegistration(alice)).toMatchObject({
+				mode: 'private-e2ee',
+				registered: false,
+			});
+			await expect(recordVaultModeConsent(alice, enhanced)).rejects.toBeInstanceOf(
+				VaultModeConflict,
+			);
+			gate.approved = true;
+			await expect(requireServerReadableVault(alice)).rejects.toBeInstanceOf(ServerReadableRefused);
+		},
+	);
+
+	it('cannot resurrect consent when deletion completes before commit and later reads fail', async () => {
+		fake.beforeWrite = () => {
+			fake.items.set('alice-sub#primary|usage#quota', {
+				state: 'deleted',
+				storedBytes: '0',
+				operationCount: '0',
+			});
+			fake.items.delete(rowKey(alice));
+			fake.usageReadFails = true;
 		};
 		await expect(recordVaultModeConsent(alice, enhanced)).rejects.toBeInstanceOf(VaultModeConflict);
 		expect(fake.items.has(rowKey(alice))).toBe(false);
+		fake.usageReadFails = false;
+		expect(await readVaultModeRegistration(alice)).toMatchObject({ registered: false });
 	});
+
+	it('cannot initialize over a tombstone installed while the marker was absent', async () => {
+		fake.beforeInitialize = () => {
+			fake.items.set('alice-sub#primary|usage#quota', {
+				state: 'deleted',
+				storedBytes: '0',
+				operationCount: '0',
+			});
+		};
+		await expect(recordVaultModeConsent(alice, enhanced)).rejects.toBeInstanceOf(VaultModeConflict);
+		expect(fake.items.has(rowKey(alice))).toBe(false);
+		expect(fake.items.get('alice-sub#primary|usage#quota')?.state).toBe('deleted');
+	});
+
+	it('needs no writer cleanup if the process stops after commit and purge completes', async () => {
+		fake.afterWrite = () => {
+			fake.items.set('alice-sub#primary|usage#quota', {
+				state: 'deleted',
+				storedBytes: '0',
+				operationCount: '0',
+			});
+			fake.items.delete(rowKey(alice));
+			throw new Error('process interrupted after commit');
+		};
+		await expect(recordVaultModeConsent(alice, enhanced)).rejects.toThrow('process interrupted');
+		expect(fake.items.has(rowKey(alice))).toBe(false);
+		expect(await readVaultModeRegistration(alice)).toMatchObject({ registered: false });
+	});
+
+	it('refuses reads and replay when the usage read fails for an existing consent', async () => {
+		await recordVaultModeConsent(alice, enhanced);
+		fake.usageReadFails = true;
+		await expect(readVaultModeRegistration(alice)).rejects.toBeInstanceOf(VaultModeUnavailable);
+		await expect(recordVaultModeConsent(alice, enhanced)).rejects.toBeInstanceOf(
+			VaultModeUnavailable,
+		);
+	});
+
+	it.each([undefined, 'unknown'])(
+		'refuses a missing or malformed active fence (%s)',
+		async (state) => {
+			await recordVaultModeConsent(alice, enhanced);
+			if (state) fake.items.set('alice-sub#primary|usage#quota', { state });
+			else fake.items.delete('alice-sub#primary|usage#quota');
+			await expect(readVaultModeRegistration(alice)).rejects.toBeInstanceOf(VaultModeUnavailable);
+		},
+	);
 
 	it('surfaces a storage write failure without inventing a registration', async () => {
 		fake.writeFails = true;
-		await expect(recordVaultModeConsent(alice, enhanced)).rejects.toThrow('simulated write outage');
+		await expect(recordVaultModeConsent(alice, enhanced)).rejects.toBeInstanceOf(
+			VaultModeUnavailable,
+		);
 		expect(await readVaultModeRegistration(alice)).toMatchObject({ registered: false });
 	});
 });
@@ -351,7 +449,7 @@ describe('consent writes', () => {
 describe('cross-tenant isolation of the registration store', () => {
 	it('scopes every row to the authenticated owner partition', async () => {
 		await recordVaultModeConsent(alice, enhanced);
-		expect([...fake.items.keys()]).toEqual([rowKey(alice)]);
+		expect([...fake.items.keys()].sort()).toEqual([rowKey(alice), 'alice-sub#primary|usage#quota']);
 	});
 
 	it("never lets one owner read another owner's registration", async () => {
@@ -390,7 +488,11 @@ describe('cross-tenant isolation of the registration store', () => {
 	});
 
 	it("does not let one owner's purge state block another owner's consent", async () => {
-		fake.items.set('alice-sub#primary|usage#quota', { state: 'deleted' });
+		fake.items.set('alice-sub#primary|usage#quota', {
+			state: 'deleted',
+			storedBytes: '0',
+			operationCount: '0',
+		});
 		await expect(recordVaultModeConsent(bob, enhanced)).resolves.toMatchObject({
 			mode: 'cloud-enhanced',
 		});

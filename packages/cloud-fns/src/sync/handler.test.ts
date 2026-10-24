@@ -27,6 +27,10 @@ const store = vi.hoisted(() => {
 		versions,
 		planReadFails: false,
 		modeReadFails: false,
+		usageReadFails: false,
+		beforeModeCommit: undefined as undefined | (() => Promise<void>),
+		afterModeCommit: undefined as undefined | (() => Promise<void>),
+		beforeUsageInitialize: undefined as undefined | (() => Promise<void>),
 		throwAfterNextQuotaCommit: false,
 		appReadConsistency: [] as boolean[],
 		snapshotReadConsistency: [] as boolean[],
@@ -54,6 +58,7 @@ vi.mock('../lib/aws.ts', () => ({
 			values?: Record<string, string | number>;
 		},
 	) => {
+		if (obj.sk === 'usage#quota' && obj.state === 'active') await store.beforeUsageInitialize?.();
 		const key = `${obj.vaultId}|${obj.sk}`;
 		const existing = store.items.get(key);
 		if (condition.expression === 'attribute_not_exists(#vault)' && existing) return false;
@@ -101,6 +106,8 @@ vi.mock('../lib/aws.ts', () => ({
 			}>;
 		},
 	) => {
+		const modeWrite = write.items.some(({ item }) => item.sk === 'mode#registration');
+		if (modeWrite) await store.beforeModeCommit?.();
 		const usageKey = `${write.usageKey.vaultId}|${write.usageKey.sk}`;
 		const usage = store.items.get(usageKey);
 		if (!usage || usage.state !== 'active') return 'quota-exceeded';
@@ -110,6 +117,12 @@ vi.mock('../lib/aws.ts', () => ({
 			const current = store.items.get(`${item.vaultId}|${item.sk}`);
 			if (condition.expression === 'attribute_not_exists(#vault)') return Boolean(current);
 			if (!current) return true;
+			if (condition.expression.includes('#generation = :generation')) {
+				return (
+					current.generation !== String(condition.values?.[':generation']) ||
+					current.ownerSub !== condition.values?.[':owner']
+				);
+			}
 			if (Number(current.revision) !== Number(condition.values?.[':expectedRevision'])) return true;
 			const expectedVersion = condition.values?.[':expectedVersion'];
 			return expectedVersion === undefined
@@ -119,9 +132,9 @@ vi.mock('../lib/aws.ts', () => ({
 		if (conflicts) return 'item-conflict';
 		if (
 			nextBytes < 0 ||
-			nextBytes > write.maxBytes ||
+			(write.byteDelta > 0 && nextBytes > write.maxBytes) ||
 			nextOperations < 0 ||
-			nextOperations > write.maxOperations
+			(write.operationDelta > 0 && nextOperations > write.maxOperations)
 		) {
 			return 'quota-exceeded';
 		}
@@ -137,6 +150,7 @@ vi.mock('../lib/aws.ts', () => ({
 			}
 			store.items.set(`${item.vaultId}|${item.sk}`, row);
 		}
+		if (modeWrite) await store.afterModeCommit?.();
 		if (store.throwAfterNextQuotaCommit) {
 			store.throwAfterNextQuotaCommit = false;
 			throw new Error('simulated lost transaction response');
@@ -149,6 +163,7 @@ vi.mock('../lib/aws.ts', () => ({
 			store.snapshotReadConsistency.push(consistentRead);
 		}
 		if (table === 'app' && store.planReadFails) throw new Error('simulated entitlement outage');
+		if (key.sk === 'usage#quota' && store.usageReadFails) throw new Error('simulated usage outage');
 		if (key.sk === 'mode#registration' && store.modeReadFails) {
 			throw new Error('simulated mode registration outage');
 		}
@@ -346,6 +361,10 @@ beforeEach(() => {
 	store.resetVersions();
 	store.planReadFails = false;
 	store.modeReadFails = false;
+	store.usageReadFails = false;
+	store.beforeModeCommit = undefined;
+	store.afterModeCommit = undefined;
+	store.beforeUsageInitialize = undefined;
 	store.throwAfterNextQuotaCommit = false;
 	store.appReadConsistency.length = 0;
 	store.snapshotReadConsistency.length = 0;
@@ -1335,6 +1354,84 @@ describe('sync-api handler — vault mode authority', () => {
 		expect(registration('user-2')).toMatchObject({ mode: 'private-e2ee', ownerSub: 'user-2' });
 		const mine = await call(event('GET /vaults/{vaultId}/mode', { sub: 'user-1' }));
 		expect(JSON.parse(mine.body)).toMatchObject({ mode: 'cloud-enhanced' });
+	});
+
+	it.each(['before initialization', 'before commit', 'after commit'])(
+		'serializes consent with completed DELETE %s even when the writer loses its response',
+		async (timing) => {
+			const purge = async () => {
+				const deleted = await call(event('DELETE /vaults/{vaultId}'));
+				expect(deleted.statusCode).toBe(200);
+				expect(JSON.parse(deleted.body).hasMore).toBe(false);
+				expect(store.items.get('user-1#primary|usage#quota')?.state).toBe('deleted');
+				// Reproduce the reviewer's post-write read outage; no cleanup read can succeed.
+				store.usageReadFails = true;
+				if (timing === 'after commit') throw new Error('writer process interrupted after commit');
+			};
+			if (timing === 'before initialization') store.beforeUsageInitialize = purge;
+			if (timing === 'before commit') store.beforeModeCommit = purge;
+			if (timing === 'after commit') store.afterModeCommit = purge;
+			const result = await call(event('PUT /vaults/{vaultId}/mode', { body: consent }));
+			expect(result.statusCode).toBe(
+				timing === 'before commit' ? 409 : timing === 'after commit' ? 500 : 503,
+			);
+			expect(registration()).toBeUndefined();
+			store.usageReadFails = false;
+			const read = await call(event('GET /vaults/{vaultId}/mode'));
+			expect(read.statusCode).toBe(200);
+			expect(JSON.parse(read.body)).toMatchObject({ mode: 'private-e2ee', registered: false });
+			expect((await call(event('PUT /vaults/{vaultId}/mode', { body: consent }))).statusCode).toBe(
+				409,
+			);
+			expect(registration()).toBeUndefined();
+		},
+	);
+
+	it.each(['deleting', 'deleted'])(
+		'does not honor a leftover registration or replay on a %s vault',
+		async (state) => {
+			await call(event('PUT /vaults/{vaultId}/mode', { body: consent }));
+			const key = 'user-1#primary|usage#quota';
+			store.items.set(key, { ...store.items.get(key)!, state });
+			const read = await call(event('GET /vaults/{vaultId}/mode'));
+			expect(read.statusCode).toBe(200);
+			expect(JSON.parse(read.body)).toMatchObject({ mode: 'private-e2ee', registered: false });
+			expect((await call(event('PUT /vaults/{vaultId}/mode', { body: consent }))).statusCode).toBe(
+				409,
+			);
+		},
+	);
+
+	it('preserves legacy ciphertext accounting when consent initializes its fence', async () => {
+		await call(
+			event('POST /vaults/{vaultId}/operations', { body: { ops: [{ meta: goodMeta, envelope }] } }),
+		);
+		const key = 'user-1#primary|usage#quota';
+		const original = store.items.get(key)!;
+		store.items.delete(key); // pre-quota vault with existing ciphertext
+		expect((await call(event('PUT /vaults/{vaultId}/mode', { body: consent }))).statusCode).toBe(
+			200,
+		);
+		expect(store.items.get(key)).toMatchObject({
+			storedBytes: original.storedBytes,
+			operationCount: original.operationCount,
+			state: 'active',
+		});
+	});
+
+	it('does not consume quota or reject consent when legacy ciphertext exceeds the quota', async () => {
+		const key = 'user-1#primary|usage#quota';
+		store.items.set(key, {
+			vaultId: 'user-1#primary',
+			sk: 'usage#quota',
+			state: 'active',
+			storedBytes: '8192',
+			operationCount: '3',
+		});
+		expect((await call(event('PUT /vaults/{vaultId}/mode', { body: consent }))).statusCode).toBe(
+			200,
+		);
+		expect(store.items.get(key)).toMatchObject({ storedBytes: '8192', operationCount: '3' });
 	});
 
 	it('purges the registration with the vault and refuses consent while the purge holds', async () => {

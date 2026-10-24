@@ -57,3 +57,29 @@
   file belongs to RC-CLD-6.5.
 - The Copilot indexer's `authorize` port can now be backed by `readVaultModeRegistration`; the
   adapter is RC-CLD-6.4's.
+
+## Review repair (2026-10-24)
+
+- Starting candidate: `2eb324f1880872124979aa0b9874ac967ea0768e`. Review identified consent
+  resurrection when deletion finishes between the usage read and registration put, followed by a
+  failed post-write read. The previous compensating-delete design is replaced.
+- Consent now uses `transactQuotaWrite` with zero deltas: the active usage-marker condition and
+  generation/owner-conditional registration put commit atomically. Purge either follows the commit
+  and lists the registration, or wins the marker and prevents the registration write. No cleanup
+  read or writer continuation is required for deletion integrity.
+- Extracted the existing quota initializer into `sync/vault-usage.ts`, shared with ciphertext
+  writes. It conditionally creates absent markers, preserves legacy accounting, and cannot replace
+  a deletion marker. Reads consult the usage marker after reading the registration; deleting/deleted
+  markers hide even leftover consent, missing/malformed fences and failed reads refuse. Replay
+  also checks the active marker before returning the original consent time.
+- Store and actual-handler regressions exercise deletion before initialization, before commit, and
+  after commit, including read outage, interrupted writer, tombstone replay, legacy quota counts,
+  quota-neutral consent, and tenant isolation. An SDK transport contract checks the real helper's
+  transaction shape and cancellation handling.
+- Validation of the repair: `pnpm test:cloud` passed 48 files / 644 tests; cloud-fns typecheck and
+  build passed; `eslint packages/cloud-fns/src/sync` passed. Original logs were read from
+  `/var/tmp/rc-cld-6.1-{cloud-tests,typecheck,lint,build}.log` and each process exited 0.
+  Changed-file Prettier check and `git diff --check` passed. The existing template already grants
+  `dynamodb:TransactWriteItems` on SyncOpsTable, so no infrastructure edit is needed.
+- These are local implementation checks. The central operator still owns wrapper gates and
+  independent review; no push, promotion, additional loop, agents, or dispatcher-state changes.
