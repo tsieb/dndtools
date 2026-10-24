@@ -26,6 +26,7 @@ const store = vi.hoisted(() => {
 		objects,
 		versions,
 		planReadFails: false,
+		modeReadFails: false,
 		throwAfterNextQuotaCommit: false,
 		appReadConsistency: [] as boolean[],
 		snapshotReadConsistency: [] as boolean[],
@@ -47,7 +48,7 @@ const store = vi.hoisted(() => {
 vi.mock('../lib/aws.ts', () => ({
 	putItemConditional: async (
 		_table: string,
-		obj: Record<string, string | number>,
+		obj: Record<string, string | number | undefined>,
 		condition: {
 			expression: string;
 			values?: Record<string, string | number>;
@@ -71,8 +72,18 @@ vi.mock('../lib/aws.ts', () => ({
 		if (condition.expression.includes('#state = :deleting')) {
 			if (!existing || !['deleting', 'deleted'].includes(existing.state)) return false;
 		}
+		if (condition.expression.includes('#generation = :generation')) {
+			if (
+				!existing ||
+				existing.generation !== String(condition.values?.[':generation']) ||
+				existing.ownerSub !== condition.values?.[':owner']
+			) {
+				return false;
+			}
+		}
 		const row: Record<string, string> = {};
-		for (const [k, v] of Object.entries(obj)) row[k] = String(v);
+		// Like the real toItem: undefined attributes are omitted, never stored as "undefined".
+		for (const [k, v] of Object.entries(obj)) if (v !== undefined) row[k] = String(v);
 		store.items.set(key, row);
 		return true;
 	},
@@ -138,6 +149,9 @@ vi.mock('../lib/aws.ts', () => ({
 			store.snapshotReadConsistency.push(consistentRead);
 		}
 		if (table === 'app' && store.planReadFails) throw new Error('simulated entitlement outage');
+		if (key.sk === 'mode#registration' && store.modeReadFails) {
+			throw new Error('simulated mode registration outage');
+		}
 		return store.items.get(`${key.vaultId ?? key.pk}|${key.sk}`);
 	},
 	queryPartition: async (
@@ -277,18 +291,28 @@ function envelopeWithSize(size: number, fill: number) {
 
 function event(
 	routeKey: string,
-	opts: { vaultId?: string; sub?: string; body?: unknown; since?: string } = {},
+	opts: {
+		vaultId?: string;
+		sub?: string;
+		body?: unknown;
+		since?: string;
+		headers?: Record<string, string>;
+		query?: Record<string, string>;
+		claims?: Record<string, string>;
+	} = {},
 ) {
 	const [method, rawPath] = routeKey.split(' ');
+	const query = { ...(opts.since !== undefined ? { since: opts.since } : {}), ...opts.query };
 	return {
 		routeKey,
 		rawPath,
+		headers: opts.headers ?? {},
 		requestContext: {
 			http: { method },
-			authorizer: { jwt: { claims: { sub: opts.sub ?? 'user-1' } } },
+			authorizer: { jwt: { claims: { ...opts.claims, sub: opts.sub ?? 'user-1' } } },
 		},
 		pathParameters: { vaultId: opts.vaultId ?? 'primary' },
-		queryStringParameters: opts.since !== undefined ? { since: opts.since } : undefined,
+		queryStringParameters: Object.keys(query).length > 0 ? query : undefined,
 		body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
 	} as unknown as APIGatewayProxyEventV2;
 }
@@ -321,6 +345,7 @@ beforeEach(() => {
 	store.versions.clear();
 	store.resetVersions();
 	store.planReadFails = false;
+	store.modeReadFails = false;
 	store.throwAfterNextQuotaCommit = false;
 	store.appReadConsistency.length = 0;
 	store.snapshotReadConsistency.length = 0;
@@ -1164,5 +1189,164 @@ describe('sync-api handler — E2EE cloud store', () => {
 			event('GET /vaults/{vaultId}/operations', { sub: 'user-2', since: '-1' }),
 		);
 		expect(JSON.parse(pull.body).ops).toHaveLength(0);
+	});
+});
+
+// RC-CLD-6.1 — the route contract of the server-side vault-mode authority (./vault-mode.ts).
+describe('sync-api handler — vault mode authority', () => {
+	const consent = { mode: 'cloud-enhanced', consentVersion: 'ADR-042-phase-1' };
+	const registration = (sub = 'user-1') => store.items.get(`${sub}#primary|mode#registration`);
+
+	it('reads an absent registration as Private', async () => {
+		const res = await call(event('GET /vaults/{vaultId}/mode'));
+		expect(res.statusCode).toBe(200);
+		expect(JSON.parse(res.body)).toEqual({
+			mode: 'private-e2ee',
+			registered: false,
+			serverReadable: false,
+		});
+	});
+
+	it('ignores a mode claimed in headers, the query string or token claims', async () => {
+		const res = await call(
+			event('GET /vaults/{vaultId}/mode', {
+				headers: {
+					'x-dndtools-vault-mode': 'cloud-enhanced',
+					'x-vault-privacy-mode': 'cloud-enhanced',
+				},
+				query: { mode: 'cloud-enhanced', registeredMode: 'cloud-enhanced' },
+				claims: { 'custom:vault_mode': 'cloud-enhanced', vaultMode: 'cloud-enhanced' },
+			}),
+		);
+		expect(JSON.parse(res.body)).toMatchObject({ mode: 'private-e2ee', registered: false });
+		expect(registration()).toBeUndefined();
+	});
+
+	it('records consent against the authenticated owner and still keeps the server out', async () => {
+		const put = await call(event('PUT /vaults/{vaultId}/mode', { body: consent }));
+		expect(put.statusCode).toBe(200);
+		expect(JSON.parse(put.body)).toMatchObject({
+			mode: 'cloud-enhanced',
+			registered: true,
+			consentVersion: 'ADR-042-phase-1',
+			// The shipped Cloud-Enhanced record is unapproved, so registration opens nothing.
+			serverReadable: false,
+		});
+		expect(registration()).toMatchObject({
+			ownerSub: 'user-1',
+			mode: 'cloud-enhanced',
+			generation: '1',
+		});
+		const get = await call(event('GET /vaults/{vaultId}/mode'));
+		expect(JSON.parse(get.body)).toMatchObject({ mode: 'cloud-enhanced', serverReadable: false });
+		expect(JSON.parse(get.body)).not.toHaveProperty('generation');
+	});
+
+	it('rejects a consent body that tries to set server-owned fields', async () => {
+		for (const body of [
+			{ ...consent, ownerSub: 'user-2' },
+			{ ...consent, generation: 7 },
+			{ ...consent, serverReadable: true },
+			{ mode: 'cloud-enhanced' },
+		]) {
+			const res = await call(event('PUT /vaults/{vaultId}/mode', { body }));
+			expect(res.statusCode).toBe(400);
+		}
+		expect(registration()).toBeUndefined();
+	});
+
+	it('refuses with 503, not a default, when the registration cannot be read', async () => {
+		await call(event('PUT /vaults/{vaultId}/mode', { body: consent }));
+		store.modeReadFails = true;
+		const get = await call(event('GET /vaults/{vaultId}/mode'));
+		expect(get.statusCode).toBe(503);
+		expect(JSON.parse(get.body)).not.toHaveProperty('mode');
+		const put = await call(event('PUT /vaults/{vaultId}/mode', { body: { mode: 'private-e2ee' } }));
+		expect(put.statusCode).toBe(503);
+		store.modeReadFails = false;
+		expect(registration()).toMatchObject({ mode: 'cloud-enhanced', generation: '1' });
+	});
+
+	it('refuses with 503 when the stored registration is malformed', async () => {
+		await call(event('PUT /vaults/{vaultId}/mode', { body: consent }));
+		store.items.set('user-1#primary|mode#registration', { ...registration()!, mode: 'plaintext' });
+		expect((await call(event('GET /vaults/{vaultId}/mode'))).statusCode).toBe(503);
+	});
+
+	it('rejects a mode smuggled into the ciphertext routes', async () => {
+		const push = await call(
+			event('POST /vaults/{vaultId}/operations', {
+				body: { ops: [{ meta: goodMeta, envelope }], mode: 'cloud-enhanced' },
+			}),
+		);
+		expect(push.statusCode).toBe(400);
+		const snapshot = await call(
+			event('PUT /vaults/{vaultId}/snapshot', {
+				body: { meta: { ...goodMeta, participantId: undefined }, envelope, mode: 'cloud-enhanced' },
+			}),
+		);
+		expect(snapshot.statusCode).toBe(400);
+		expect(registration()).toBeUndefined();
+		expect(store.objects.size).toBe(0);
+	});
+
+	it('requires the cloud plan for both mode routes', async () => {
+		store.items.delete('account#user-1|entitlement');
+		expect((await call(event('GET /vaults/{vaultId}/mode'))).statusCode).toBe(403);
+		expect((await call(event('PUT /vaults/{vaultId}/mode', { body: consent }))).statusCode).toBe(
+			403,
+		);
+		expect(registration()).toBeUndefined();
+	});
+
+	it('answers 409 when another device changed the mode first', async () => {
+		await call(event('PUT /vaults/{vaultId}/mode', { body: { mode: 'private-e2ee' } }));
+		const original = store.items.get.bind(store.items);
+		let raced = false;
+		store.items.get = (key: string) => {
+			const row = original(key);
+			if (!raced && key === 'user-1#primary|usage#quota') {
+				// The registration was read; another device commits before this write lands.
+				raced = true;
+				store.items.set('user-1#primary|mode#registration', {
+					...registration()!,
+					generation: '2',
+				});
+			}
+			return row;
+		};
+		try {
+			const res = await call(event('PUT /vaults/{vaultId}/mode', { body: consent }));
+			expect(res.statusCode).toBe(409);
+		} finally {
+			store.items.get = original;
+		}
+		expect(registration()).toMatchObject({ mode: 'private-e2ee', generation: '2' });
+	});
+
+	it("isolates registrations by sub: one owner's consent is invisible to and unchangeable by another", async () => {
+		await call(event('PUT /vaults/{vaultId}/mode', { sub: 'user-1', body: consent }));
+		const other = await call(event('GET /vaults/{vaultId}/mode', { sub: 'user-2' }));
+		expect(JSON.parse(other.body)).toMatchObject({ mode: 'private-e2ee', registered: false });
+		await call(
+			event('PUT /vaults/{vaultId}/mode', { sub: 'user-2', body: { mode: 'private-e2ee' } }),
+		);
+		expect(registration('user-1')).toMatchObject({ mode: 'cloud-enhanced', generation: '1' });
+		expect(registration('user-2')).toMatchObject({ mode: 'private-e2ee', ownerSub: 'user-2' });
+		const mine = await call(event('GET /vaults/{vaultId}/mode', { sub: 'user-1' }));
+		expect(JSON.parse(mine.body)).toMatchObject({ mode: 'cloud-enhanced' });
+	});
+
+	it('purges the registration with the vault and refuses consent while the purge holds', async () => {
+		await call(event('PUT /vaults/{vaultId}/mode', { sub: 'user-1', body: consent }));
+		await call(event('PUT /vaults/{vaultId}/mode', { sub: 'user-2', body: consent }));
+		expect((await call(event('DELETE /vaults/{vaultId}', { sub: 'user-1' }))).statusCode).toBe(200);
+		expect(registration('user-1')).toBeUndefined();
+		expect(registration('user-2')).toMatchObject({ mode: 'cloud-enhanced' });
+		const again = await call(event('PUT /vaults/{vaultId}/mode', { sub: 'user-1', body: consent }));
+		expect(again.statusCode).toBe(409);
+		expect(registration('user-1')).toBeUndefined();
+		const read = await call(event('GET /vaults/{vaultId}/mode', { sub: 'user-1' }));
+		expect(JSON.parse(read.body)).toMatchObject({ mode: 'private-e2ee', registered: false });
 	});
 });

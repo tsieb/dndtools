@@ -126,8 +126,11 @@ Resources:
   # uses sk = "snapshot#latest". The client-assigned monotonic `revision` is the
   # deterministic sort key. A `usage#quota` row atomically accounts accepted ciphertext
   # bytes + operation count and carries an active/deleting/deleted state that serializes
-  # account purge against writes. Rows carry ONLY allowed server-visible metadata and
-  # internal S3/accounting pointers — never decrypted operation content.
+  # account purge against writes. A `mode#registration` row is the SERVER authority on the
+  # vault's privacy mode (RC-CLD-6.1, ADR-026 phase 2): written against the authenticated owner
+  # when consent is given, read strongly consistent, purged with the vault; no row = Private.
+  # Rows carry ONLY allowed server-visible metadata, internal S3/accounting pointers and that
+  # mode registration — never decrypted operation content.
   SyncOpsTable:
     Type: AWS::DynamoDB::Table
     # Snapshot pointers, operation indexes, and purge proofs must remain paired with
@@ -360,6 +363,20 @@ Resources:
             ApiId: !Ref SyncHttpApi
             Method: DELETE
             Path: /vaults/{vaultId}
+        # The vault-mode authority (RC-CLD-6.1). PUT records the owner's consent; GET reports
+        # what the server will honour. Neither opens a server-readable path on its own.
+        GetVaultMode:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SyncHttpApi
+            Method: GET
+            Path: /vaults/{vaultId}/mode
+        PutVaultMode:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SyncHttpApi
+            Method: PUT
+            Path: /vaults/{vaultId}/mode
 
   SyncFunctionErrorsAlarm:
     Type: AWS::CloudWatch::Alarm

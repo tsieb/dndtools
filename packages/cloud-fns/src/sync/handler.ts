@@ -14,6 +14,12 @@
 //
 // Tenant isolation: every key is namespaced by the authenticated Cognito `sub`, so a
 // user can only ever read/write their own vaults regardless of the vaultId they pass.
+//
+// Vault privacy mode (RC-CLD-6.1): the server, not the device, is the authority. `GET`/`PUT
+// /vaults/{vaultId}/mode` read and record the owner's consent through ./vault-mode.ts, and any
+// route that would let the server read content must pass its `requireServerReadableVault`. No route
+// here takes a mode from headers, query strings or token claims, and the ciphertext routes reject a
+// body that names one.
 import { createHash } from 'node:crypto';
 import type { APIGatewayProxyHandlerV2 } from 'aws-lambda';
 import {
@@ -38,6 +44,15 @@ import {
 	deleteObjectVersion,
 	deleteObjectVersionsPage,
 } from '../lib/s3.ts';
+import {
+	ServerReadableRefused,
+	VaultModeConflict,
+	VaultModeRequestInvalid,
+	VaultModeUnavailable,
+	describeRegistration,
+	readVaultModeRegistration,
+	recordVaultModeConsent,
+} from './vault-mode.ts';
 
 const SYNC_OPS_TABLE = process.env.SYNC_OPS_TABLE!;
 const CIPHERTEXT_BUCKET = process.env.CIPHERTEXT_BUCKET!;
@@ -377,6 +392,8 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 			'PUT /vaults/{vaultId}/snapshot',
 			'GET /vaults/{vaultId}/snapshot/latest',
 			'DELETE /vaults/{vaultId}',
+			'GET /vaults/{vaultId}/mode',
+			'PUT /vaults/{vaultId}/mode',
 		]);
 		if (!supportedRoutes.has(routeKey)) return json(404, { error: `unknown route ${routeKey}` });
 		// Account deletion must always be able to purge ciphertext, even after downgrade,
@@ -399,6 +416,13 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 		if (routeKey === 'DELETE /vaults/{vaultId}') {
 			return await deleteVault(pk, `${prefix}/`);
 		}
+		if (routeKey === 'GET /vaults/{vaultId}/mode') {
+			return json(200, describeRegistration(await readVaultModeRegistration({ sub, vaultId })));
+		}
+		if (routeKey === 'PUT /vaults/{vaultId}/mode') {
+			const registration = await recordVaultModeConsent({ sub, vaultId }, event.body);
+			return json(200, describeRegistration(registration));
+		}
 		return json(404, { error: `unknown route ${routeKey}` });
 	} catch (err) {
 		// Client-caused validation failures carry a safe message; anything else is an
@@ -409,6 +433,14 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 		if (err instanceof QuotaExceeded) return json(413, { error: err.message });
 		if (err instanceof PayloadTooLarge) return json(413, { error: err.message });
 		if (err instanceof SyntaxError) return json(400, { error: 'malformed request body' });
+		if (err instanceof VaultModeRequestInvalid) return json(400, { error: err.message });
+		if (err instanceof ServerReadableRefused) return json(403, { error: err.message });
+		if (err instanceof VaultModeConflict) return json(409, { error: err.message });
+		// A missing answer from the mode authority is a refusal, never a default mode.
+		if (err instanceof VaultModeUnavailable) {
+			console.error('sync-api vault mode unavailable', { routeKey, sub: sub.slice(0, 8), err });
+			return json(503, { error: 'The storage mode could not be confirmed. Try again.' });
+		}
 		console.error('sync-api error', { routeKey, sub: sub.slice(0, 8), err });
 		return json(500, { error: 'internal error' });
 	}
