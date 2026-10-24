@@ -1,6 +1,6 @@
 # RC-UX-5.5 — Navigation review before release
 
-Status: **Proposed; acceptance and merge pending.** Reviewed 2026-10-12 against repository
+Status: **Accepted 2026-10-24 (decider: owner, Engineering; UX and Accessibility consulted through this review); implementation follow-ups RC-ENG-15.1–15.4 gate RC-ENG-7.3.** Reviewed 2026-10-12 against repository
 commit `020cc6a07f3a2296d8cd032344010f37873782e4`. This is the decision proposal required by
 [RC_ROADMAP](RC_ROADMAP.md), §1.6 D6 and UX-5.5, following CAN-7.9. It does not authorize a
 navigation change. [NAVIGATION](../architecture/NAVIGATION.md) remains the implemented contract;
@@ -161,14 +161,14 @@ decider, consultation with UX/Accessibility, date, and this review's merged comm
 
 ## Acceptance record and ENG-7.3 release precondition
 
-| Required evidence                                                    | Status at this revision                                                                        |
-| -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Recommendation addresses every September finding                     | Covered above; proposed IA-1.                                                                  |
-| Engineering accepts decision, with UX/Accessibility consultation     | Pending; no acceptance inferred from authoring or committing this review.                      |
-| Review merged                                                        | Pending central review/integration; local commit is not merge evidence.                        |
-| ADR-013 amendment adopted                                            | Pending acceptance and an authorized ADR edit.                                                 |
-| ENG-7.3 explicitly lists accepted decision as a release precondition | Applied in RC_ROADMAP ENG-7.3 (text below); the precondition itself is unmet until acceptance. |
-| Implementation stories filed after acceptance                        | Pending; draft scopes below are not registered stories.                                        |
+| Required evidence                                                    | Status at this revision                                                                             |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Recommendation addresses every September finding                     | Covered above; proposed IA-1.                                                                       |
+| Engineering accepts decision, with UX/Accessibility consultation     | Accepted 2026-10-24 by the owner as Engineering decider; IA-1 (six sections) is the release target. |
+| Review merged                                                        | Merged on `loop/rc` in `3d8d8e96a` (proposal) with `2a9c1a81b` and `74efcfe28`.                     |
+| ADR-013 amendment adopted                                            | Adopted 2026-10-24 (owner-authorized edit); see ADR-013 Decision.                                   |
+| ENG-7.3 explicitly lists accepted decision as a release precondition | Applied in RC_ROADMAP ENG-7.3 (text below); the precondition itself is unmet until acceptance.      |
+| Implementation stories filed after acceptance                        | Filed as RC-ENG-15.1–15.4 in RC_ROADMAP; verification on the RC commit is ENG-7.3's to confirm.     |
 
 [RC_ROADMAP](RC_ROADMAP.md) RC-ENG-7.3 now carries this release precondition, added by this task
 after independent review cited the gap (claim widened to the ENG-7.3 bullet only):
@@ -186,7 +186,7 @@ Listing the precondition is not meeting it: the decision is still unaccepted, so
 blocked until the rows above marked Pending are recorded. Do not mark the review accepted to clear
 the gate.
 
-After acceptance, file these bounded stories through the roadmap owner with actual IDs and
+The decision is accepted; these bounded stories are filed as RC-ENG-15.1 (grouping), 15.2 (vocabulary), 15.3 (bookmarks) and 15.4 (evidence) through the roadmap owner with actual IDs and
 explicit Owns/Deps; all depend on the accepted decision, not just this document's existence:
 
 1. **Primary grouping and phone Screens access.** Own nav, shell, parent resolution and the new

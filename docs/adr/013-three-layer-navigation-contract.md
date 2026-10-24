@@ -1,8 +1,8 @@
 # ADR-013: Three-Layer Navigation Contract
 
 - Status: Accepted
-- Date: 2026-03-13 (evidence updated 2026-09-11)
-- Deciders: Engineering
+- Date: 2026-03-13 (amended 2026-10-24 by RC-UX-5.5 / IA-1; evidence updated 2026-09-11)
+- Deciders: Engineering (IA-1 amendment accepted by the owner, 2026-10-24; review merged in `3d8d8e96a`)
 - Consulted: UX, Accessibility
 - Supersedes: N/A
 
@@ -14,9 +14,13 @@ As the application grew from a simple note editor to a multi-section campaign to
 
 Adopt a three-layer navigation contract with lint enforcement:
 
-- **Global navigation**: Stable across routes, switches between 5–7 primary sections. Uses `aria-label="Primary"`. Must not include content actions.
+- **Global navigation**: Stable across routes, switches between 5–7 primary sections. Uses `aria-label="Primary"`. Must not include content actions. As amended by IA-1 (`docs/planning/IA_REVIEW.md`) there are six: Screens, Characters, Maps, Story, Notes and Tools. Their definitions and parent-route mappings live in `nav.ts`; AppShell alone renders them across desktop, rail and phone, and phone More changes presentation, not membership.
 - **Local navigation**: Section-scoped browse/filter within the active section. Uses `aria-label="<Section> navigation"`. Must not duplicate global switching. Swaps when section changes.
 - **Contextual navigation**: Content-adjacent links (breadcrumbs, backlinks, cross-links). Uses `aria-label="Breadcrumb"` or content-specific labels. Must not substitute for section switching.
+
+Settings and account access are secondary utilities. The Screens library is one primary section; default run screens and user-pinned screens are workspace shortcuts, not additional primary sections. Pins use a separate, uniquely labelled navigation region and preserve actor filtering, user ordering and a keyboard equivalent. New screen is a content action outside Primary.
+
+Every content route has one owning primary section. Cross-links may reach the same object from several contexts without duplicating its editing home. Local navigation uses the owning section's name; contextual links name their actual target. User-facing section names are Maps, Story and Notes regardless of their compatibility route names. System vocabulary supplies GM/DM wording; user-created screen names are preserved.
 
 Enforcement: every navigation landmark carries an `aria-label`; the axe gate (`a11y-axe-gate.spec.ts`, rule `landmark-unique`) and the responsive specs check it on every route, and `docs/architecture/NAVIGATION.md` records the layer rules.
 
@@ -47,6 +51,7 @@ Enforcement: every navigation landmark carries an `aria-label`; the axe gate (`a
 - All `<nav>` elements must have an `aria-label` matching the contract.
 - New sections must define their local navigation label format.
 - The navigation contract lives in `docs/architecture/NAVIGATION.md`.
+- IA-1 regroups the shell without changing routes or persisted data; legacy routes stay for RC-1 (RC-ENG-15.3).
 
 ## Rollback Plan
 
