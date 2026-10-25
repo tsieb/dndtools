@@ -257,16 +257,6 @@ export const en = {
 	'nav.sub.community': 'Browse · publish',
 	'nav.sub.pricing': 'Compare · preview',
 	'nav.sub.player': 'Your {characterLower} at the table',
-	// RC-ENG-15.1 — IA-1's sixth primary section and the Screens row's caption.
-	'nav.tools': 'Tools',
-	'nav.sub.tools': 'Audio, extensions & community',
-	'nav.sub.screens': 'Run screens, templates & pins',
-	'section.sub.tools': 'Audio, extensions and community, gathered in one place',
-	'tools.intro': 'Each tool keeps its own page and its own bookmarks; this page gathers them.',
-	'tools.open': 'Open {name}',
-	'tools.gated':
-		'More tools appear at the Standard experience level. Their bookmarks still open at any level.',
-	'tools.gatedAction': 'Change experience level',
 	'section.audio': 'Audio & atmosphere',
 	'section.extensibility': 'Extensions & systems',
 	'section.player': '{player}',
@@ -1244,12 +1234,6 @@ export const en = {
 	'shell.groupLibrary': 'Library',
 	'shell.groupMore': 'More · audio, graph & extensions',
 	'shell.groupRecentScenes': 'Recent scenes',
-	// RC-ENG-15.1 — IA-1: shortcuts and pins are their own labelled regions beside Primary.
-	'shell.navScreenShortcuts': 'Screen shortcuts',
-	'shell.navPinnedScreens': 'Pinned screens',
-	'shell.pinnedEmpty': 'Pin a screen in the library to keep it here.',
-	'shell.liveNow': 'Live now',
-	'shell.screensChooser': 'Open a screen',
 	// RC-UX-3.5 — the nav badge on a surface a usage signal just revealed (e.g. Graph at 3 links).
 	'shell.navSurfaceNew': 'New',
 	'shell.live': 'LIVE',
@@ -7599,6 +7583,22 @@ export const en = {
 	// RC-CAN-7.3 — the Screens library, the screen header and its switcher (ADR-041).
 	'nav.screens': 'Screens',
 	'section.sub.screens': 'Your workspaces for running the table — open, switch, pin and build them',
+	// RC-ENG-15.1 — IA-1's sixth primary section and the Screens row's caption.
+	'nav.tools': 'Tools',
+	'nav.sub.tools': 'Audio, extensions & community',
+	'nav.sub.screens': 'Run screens, templates & pins',
+	'section.sub.tools': 'Audio, extensions and community, gathered in one place',
+	'tools.intro': 'Each tool keeps its own page and its own bookmarks; this page gathers them.',
+	'tools.open': 'Open {name}',
+	'tools.gated':
+		'More tools appear at the Standard experience level. Their bookmarks still open at any level.',
+	'tools.gatedAction': 'Change experience level',
+	// RC-ENG-15.1 — IA-1: shortcuts and pins are their own labelled regions beside Primary.
+	'shell.navScreenShortcuts': 'Screen shortcuts',
+	'shell.navPinnedScreens': 'Pinned screens',
+	'shell.pinnedEmpty': 'Pin a screen in the library to keep it here.',
+	'shell.liveNow': 'Live now',
+	'shell.screensChooser': 'Open a screen',
 	'screens.title': 'Screens',
 	'screens.listLabel': 'Screens',
 	'screens.filters': 'Filter screens',
