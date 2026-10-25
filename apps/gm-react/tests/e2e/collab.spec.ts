@@ -180,11 +180,11 @@ test.describe('collab: the DM host panel', () => {
 		await markOnboarded(page);
 		await gotoRoute(page, '/');
 
-		// On a phone the top-bar control cluster collapses into the "Table controls" sheet (`TopBar.tsx`),
-		// so the host control only exists once that is open.
+		// Below 1440px the top-bar control cluster collapses into the "Table controls" sheet
+		// (`TopBar.tsx`), so the host control only exists once that is open.
 		const opener = page.getByRole('button', { name: 'Table controls' });
 		if ((await opener.count()) > 0) await opener.click();
-		await page.getByRole('button', { name: /Host a live table/ }).click();
+		await page.getByRole('button', { name: /^Host table/ }).click();
 		const dialog = page.getByRole('dialog', { name: 'Host a live table' });
 		await expect(dialog).toBeVisible();
 

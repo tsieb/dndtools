@@ -50,11 +50,11 @@ async function assignScenes(page: Page): Promise<{ mine: string; theirs: string 
 	return names;
 }
 
-/** The top bar's "Preview as" menu: inline from rail up, inside Table controls on a phone. */
+/** The top bar's "Preview as" menu: inline from 1440px, inside Table controls below that. */
 async function previewFromTopBar(page: Page, name: string): Promise<void> {
 	const tableControls = page.getByRole('button', { name: 'Table controls' });
 	if (await tableControls.isVisible()) await tableControls.click();
-	await page.getByRole('button', { name: 'Preview as another role' }).click();
+	await page.getByRole('button', { name: 'Preview as player' }).click();
 	await page.getByRole('menuitemradio', { name, exact: true }).click();
 }
 
@@ -100,7 +100,7 @@ test.describe('companion preview follows the previewed actor', () => {
 		const navigations = [...tree.matchAll(/- navigation "([^"]*)"/g)].map((m) => m[1]);
 		expect(navigations.length).toBeGreaterThan(0);
 		expect(new Set(navigations)).toEqual(new Set(['Player sections']));
-		expect(tree).not.toContain('Preview as another role');
+		expect(tree).not.toContain('Preview as player');
 
 		await openSheet(page);
 		const main = page.locator('#player-main');

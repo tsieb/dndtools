@@ -107,7 +107,7 @@ test('Atlas polish: editor overlays pass axe and return keyboard focus', async (
 			.getByRole('button', { name: 'Close', exact: true })
 			.click();
 	}
-	await page.getByRole('button', { name: 'Back to Atlas', exact: true }).click();
+	await page.getByRole('button', { name: 'Back to Maps', exact: true }).click();
 	await expect(editor).not.toBeVisible();
 	await expect(opener).toBeFocused();
 });
@@ -129,7 +129,7 @@ test('Atlas polish: unavailable deep link reports recovery; large text keeps con
 	await page.getByRole('button', { name: 'Open in map editor' }).click();
 	await page.getByRole('button', { name: 'Show list', exact: true }).click();
 	await expect(page.getByRole('button', { name: 'Show map', exact: true })).toBeVisible();
-	await page.getByRole('button', { name: 'Back to Atlas', exact: true }).click();
+	await page.getByRole('button', { name: 'Back to Maps', exact: true }).click();
 	await expect(page.getByRole('button', { name: 'New map', exact: true })).toBeVisible();
 });
 

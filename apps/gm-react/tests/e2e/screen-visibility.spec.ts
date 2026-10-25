@@ -35,11 +35,11 @@ async function createScreen(page: Page, name: string) {
 	return created!;
 }
 
-/** The top bar's "Preview as" menu: inline from rail up, inside Table controls on a phone. */
+/** The top bar's "Preview as" menu: inline from 1440px, inside Table controls below that. */
 async function previewAnyPlayer(page: Page) {
 	const tableControls = page.getByRole('button', { name: 'Table controls' });
 	if (await tableControls.isVisible()) await tableControls.click();
-	await page.getByRole('button', { name: 'Preview as another role' }).click();
+	await page.getByRole('button', { name: 'Preview as player' }).click();
 	await page.getByRole('menuitemradio', { name: 'Any player', exact: true }).click();
 }
 

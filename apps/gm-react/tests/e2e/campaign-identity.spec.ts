@@ -183,10 +183,10 @@ test('two party names added in Settings › Players become two player actors wit
 		before.length + 2,
 	);
 
-	// The "view as" switcher offers them as specific players (on a phone it sits in Table controls).
-	if (isPhone(page))
-		await page.getByRole('button', { name: 'Table controls', exact: true }).click();
-	await page.getByRole('button', { name: 'Preview as another role' }).first().click();
+	// The "view as" switcher offers them as specific players (below 1440px it sits in Table controls).
+	const tableControls = page.getByRole('button', { name: 'Table controls', exact: true });
+	if (await tableControls.isVisible()) await tableControls.click();
+	await page.getByRole('button', { name: 'Preview as player' }).first().click();
 	await expect(page.getByRole('menuitemradio', { name: 'Ada Quill' })).toBeVisible();
 	await expect(page.getByRole('menuitemradio', { name: 'Brannoc' })).toBeVisible();
 	await page.keyboard.press('Escape');

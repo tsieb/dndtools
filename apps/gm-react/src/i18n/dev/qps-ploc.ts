@@ -130,8 +130,7 @@ export default {
 	'mapEditor.detailsSheet': '[Ḿáƥ ďéţáíľš~~~~ ]',
 	'mapEditor.resizeHint':
 		'[Ďŕáğ ţĥé ŕéšížé ĥáñďľé óŕ úšé ţĥé áŕŕóŵ ķéýš. Ɓáçķ çľóšéš ţĥíš šĥééţ ƒíŕšţ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ]',
-	'mapEditor.unavailableHint':
-		'[Ŕéţúŕñ ţó ţĥé Áţľáš ţó çĥóóšé á ḿáƥ ýóú çáñ ṽíéŵ.~~~~ ~~~~ ~~~~ ~~~~ ]',
+	'mapEditor.unavailableHint': '[Ŕéţúŕñ ţó Ḿáƥš ţó çĥóóšé á ḿáƥ ýóú çáñ ṽíéŵ.~~~~ ~~~~ ~~~~ ~~~]',
 	'mapEditor.exportCancelled': '[Ḿáƥ éẋƥóŕţ çáñçéľľéď.~~~~ ~~~~]',
 	'mapEditor.exportShared': '[Ḿáƥ šéñţ ţó ţĥé Áñďŕóíď šĥáŕé/šáṽé šĥééţ.~~~~ ~~~~ ~~~~ ~~]',
 	'mapEditor.exported': '[Ḿáƥ éẋƥóŕţéď ƒóŕ óţĥéŕ ṼŢŢš (.ďď2ṽţţ).~~~~ ~~~~ ~~~~ ~]',
@@ -236,8 +235,8 @@ export default {
 	'nav.joinTable': '[Ĵóíñ á ţáƀľé~~~~ ]',
 	'nav.hostTable': '[Ĥóšţ á ľíṽé ţáƀľé~~~~ ~~]',
 	'nav.scenes': '[Šçéñéš~~~]',
-	'nav.atlas': '[Áţľáš~~]',
-	'nav.knowledge': '[Ķñóŵľéďğé~~~~]',
+	'nav.atlas': '[Ḿáƥš~~]',
+	'nav.knowledge': '[Ñóţéš~~]',
 	'nav.home': '[Ĥóḿé~~]',
 	'nav.graph': '[Ğŕáƥĥ & šéáŕçĥ~~~~ ~]',
 	'nav.audio': '[Áúďíó~~]',
@@ -356,8 +355,8 @@ export default {
 		'[Çŕéáţé á šçéñé ƒíŕšţ — á ľíṽé šéššíóñ ñééďš áñ áçţíṽé šçéñé.~~~~ ~~~~ ~~~~ ~~~~ ~~~~]',
 	'session.start.confirm': '[Šţáŕţ šéššíóñ~~~~ ~]',
 	'session.header.sessionScene': '[Šçéñé: ~~~{scene}]',
-	'session.end.label': '[Éñď~~]',
-	'session.end.liveLabel': '[Éñď ľíṽé šéššíóñ~~~~ ~~]',
+	'session.end.label': '[Éñď šéššíóñ~~~~ ]',
+	'session.end.liveLabel': '[Éñď šéššíóñ (ľíṽé)~~~~ ~~~]',
 	'session.end.confirmTitle': '[Éñď ţĥé ľíṽé šéššíóñ?~~~~ ~~~~]',
 	'session.end.confirmBody':
 		'[Ŕéţúŕñíñğ ţó šţáñďƀý çľéáŕš ţĥé áçţíṽé šçéñé áñď ḿáƥ, ţĥé ŵĥóľé íñíţíáţíṽé óŕďéŕ ŵíţĥ éṽéŕý çóḿƀáţáñţ’š ĤƤ áñď çóñďíţíóñš, ďéľíṽéŕéď ĥáñďóúţš, ţíḿéŕš áñď ţĥé ďíçé ľóğ. Ñóţĥíñğ íš áŕçĥíṽéď — úšé Ŕéçáƥ óñ ţĥé Šéššíóñ šçŕééñ íƒ ýóú ŵáñţ ţó ķééƥ á ŕéçóŕď.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~]',
@@ -637,7 +636,7 @@ export default {
 	'onboarding.ready.row': '[{label} — ƒíñíšĥ šéţúƥ áñď óƥéñ ~~~~ ~~~~ {dest}]',
 	'onboarding.ready.sceneStaged': '[Á šçéñé íš šţáğéď~~~~ ~~]',
 	'onboarding.ready.partyRostered': '[Ţĥé ƥáŕţý íš ŕóšţéŕéď~~~~ ~~~~]',
-	'onboarding.ready.mapInAtlas': '[Á ḿáƥ íš íñ ţĥé áţľáš~~~~ ~~~~]',
+	'onboarding.ready.mapInAtlas': '[Á ḿáƥ íš íñ Ḿáƥš~~~~ ~~]',
 	'onboarding.ready.notesStarted': '[Šéššíóñ ñóţéš šţáŕţéď~~~~ ~~~~]',
 	'onboarding.ready.goLive': '[Šţáŕţ á šéššíóñ ƒŕóḿ Šéššíóñ~~~~ ~~~~ ~~]',
 	'onboarding.ready.tourBoardTitle': '[Ţĥíš íš ýóúŕ Çóḿḿáñď Çéñţéŕ~~~~ ~~~~ ~]',
@@ -653,7 +652,7 @@ export default {
 	'common.action.remove': '[Ŕéḿóṽé~~~]',
 	'common.action.removeTag': '[Ŕéḿóṽé ~~~{tag}]',
 	'session.stage.title': '[Šţáğé~~]',
-	'session.stage.noMaps': '[Ñó ḿáƥš ýéţ — çŕéáţé óñé íñ ţĥé Áţľáš.~~~~ ~~~~ ~~~~ ~]',
+	'session.stage.noMaps': '[Ñó ḿáƥš ýéţ — çŕéáţé óñé íñ Ḿáƥš.~~~~ ~~~~ ~~~~]',
 	'session.stage.activeMap': '[Áçţíṽé ḿáƥ~~~~]',
 	'session.stage.activeMapHelp': '[Ŵĥáţ ýóú šţáğé ƒóŕ ţĥé ţáƀľé.~~~~ ~~~~ ~~]',
 	'session.stage.noneOption': '[— ñóñé —~~~~]',
@@ -1033,8 +1032,7 @@ export default {
 	'settings.appearance.densityComfortable': '[Çóḿƒóŕţáƀľé~~~~ ]',
 	'settings.appearance.densityCompact': '[Çóḿƥáçţ~~~]',
 	'settings.appearance.proseWidth': '[Ŕéáďíñğ ŵíďţĥ~~~~ ~]',
-	'settings.appearance.proseWidthHelp':
-		'[Ŵíďéñ ţĥé ľíñé ľéñğţĥ ƒóŕ ľóñğéŕ ķñóŵľéďğé ƥŕóšé.~~~~ ~~~~ ~~~~ ~~~~ ]',
+	'settings.appearance.proseWidthHelp': '[Ŵíďéñ ţĥé ľíñé ľéñğţĥ ƒóŕ ľóñğéŕ ñóţéš.~~~~ ~~~~ ~~~~ ~]',
 	'settings.appearance.proseWidthComfortable': '[Çóḿƒóŕţáƀľé~~~~ ]',
 	'settings.appearance.proseWidthWide': '[Ŵíďé~~]',
 	'settings.appearance.proseWidthFull': '[Ƒúľľ~~]',
@@ -1348,8 +1346,8 @@ export default {
 	'shell.breadcrumb': '[Ɓŕéáďçŕúḿƀ~~~~]',
 	'shell.help': '[Ĥéľƥ~~]',
 	'viewAs.dmView': '[{gm} ṽíéŵ~~]',
-	'viewAs.label': '[Ṽíéŵ áš~~~]',
-	'viewAs.trigger': '[Ƥŕéṽíéŵ áš áñóţĥéŕ ŕóľé~~~~ ~~~~ ]',
+	'viewAs.label': '[Ƥŕéṽíéŵ áš ~~~~ {playerLower}]',
+	'viewAs.trigger': '[Ƥŕéṽíéŵ áš ~~~~ {playerLower}]',
 	'viewAs.previewingAs': '[Ƥŕéṽíéŵíñğ áš ~~~~ ~{label}]',
 	'viewAs.previewChip': '[Ƥŕéṽíéŵ: ~~~~{label}]',
 	'viewAs.previewAs': '[Ƥŕéṽíéŵ áš~~~~]',
@@ -1672,7 +1670,7 @@ export default {
 	'play.inbox.archivedOn': '[Áŕçĥíṽéď ~~~~{date}]',
 	'play.atlas.title': '[Ḿáƥš & šçéñéš~~~~ ~]',
 	'play.atlas.sub':
-		'[Ţĥé ƒúľľ áţľáš — íñçľúďíñğ šçéñéš ýóúŕ ~~~~ ~~~~ ~~~~ ~{gm} ķééƥš ĥíďďéñ ƒŕóḿ ţĥé ţáƀľé~~~~ ~~~~ ~~]',
+		'[Éṽéŕý ḿáƥ áñď šçéñé — íñçľúďíñğ šçéñéš ýóúŕ ~~~~ ~~~~ ~~~~ ~~~{gm} ķééƥš ĥíďďéñ ƒŕóḿ ţĥé ţáƀľé~~~~ ~~~~ ~~]',
 	'play.atlas.count': '[{count, plural, one {# šçéñé~~~} other {# šçéñéš~~~~}}]',
 	'play.atlas.empty': '[Ñó šçéñéš ĥáṽé ƀééñ áúţĥóŕéď íñ ţĥíš çáḿƥáíğñ ýéţ.~~~~ ~~~~ ~~~~ ~~~~ ]',
 	'play.bestiary.title': '[Ɓéšţíáŕý~~~~]',
@@ -1926,7 +1924,7 @@ export default {
 	'settings.vault.exportRecovery': '[Éẋƥóŕţ ~~~{name} ƒóŕ ŕéçóṽéŕý~~~~ ~]',
 	'settings.vault.pruned': '[Ƒŕééď ~~~{size} óƒ çáçĥéď šéáŕçĥ ďáţá.~~~~ ~~~~ ]',
 	'settings.vault.title': '[Ṽáúľţ çóññéçţíóñš~~~~ ~~]',
-	'settings.vault.manageInKnowledge': '[Ḿáñáğé íñ Ķñóŵľéďğé~~~~ ~~~]',
+	'settings.vault.manageInKnowledge': '[Ḿáñáğé íñ Ñóţéš~~~~ ~]',
 	'settings.vault.loading': '[Ľóáďíñğ ṽáúľţ çóññéçţíóñš~~~~ ~~~~ ]',
 	'settings.vault.never': '[ñéṽéŕ~~]',
 	'settings.vault.kindFolder': '[Ľóçáľ ƒóľďéŕ~~~~ ]',
@@ -3610,7 +3608,7 @@ export default {
 	'community.export.contentTypes': '[Çóñţéñţ ţýƥéš~~~~ ~]',
 	'community.export.counts': '[(çúŕŕéñţ çáḿƥáíğñ çóúñţš)~~~~ ~~~~ ]',
 	'community.export.empty':
-		'[Ñóţĥíñğ ţó éẋƥóŕţ ýéţ — çŕéáţé ñóţéš áñď çóñţéñţ íñ Ķñóŵľéďğé ƒíŕšţ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~]',
+		'[Ñóţĥíñğ ţó éẋƥóŕţ ýéţ — çŕéáţé ñóţéš áñď çóñţéñţ íñ Ñóţéš ƒíŕšţ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~]',
 	'community.export.includeKind': '[Íñçľúďé ~~~~{kind} íñ ḿóďúľé éẋƥóŕţ~~~~ ~~]',
 	'community.export.includeDmOnly': '[Íñçľúďé ~~~~{gm}-óñľý çóñţéñţ~~~~ ~]',
 	'community.export.includeDmOnlyHelp':
@@ -4585,7 +4583,7 @@ export default {
 	'knowledge.emptyNote': '[Éḿƥţý ñóţé~~~~]',
 	'knowledge.noteEmpty': '[Ţĥíš ñóţé íš éḿƥţý.~~~~ ~~~]',
 	'knowledge.brokenLink':
-		'[Ţĥíš ñóţé çáññóţ ƀé óƥéñéď. Šéáŕçĥ ƒóŕ íţš ţíţľé íñ Ķñóŵľéďğé.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ]',
+		'[Ţĥíš ñóţé çáññóţ ƀé óƥéñéď. Šéáŕçĥ ƒóŕ íţš ţíţľé íñ Ñóţéš.~~~~ ~~~~ ~~~~ ~~~~ ~~~~]',
 	'knowledge.updated': '[úƥďáţéď ~~~~{when}]',
 	'knowledge.noteUpdated': '[Ñóţé · úƥďáţéď ~~~~ ~{when}]',
 	'knowledge.createFailed': '[Ţĥé ñóţé çóúľďñ’ţ ƀé çŕéáţéď — ţŕý áğáíñ.~~~~ ~~~~ ~~~~ ~~]',
@@ -5128,7 +5126,7 @@ export default {
 	'atlas.zoomOut': '[Žóóḿ óúţ~~~~]',
 	'atlas.fit': '[Ƒíţ~~]',
 	'atlas.mapUnavailable':
-		'[Ţĥíš ḿáƥ íš úñáṽáíľáƀľé ţó ýóú. Çĥóóšé áñóţĥéŕ ḿáƥ íñ Áţľáš.~~~~ ~~~~ ~~~~ ~~~~ ~~~~]',
+		'[Ţĥíš ḿáƥ íš úñáṽáíľáƀľé ţó ýóú. Çĥóóšé áñóţĥéŕ ḿáƥ íñ Ḿáƥš.~~~~ ~~~~ ~~~~ ~~~~ ~~~~]',
 	'atlas.fogOfWar': '[Ƒóğ óƒ ŵáŕ~~~~]',
 	'atlas.projectToPlayers': '[Ƥŕóĵéçţ ţó ƥľáýéŕš~~~~ ~~~]',
 	'atlas.fogChanges': '[{count, plural, one {# çĥáñğé~~~~} other {# çĥáñğéš~~~~}}]',
@@ -5613,8 +5611,8 @@ export default {
 	'mapEditor.travelUnitMismatch': '[Ţŕáṽéľ ţíḿé ñééďš á ḿáƥ šçáľéď íñ ~~~~ ~~~~ ~~~~{unit}]',
 	'mapEditor.travelReadout': '[Ŕóúţé ţŕáṽéľ~~~~ ]',
 	'mapEditor.selectedCount': '[{count, plural, one {# šéľéçţéď~~~~} other {# šéľéçţéď~~~~}}]',
-	'campaign.title': '[Çáḿƥáíğñ~~~~]',
-	'campaign.sections': '[Çáḿƥáíğñ šéçţíóñš~~~~ ~~]',
+	'campaign.title': '[Šţóŕý~~]',
+	'campaign.sections': '[Šţóŕý šéçţíóñš~~~~ ~]',
 	'campaign.tab.quests': '[Ɋúéšţš~~~]',
 	'campaign.tab.npcs': '[ÑƤÇš~~]',
 	'campaign.tab.factions': '[Ƒáçţíóñš~~~~]',
@@ -6508,7 +6506,7 @@ export default {
 	'widgetBody.dataHub.columns': '[Ţáƀľéš áľšó šĥóŵ ~~~~ ~~{columns}.~]',
 	'widgetBody.dataHub.noColumns': '[Ţáƀľéš šĥóŵ ñáḿéš óñľý.~~~~ ~~~~ ]',
 	'widgetBody.atlas.empty':
-		'[Ñó ḿáƥš ýéţ — áďď óñé íñ Áţľáš ţó ƥŕóĵéçţ íţ ţó ţĥé ţáƀľé.~~~~ ~~~~ ~~~~ ~~~~ ~~~~]',
+		'[Ñó ḿáƥš ýéţ — áďď óñé íñ Ḿáƥš ţó ƥŕóĵéçţ íţ ţó ţĥé ţáƀľé.~~~~ ~~~~ ~~~~ ~~~~ ~~~]',
 	'widgetBody.atlas.maps': '[Ḿáƥš~~]',
 	'widgetBody.atlas.sharing': '[Šĥáŕíñğ~~~]',
 	'widgetBody.atlas.noOne': '[Ñó óñé~~~]',
@@ -7221,8 +7219,8 @@ export default {
 		'[Ğéñéŕáţé á ďúñğéóñ, çáṽé, çíţý, óŕ ŵóŕľď íñţó á ƥŕéṽíéŵ ýóú çáñ áççéƥţ óŕ ŕéŕóľľ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~]',
 	'mapEditor.dialogLabel': '[Ḿáƥ éďíţóŕ~~~~]',
 	'mapEditor.unavailable':
-		'[Ţĥíš ḿáƥ íš úñáṽáíľáƀľé ţó ýóú. Ŕéţúŕñ ţó Áţľáš ţó çĥóóšé áñóţĥéŕ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~]',
-	'mapEditor.backToAtlas': '[Ɓáçķ ţó Áţľáš~~~~ ~]',
+		'[Ţĥíš ḿáƥ íš úñáṽáíľáƀľé ţó ýóú. Ŕéţúŕñ ţó Ḿáƥš ţó çĥóóšé áñóţĥéŕ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~]',
+	'mapEditor.backToAtlas': '[Ɓáçķ ţó Ḿáƥš~~~~ ]',
 	'mapEditor.panelsLabel': '[Ḿáƥ éďíţóŕ ƥáñéľš~~~~ ~~]',
 	'mapEditor.dock.inspector': '[Šéľéçţéď~~~~]',
 	'mapEditor.dock.layers': '[Ľáýéŕš~~~]',
@@ -7253,7 +7251,7 @@ export default {
 		'[Ţĥáţ ŕóóḿ íš ñó ľóñğéŕ óñ ţĥé ḿáƥ. Šéľéçţ áñóţĥéŕ ŕóóḿ.~~~~ ~~~~ ~~~~ ~~~~ ~~]',
 	'mapGraph.dmOnly': '[Ášķ ýóúŕ ~~~~{gm} ţó šéţ ŵĥáţ íš íñ ţĥíš ŕóóḿ.~~~~ ~~~~ ~~]',
 	'mapEditor.breadcrumb': '[Ɓŕéáďçŕúḿƀ~~~~]',
-	'mapEditor.atlas': '[Áţľáš~~]',
+	'mapEditor.atlas': '[Ḿáƥš~~]',
 	'mapEditor.goToMap': '[Ğó ţó ~~~{name}]',
 	'mapEditor.saving': '[Šáṽíñğ…~~~]',
 	'mapEditor.saved': '[Šáṽéď óñ ţĥíš ďéṽíçé~~~~ ~~~]',
@@ -7563,7 +7561,7 @@ export default {
 	'character.resources.recoverOne': '[Ŕéçóṽéŕ óñé ~~~~ {name}]',
 	'markdown.empty': '[Ñóţĥíñğ ŵŕíţţéñ ĥéŕé ýéţ.~~~~ ~~~~ ]',
 	'markdown.brokenLink':
-		'[Ţĥíš ñóţé çáññóţ ƀé óƥéñéď. Šéáŕçĥ ƒóŕ íţš ţíţľé íñ Ķñóŵľéďğé.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ]',
+		'[Ţĥíš ñóţé çáññóţ ƀé óƥéñéď. Šéáŕçĥ ƒóŕ íţš ţíţľé íñ Ñóţéš.~~~~ ~~~~ ~~~~ ~~~~ ~~~~]',
 	'markdown.opensExternally': '[Óƥéñš íñ á ñéŵ ţáƀ~~~~ ~~~]',
 	'markdown.tableLabel': '[Ţáƀľé~~]',
 	'markdown.imageUnavailable': '[Íḿáğé ñóţ áṽáíľáƀľé~~~~ ~~~]',
@@ -7807,7 +7805,7 @@ export default {
 	'ds.illustrations.caption.spellsEmpty':
 		'[Á çĥáŕáçţéŕ ŵíţĥ ñó šƥéľľš óŕ šƥéľľ šľóţš.~~~~ ~~~~ ~~~~ ~~]',
 	'ds.illustrations.caption.knowledgeEmpty':
-		'[Ķñóŵľéďğé, ƀéƒóŕé ţĥé ƒíŕšţ ƥáğé íš ŵŕíţţéñ.~~~~ ~~~~ ~~~~ ~~~]',
+		'[Ñóţéš, ƀéƒóŕé ţĥé ƒíŕšţ ƥáğé íš ŵŕíţţéñ.~~~~ ~~~~ ~~~~ ~]',
 	'ds.illustrations.caption.searchNone':
 		'[Á šéáŕçĥ óŕ ƒíľţéŕ ţĥáţ ḿáţçĥéď ñóţĥíñğ.~~~~ ~~~~ ~~~~ ~]',
 	'ds.illustrations.caption.journalEmpty':
@@ -7820,7 +7818,7 @@ export default {
 	'ds.illustrations.caption.graphEmpty': '[Ţĥé ğŕáƥĥ, ƀéƒóŕé áñý ľíñķš éẋíšţ.~~~~ ~~~~ ~~~~]',
 	'ds.illustrations.caption.publishEmpty':
 		'[Çóḿḿúñíţý ƥúƀľíšĥíñğ, ŵíţĥ ñóţĥíñğ šĥáŕéď ýéţ.~~~~ ~~~~ ~~~~ ~~~~]',
-	'ds.illustrations.caption.mapLibrary': '[Áţľáš, ƀéƒóŕé ţĥé ƒíŕšţ ḿáƥ íš áďďéď.~~~~ ~~~~ ~~~~ ]',
+	'ds.illustrations.caption.mapLibrary': '[Ḿáƥš, ƀéƒóŕé ţĥé ƒíŕšţ ḿáƥ íš áďďéď.~~~~ ~~~~ ~~~~ ]',
 	'ds.illustrations.caption.charactersEmpty':
 		'[Çĥáŕáçţéŕš, ƀéƒóŕé ţĥé ƒíŕšţ óñé ĵóíñš ţĥé ŕóšţéŕ.~~~~ ~~~~ ~~~~ ~~~~ ]',
 	'ds.illustrations.caption.npcsEmpty': '[Šţóŕý ÑƤÇš, ƀéƒóŕé óñé íš íñţŕóďúçéď.~~~~ ~~~~ ~~~~ ]',
@@ -7842,7 +7840,7 @@ export default {
 	'atlas.library.noMatches': '[Ñó ḿáţçĥíñğ ḿáƥš~~~~ ~~]',
 	'atlas.library.empty': '[Ýóúŕ ḿáƥ ľíƀŕáŕý íš éḿƥţý~~~~ ~~~~ ]',
 	'atlas.library.filterHint': '[Ţŕý áñóţĥéŕ ñáḿé óŕ ŕéğíóñ.~~~~ ~~~~ ~]',
-	'atlas.library.emptyHint': '[Çŕéáţé á ḿáƥ ţó šţáŕţ ýóúŕ áţľáš.~~~~ ~~~~ ~~~~]',
+	'atlas.library.emptyHint': '[Çŕéáţé á ḿáƥ ţó šţáŕţ ýóúŕ ḿáƥ ľíƀŕáŕý.~~~~ ~~~~ ~~~~ ~]',
 	'atlas.library.clear': '[Çľéáŕ ƒíľţéŕ~~~~ ]',
 	'atlas.library.pois': '[{count} ƤÓÍš~~]',
 	'atlas.library.layer': '[{count} ľáýéŕ~~~]',
@@ -7969,4 +7967,20 @@ export default {
 	'palette.new.screenKeywords': '[šçéñé çáñṽáš ƀóáŕď ŵóŕķšƥáçé ţéḿƥľáţé~~~~ ~~~~ ~~~~ ]',
 	'palette.screens.all': '[Áľľ šçŕééñš~~~~ ]',
 	'palette.screens.allKeywords': '[šçŕééñš ľíƀŕáŕý šçéñéš ŵóŕķšƥáçéš~~~~ ~~~~ ~~~~]',
+	'shell.tableControlsDescription':
+		'[Ĥóšţíñğ, ~~~~{playerLower} ƥŕéṽíéŵ, ţĥé ľíṽé šéššíóñ áñď ýóúŕ áççóúñţ.~~~~ ~~~~ ~~~~ ~~~]',
+	'shell.host.label': '[Ĥóšţ ţáƀľé~~~~]',
+	'shell.host.count': '[Ĥóšţ ţáƀľé · ~~~~ ~{count}]',
+	'shell.host.waiting': '[Ĥóšţ ţáƀľé · ~~~~ ~{count} ŵáíţíñğ~~~~]',
+	'shell.host.hostingName':
+		'[Ĥóšţ ţáƀľé — ĥóšţíñğ ~~~~ ~~~~{count, plural, one {# ƥľáýéŕ~~~~} other {# ƥľáýéŕš~~~~}}]',
+	'shell.host.waitingName':
+		'[Ĥóšţ ţáƀľé — ~~~~ ~{count, plural, one {# ƥľáýéŕ íš~~~~ } other {# ƥľáýéŕš áŕé~~~~ ~}} ŵáíţíñğ ƒóŕ áƥƥŕóṽáľ~~~~ ~~~~]',
+	'shell.account.label': '[Áççóúñţ~~~]',
+	'shell.account.signInName':
+		'[Áççóúñţ — šíğñ íñ ƒóŕ óñľíñé ƥľáý áñď éñçŕýƥţéď çľóúď ƀáçķúƥ~~~~ ~~~~ ~~~~ ~~~~ ~~~~]',
+	'shell.account.signedInName': '[Áççóúñţ — šíğñéď íñ áš ~~~~ ~~~~ {email}]',
+	'shell.account.signedInAs': '[Šíğñéď íñ áš ~~~~ ~{email}]',
+	'shell.account.settings': '[Áççóúñţ šéţţíñğš~~~~ ~~]',
+	'shell.account.signOut': '[Šíğñ óúţ~~~~]',
 };

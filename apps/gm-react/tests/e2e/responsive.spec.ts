@@ -2106,7 +2106,7 @@ async function expectEndSessionConfirmOnScreen(
 	const controls = page.getByRole('dialog', { name: 'Table controls' });
 	await controls.getByRole('button', { name: 'Start session', exact: true }).click();
 	await expect.poll(() => page.evaluate(() => window.__rt!.state.session.workflow)).toBe('active');
-	await controls.getByRole('button', { name: 'End live session' }).click();
+	await controls.getByRole('button', { name: 'End session (live)' }).click();
 
 	const confirm = page.getByRole('dialog', { name: 'End the live session?' });
 	await expect(confirm).toBeVisible();
@@ -2218,7 +2218,7 @@ for (const android of [false, true]) {
 		await expect
 			.poll(() => page.evaluate(() => window.__rt!.state.session.workflow))
 			.toBe('active');
-		const endTrigger = controls.getByRole('button', { name: 'End live session' });
+		const endTrigger = controls.getByRole('button', { name: 'End session (live)' });
 		await expect(endTrigger).toBeFocused();
 
 		// Reopen from that restored focus, tab between the answers, and explicitly confirm.
@@ -2238,12 +2238,13 @@ for (const android of [false, true]) {
 	});
 }
 
-// Wider compact top bars (the rail tier, and a desktop window under 1280px) have the width to keep the
-// table utilities inline as icons, so they carry no overflow, but they still hold the line on
-// primary weight: Start session is the one filled control, on every screen.
+// RC-ENG-15.2 — the rail tier and a desktop window under 1440px collect the table controls in a
+// labelled Table controls sheet; from 1440px they sit in the bar with their labels. Either way the
+// line on primary weight holds: Start session is the one filled control, in the bar or in the sheet.
 for (const viewport of [
-	{ name: 'rail', width: 800, height: 700 },
-	{ name: 'compact desktop', width: 1100, height: 700 },
+	{ name: 'rail', width: 800, height: 700, inline: false },
+	{ name: 'compact desktop', width: 1100, height: 700, inline: false },
+	{ name: 'wide desktop', width: 1600, height: 900, inline: true },
 ]) {
 	test(`the ${viewport.name} top bar keeps one primary-weight action on every screen`, async ({
 		page,
@@ -2255,6 +2256,8 @@ for (const viewport of [
 		const sceneId = await seededSceneId(page);
 
 		const banner = page.getByRole('banner');
+		const opener = banner.getByRole('button', { name: 'Table controls', exact: true });
+		const sheet = page.getByRole('dialog', { name: 'Table controls' });
 		for (const screen of SHELL_SCREENS) {
 			const route = screen.replace(':id', sceneId);
 			await page.evaluate((next) => {
@@ -2265,12 +2268,26 @@ for (const viewport of [
 			await expectStillOn(page, screen);
 
 			const filled = await filledActions(banner);
-			expect(filled, `${screen} ${viewport.name} top bar`).toHaveLength(1);
-			expect(filled[0], `${screen} ${viewport.name} top bar`).toMatch(/^Start session/);
-			await expect(banner.getByRole('button', { name: 'Table controls' })).toHaveCount(0);
+			if (viewport.inline) {
+				expect(filled, `${screen} ${viewport.name} top bar`).toHaveLength(1);
+				expect(filled[0], `${screen} ${viewport.name} top bar`).toMatch(/^Start session/);
+				await expect(opener).toHaveCount(0);
+			} else {
+				expect(filled, `${screen} ${viewport.name} top bar`).toEqual([]);
+				await expect(opener).toHaveText('Table controls');
+			}
 			expect(await clippedControls(page, 'header'), `${screen} top bar clipped a control`).toEqual(
 				[],
 			);
+			if (!viewport.inline) {
+				await opener.click();
+				await expect(sheet).toBeVisible();
+				const inSheet = await filledActions(sheet);
+				expect(inSheet, `${screen} ${viewport.name} sheet`).toHaveLength(1);
+				expect(inSheet[0], `${screen} ${viewport.name} sheet`).toMatch(/^Start session/);
+				await page.keyboard.press('Escape');
+				await expect(sheet).toBeHidden();
+			}
 		}
 	});
 }

@@ -1,5 +1,7 @@
-import { Suspense, lazy, useEffect, useState } from 'react';
-import { Icon } from '../ds';
+import { Suspense, lazy, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
+import { Button, Icon, Menu } from '../ds';
 import { T } from '../app/screen-kit';
 import { useAuth } from '../cloud/AuthContext';
 import { CloudOfflineNotice, useCloudActions } from '../cloud/offline';
@@ -25,86 +27,205 @@ import {
 } from './SessionPanelParts';
 import { usePlatformCapabilities } from '../platform/capabilities';
 
+// --- Shell table controls (topbar) ---------------------------------------------------------------
+
+/**
+ * RC-ENG-15.2 — how a table control lays itself out. `inline` is the wide top bar's labelled chip,
+ * `row` a full-width named row in the Table controls sheet, and `icon` the bare 44px glyph (kept for
+ * callers outside the shell; the shell no longer shows an unlabelled table control).
+ */
+export type TableControlLayout = 'inline' | 'row' | 'icon';
+
+/** The sizing shared by the shell's table controls, per layout. */
+export function tableControlBox(layout: TableControlLayout): CSSProperties {
+	if (layout === 'icon') return { gap: 0, width: 44, height: 44, padding: 0 };
+	if (layout === 'row')
+		return {
+			gap: 10,
+			width: '100%',
+			minHeight: 'var(--touch-target-min)',
+			padding: '10px 14px',
+			justifyContent: 'flex-start',
+			textAlign: 'left',
+		};
+	return { gap: 7, padding: '6px 11px' };
+}
+
 // --- Account control (topbar) ----------------------------------------------------------------------
 
-export function AccountButton({ compact = false }: { compact?: boolean } = {}) {
+export function AccountButton({
+	compact = false,
+	layout = compact ? 'icon' : 'inline',
+}: { compact?: boolean; layout?: TableControlLayout } = {}) {
 	const auth = useAuth();
+	const { t } = useI18n();
+	const navigate = useNavigate();
 	const signIn = useCloudActions('cloud.offline.signIn');
+	const [open, setOpen] = useState(false);
+	// Where a portaled menu hangs, fixed under the trigger's right edge; null keeps it in place.
+	const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null);
+	const triggerRef = useRef<HTMLButtonElement>(null);
 	if (!auth.isConfigured) return null; // local-first: hidden when cloud isn't configured
 	const signedIn = auth.status === 'signed-in';
-	const label = signedIn ? (auth.user?.email ?? 'Account').split('@')[0] : 'Sign in';
+	const email = auth.user?.email ?? '';
+	const name = signedIn
+		? t('shell.account.signedInName', { email })
+		: t('shell.account.signInName');
 	// Only signing IN needs the network; signing out forgets this device's session either way.
 	const gate = signedIn ? null : signIn;
+	// The visible label is "Account" in both states, so a signed-in click no longer signs out on the
+	// spot: it opens the account menu (settings, sign out). Signed out, it opens sign-in directly.
+	function toggle() {
+		if (!signedIn) {
+			if (!signIn.blocked) auth.openAuthModal();
+			return;
+		}
+		if (open) {
+			setOpen(false);
+			return;
+		}
+		// The top bar's backdrop blur is a stacking context (see ViewAsControl): outside a dialog the
+		// menu is portaled to <body> and fixed under the trigger; inside the sheet it stays in place.
+		const trigger = triggerRef.current;
+		const rect = trigger?.getBoundingClientRect();
+		setAnchor(
+			trigger && rect && !trigger.closest('[role="dialog"]')
+				? { top: rect.bottom + 6, right: document.documentElement.clientWidth - rect.right }
+				: null,
+		);
+		setOpen(true);
+	}
+	function close() {
+		setOpen(false);
+		triggerRef.current?.focus();
+	}
+	const menu = open && (
+		<Menu
+			triggerRef={triggerRef}
+			title={t('shell.account.label')}
+			onClose={close}
+			width={260}
+			style={
+				anchor
+					? { position: 'fixed', top: anchor.top, right: anchor.right, zIndex: T.z.dropdown }
+					: {
+							position: 'absolute',
+							top: '100%',
+							right: 0,
+							marginTop: T.space.one,
+							zIndex: T.z.dropdown,
+						}
+			}
+		>
+			<p style={{ margin: '0 0 6px', font: `12px ${T.sans}`, color: T.sub }}>
+				{t('shell.account.signedInAs', { email })}
+			</p>
+			<Button
+				role="menuitem"
+				variant="ghost"
+				size="sm"
+				icon="settings-gear"
+				onClick={() => {
+					setOpen(false);
+					navigate('/settings?tab=account');
+				}}
+				style={{ width: '100%', justifyContent: 'flex-start' }}
+			>
+				{t('shell.account.settings')}
+			</Button>
+			<Button
+				role="menuitem"
+				variant="ghost"
+				size="sm"
+				icon="enter"
+				onClick={() => {
+					setOpen(false);
+					void auth.signOut();
+				}}
+				style={{ width: '100%', justifyContent: 'flex-start' }}
+			>
+				{t('shell.account.signOut')}
+			</Button>
+		</Menu>
+	);
 	return (
-		<button
-			type="button"
-			aria-label={
-				signedIn
-					? `Account: ${auth.user?.email ?? label} — sign out`
-					: 'Sign in for online play and encrypted cloud backup'
-			}
-			title={
-				signedIn
-					? `Signed in as ${auth.user?.email ?? ''} — click to sign out`
-					: 'Sign in for online play & encrypted cloud backup'
-			}
-			{...gate?.offlineProps}
-			onClick={() => {
-				if (signedIn) void auth.signOut();
-				else if (!signIn.blocked) auth.openAuthModal();
-			}}
+		<div
 			style={{
-				...gate?.offlineStyle,
-				display: 'inline-flex',
-				alignItems: 'center',
-				justifyContent: 'center',
-				gap: compact ? 0 : 7,
-				width: compact ? 44 : undefined,
-				height: compact ? 44 : undefined,
-				padding: compact ? 0 : '6px 11px',
-				borderRadius: 8,
-				cursor: 'pointer',
-				font: `600 12px ${T.sans}`,
-				border: `1px solid ${signedIn ? 'var(--color-status-success-border)' : T.bd}`,
-				background: signedIn ? 'var(--color-status-success-subtle)' : 'transparent',
-				color: signedIn ? 'var(--color-status-success-text)' : T.sub,
+				position: 'relative',
 				flex: '0 0 auto',
+				width: layout === 'row' ? '100%' : undefined,
 			}}
 		>
-			<Icon name="players" size={15} />
-			{!compact && label}
-		</button>
+			<button
+				ref={triggerRef}
+				type="button"
+				aria-label={name}
+				title={name}
+				aria-haspopup={signedIn ? 'menu' : 'dialog'}
+				aria-expanded={signedIn ? open : undefined}
+				{...gate?.offlineProps}
+				onClick={toggle}
+				style={{
+					...gate?.offlineStyle,
+					display: 'inline-flex',
+					alignItems: 'center',
+					justifyContent: 'center',
+					...tableControlBox(layout),
+					borderRadius: 8,
+					cursor: 'pointer',
+					font: `600 12px ${T.sans}`,
+					border: `1px solid ${signedIn ? 'var(--color-status-success-border)' : T.bd}`,
+					background: signedIn ? 'var(--color-status-success-subtle)' : 'transparent',
+					color: signedIn ? 'var(--color-status-success-text)' : T.sub,
+				}}
+			>
+				<Icon name="characters-person" size={15} />
+				{layout !== 'icon' && t('shell.account.label')}
+			</button>
+			{menu && (anchor ? createPortal(menu, document.body) : menu)}
+		</div>
 	);
 }
 
 // --- DM host control -------------------------------------------------------------------------------
 
-export function HostSessionButton({ compact = false }: { compact?: boolean } = {}) {
+export function HostSessionButton({
+	compact = false,
+	layout = compact ? 'icon' : 'inline',
+}: { compact?: boolean; layout?: TableControlLayout } = {}) {
+	const { t } = useI18n();
 	const [open, setOpen] = useState(false);
 	const session = useSession();
 	const active = session.role === 'host';
 	const pending = session.pendingJoins.length;
+	const connected = session.peers.filter((p) => p.connected).length;
+	// One visible name, "Host table", in every state; the count rides behind it and the accessible
+	// name spells the state out, so the visible label is always a prefix of the name (WCAG 2.5.3).
 	const hostLabel =
 		pending > 0
-			? `${pending} ${pending === 1 ? 'player is' : 'players are'} waiting for approval`
+			? t('shell.host.waitingName', { count: pending })
 			: active
-				? `Hosting ${session.peers.filter((p) => p.connected).length} players`
-				: 'Host a live table';
+				? t('shell.host.hostingName', { count: connected })
+				: t('shell.host.label');
+	const visible =
+		pending > 0
+			? t('shell.host.waiting', { count: pending })
+			: active
+				? t('shell.host.count', { count: connected })
+				: t('shell.host.label');
 	return (
 		<>
 			<button
 				type="button"
 				onClick={() => setOpen(true)}
 				aria-label={hostLabel}
+				aria-haspopup="dialog"
 				title={hostLabel}
 				style={{
 					display: 'inline-flex',
 					alignItems: 'center',
 					justifyContent: 'center',
-					gap: compact ? 0 : 7,
-					width: compact ? 44 : undefined,
-					height: compact ? 44 : undefined,
-					padding: compact ? 0 : '6px 11px',
+					...tableControlBox(layout),
 					borderRadius: 8,
 					cursor: 'pointer',
 					font: `600 12px ${T.sans}`,
@@ -125,12 +246,7 @@ export function HostSessionButton({ compact = false }: { compact?: boolean } = {
 				}}
 			>
 				<Icon name="players" size={15} />
-				{!compact &&
-					(pending > 0
-						? `Approve · ${pending}`
-						: active
-							? `Hosting · ${session.peers.filter((p) => p.connected).length}`
-							: 'Host')}
+				{layout !== 'icon' && visible}
 			</button>
 			{open && (
 				<Suspense fallback={null}>

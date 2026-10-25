@@ -200,7 +200,7 @@ test('the host shares a QR beside its code without unavailable online guidance',
 	await gotoRoute(page, '/session');
 	const controls = page.getByRole('button', { name: 'Table controls' });
 	if (await controls.isVisible()) await controls.click();
-	await page.getByRole('button', { name: 'Host a live table' }).click();
+	await page.getByRole('button', { name: 'Host table', exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: 'Host a live table' });
 	await dialog.getByRole('button', { name: 'Host on local network' }).click();
 	await expect(dialog).not.toContainText('online join code');

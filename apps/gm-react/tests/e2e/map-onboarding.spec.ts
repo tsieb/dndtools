@@ -55,7 +55,7 @@ test('first-open coach follows rail → options → dock and never repeats after
 	await expect(root(page)).toBeFocused();
 	const records = await seen(page);
 	expect(Object.values(records).some((ids) => ids.includes('map-editor'))).toBe(true);
-	await root(page).getByRole('button', { name: 'Back to Atlas', exact: false }).click();
+	await root(page).getByRole('button', { name: 'Back to Maps', exact: false }).click();
 	await openEditor(page);
 	await expect(coach(page)).toHaveCount(0);
 	await page.reload();
@@ -88,7 +88,7 @@ test('skip is keyboard accessible and does not restart on reopen', async ({ page
 	await skip.focus();
 	await page.keyboard.press('Enter');
 	await expect(coach(page)).toHaveCount(0);
-	await root(page).getByRole('button', { name: 'Back to Atlas', exact: false }).click();
+	await root(page).getByRole('button', { name: 'Back to Maps', exact: false }).click();
 	await openEditor(page);
 	await expect(coach(page)).toHaveCount(0);
 });
@@ -137,7 +137,7 @@ test('unwritable preferences suppress the tour so it cannot recur', async ({ pag
 test('the seen record covers another map in the same vault', async ({ page }) => {
 	await openEditor(page);
 	await expect(coach(page)).toHaveAttribute('data-map-onboarding', 'rail');
-	await root(page).getByRole('button', { name: 'Back to Atlas' }).click();
+	await root(page).getByRole('button', { name: 'Back to Maps' }).click();
 	const result = await dispatch(page, {
 		type: 'map.create',
 		actorId: 'dm-1',
@@ -172,7 +172,7 @@ test('starting to edit dismisses the tour without stealing keyboard focus', asyn
 	await expect(coach(page)).toHaveCount(0);
 	await expect(page.getByRole('group', { name: 'Fog options', exact: true })).toBeVisible();
 	await expect(root(page)).toBeFocused();
-	await root(page).getByRole('button', { name: 'Back to Atlas' }).click();
+	await root(page).getByRole('button', { name: 'Back to Maps' }).click();
 	await openEditor(page);
 	await expect(coach(page)).toHaveCount(0);
 });

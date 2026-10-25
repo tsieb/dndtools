@@ -81,8 +81,9 @@ for (const entry of ['dialog', 'top bar'] as const) {
 				await expect(dialog.getByRole('checkbox')).toBeEnabled();
 				await dialog.getByRole('button', { name: 'Start session', exact: true }).click();
 			} else {
-				if (info.project.name === 'mobile-chromium')
-					await page.getByRole('button', { name: 'Table controls', exact: true }).click();
+				// Below 1440px the top bar keeps Start session in its Table controls sheet.
+				const tableControls = page.getByRole('button', { name: 'Table controls', exact: true });
+				if (await tableControls.isVisible()) await tableControls.click();
 				await page.getByRole('button', { name: /^Start session/ }).click();
 				await gotoRoute(page, '/session');
 			}

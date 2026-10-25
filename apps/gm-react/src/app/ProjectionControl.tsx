@@ -10,6 +10,7 @@ import { useRuntime } from '../runtime/RuntimeContext';
 import { SetRow, T } from './screen-kit';
 import { useSessionScenes } from '../screens/session/useSessionView';
 import { ContextHelp } from './help/ContextHelp';
+import type { TableControlLayout } from '../net/SessionPanel';
 
 // Every core workflow state gets a spoken label so the status pill never shows a raw enum value.
 // Exported so `/session` names the state the same way this control does — it used to call every
@@ -31,7 +32,16 @@ export const WORKFLOW_LABEL: Record<SessionWorkflowState, MessageKey> = {
  * projection reach players, and ending returns the table to standby (`idle`). The pill reflects the
  * real `session.workflow`, persisted across reload. DM-only; rejected while previewing.
  */
-export function ProjectionControl({ compact = false }: { compact?: boolean } = {}) {
+export function ProjectionControl({
+	compact = false,
+	layout = compact ? 'icon' : 'inline',
+}: {
+	compact?: boolean;
+	/** RC-ENG-15.2 — `row` is the full-width named row in the Table controls sheet. */
+	layout?: TableControlLayout;
+} = {}) {
+	const iconOnly = layout === 'icon';
+	const row = layout === 'row';
 	const runtime = useRuntime();
 	const { t } = useI18n();
 	const workflow = runtime.state.session.workflow;
@@ -77,9 +87,9 @@ export function ProjectionControl({ compact = false }: { compact?: boolean } = {
 		}
 	}
 
-	return (
+	const content = (
 		<>
-			{!compact && (
+			{!iconOnly && (
 				<div
 					style={{
 						display: 'flex',
@@ -89,10 +99,12 @@ export function ProjectionControl({ compact = false }: { compact?: boolean } = {
 						borderRadius: 9,
 						background: T.surf,
 						border: `1px solid ${live ? T.accBd : T.bd}`,
-						flex: '0 0 auto',
+						flex: row ? '1 1 auto' : '0 0 auto',
+						minHeight: row ? 'var(--touch-target-min)' : undefined,
 					}}
 				>
-					<StatusDot status={live ? 'live' : 'idle'} pulse={live} label={t('nav.session')} />
+					{/* The state word beside it is the label; "Session" repeated what Start / End session says. */}
+					<StatusDot status={live ? 'live' : 'idle'} pulse={live} />
 					<span style={{ font: `12px ${T.sans}`, color: T.sub, whiteSpace: 'nowrap' }}>
 						{t(WORKFLOW_LABEL[workflow as SessionWorkflowState] ?? 'session.state.standby')}
 					</span>
@@ -105,7 +117,9 @@ export function ProjectionControl({ compact = false }: { compact?: boolean } = {
 				// `audio-off` is a muted SPEAKER — on the compact phone form this button is icon-only, so
 				// the app's most destructive control read as "mute audio". `close` is the glyph
 				// `/session`'s own "End session" already uses for this exact transition.
-				icon={live ? 'close' : 'visibility-players'}
+				// RC-ENG-15.2 — Start session used the same eye as Preview as player beside it ("two eyes",
+				// IA_REVIEW); `play` starts, `close` ends.
+				icon={live ? 'close' : 'play'}
 				// aria-disabled, NOT disabled: a natively disabled button leaves the tab order, so
 				// neither the title nor the aria-label below is ever announced and the carefully
 				// worded reason becomes unreachable. Button treats aria-disabled as a soft disable
@@ -139,18 +153,24 @@ export function ProjectionControl({ compact = false }: { compact?: boolean } = {
 							: live
 								? t('session.end.liveLabel')
 								: t('session.goLive.label')) +
-					(compact
+					(iconOnly
 						? ` — ${t(WORKFLOW_LABEL[workflow as SessionWorkflowState] ?? 'session.state.standby')}`
 						: '')
 				}
-				style={compact ? { width: 48, minHeight: 48, padding: 0, flex: '0 0 auto' } : undefined}
+				style={
+					iconOnly
+						? { width: 48, minHeight: 48, padding: 0, flex: '0 0 auto' }
+						: row
+							? { minHeight: 'var(--touch-target-min)', flex: '0 0 auto', whiteSpace: 'nowrap' }
+							: { flex: '0 0 auto', whiteSpace: 'nowrap' }
+				}
 				onClick={() =>
 					live
 						? setEndConfirmOpen(true)
 						: void setWorkflow('active', t('session.goLive.announcement'))
 				}
 			>
-				{compact ? null : live ? t('session.end.label') : t('session.goLive.label')}
+				{iconOnly ? null : live ? t('session.end.label') : t('session.goLive.label')}
 			</Button>
 			<Dialog
 				open={endConfirmOpen}
@@ -180,6 +200,22 @@ export function ProjectionControl({ compact = false }: { compact?: boolean } = {
 				}
 			/>
 		</>
+	);
+	// A sheet row keeps the state pill and its action on one named line, wrapping only when narrow.
+	return row ? (
+		<div
+			style={{
+				display: 'flex',
+				alignItems: 'center',
+				flexWrap: 'wrap',
+				gap: 'var(--space-2)',
+				width: '100%',
+			}}
+		>
+			{content}
+		</div>
+	) : (
+		content
 	);
 }
 

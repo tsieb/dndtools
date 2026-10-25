@@ -11,7 +11,7 @@ export const allow = {
 	'apps/gm-react/src/app/ProjectionControl.tsx': 5,
 	'apps/gm-react/src/app/sceneCardMood.ts': 20,
 	'apps/gm-react/src/app/screen-kit.tsx': 20,
-	'apps/gm-react/src/app/ViewAsControl.tsx': 13,
+	'apps/gm-react/src/app/ViewAsControl.tsx': 9,
 	'apps/gm-react/src/app/widget-body-kit.tsx': 4,
 	'apps/gm-react/src/app/widgets/builtin/AtlasBody.tsx': 1,
 	'apps/gm-react/src/app/widgets/builtin/CharacterBody.tsx': 2,

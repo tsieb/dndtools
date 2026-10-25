@@ -7,6 +7,7 @@ import { useI18n } from '../i18n';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { registerBackHandler } from '../platform/backNavigation';
 import { T } from './screen-kit';
+import { tableControlBox, type TableControlLayout } from '../net/SessionPanel';
 
 /**
  * Enter and leave preview with the toasts the menu raises. RC-CAN-6.1: the scene editor's overlay
@@ -37,6 +38,20 @@ export interface CompanionPreviewState {
 }
 
 /**
+ * RC-ENG-15.2 — set when the shell's Preview as player control opens a companion preview. Whatever
+ * shell control the GM started from mounts again on the way back (the inline trigger on a wide top
+ * bar, or the Table controls button when the controls live in the sheet) and takes this to put focus
+ * back on itself, instead of leaving it at the top of the document.
+ */
+let previewReturnPending = false;
+
+export function takePreviewReturnFocus(): boolean {
+	const pending = previewReturnPending;
+	previewReturnPending = false;
+	return pending;
+}
+
+/**
  * ViewAsControl — the "view as" / preview switcher (was entirely absent in the visual port despite
  * the runtime shipping the model). It drives the real `SceneRuntime` preview: previewing as a
  * player/observer projects the actor-filtered, player-safe view and makes every mutation read-only
@@ -52,7 +67,13 @@ export interface CompanionPreviewState {
 export function ViewAsControl({
 	compact = false,
 	placement = 'shell',
-}: { compact?: boolean; placement?: 'shell' | 'scene' } = {}) {
+	layout = compact ? 'icon' : 'inline',
+}: {
+	compact?: boolean;
+	placement?: 'shell' | 'scene';
+	/** RC-ENG-15.2 — `row` is the full-width named row in the Table controls sheet. */
+	layout?: TableControlLayout;
+} = {}) {
 	const { t } = useI18n();
 	const runtime = useRuntime();
 	const actions = usePreviewActions();
@@ -84,6 +105,16 @@ export function ViewAsControl({
 		window.addEventListener('resize', onResize);
 		return () => window.removeEventListener('resize', onResize);
 	}, [open, anchor]);
+	// Back from a companion preview this trigger opened: focus returns here (WCAG 2.4.3). Inside the
+	// sheet the TopBar's Table controls button takes it instead — the sheet is closed on return.
+	useEffect(() => {
+		const trigger = triggerRef.current;
+		if (placement !== 'shell' || runtime.preview || !trigger || trigger.closest('[role="dialog"]'))
+			return;
+		if (takePreviewReturnFocus()) trigger.focus();
+		// Mount only: the marker is consumed by the first shell control that mounts after preview.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 	useEffect(() => {
 		if (!open) return undefined;
 		return registerBackHandler('overlay', () => {
@@ -132,6 +163,7 @@ export function ViewAsControl({
 			runtime.enterPreview(selection);
 			close();
 			if (!runtime.preview) return;
+			previewReturnPending = true;
 			const state: CompanionPreviewState = {
 				previewFrom: `${location.pathname}${location.search}`,
 			};
@@ -152,12 +184,14 @@ export function ViewAsControl({
 	const portal = (node: ReactNode) => (anchor ? createPortal(node, document.body) : node);
 	const label = preview ? preview.label : t('viewAs.dmView');
 	const scene = placement === 'scene';
+	const row = layout === 'row';
+	const iconOnly = layout === 'icon';
 	const triggerName = preview
 		? t(scene ? 'viewAs.scenePreviewing' : 'viewAs.previewingAs', { label })
 		: t(scene ? 'viewAs.sceneTrigger' : 'viewAs.trigger');
 
 	return (
-		<div style={{ position: 'relative', flex: '0 0 auto' }}>
+		<div style={{ position: 'relative', flex: '0 0 auto', width: row ? '100%' : undefined }}>
 			<button
 				ref={triggerRef}
 				type="button"
@@ -170,10 +204,7 @@ export function ViewAsControl({
 					display: 'flex',
 					alignItems: 'center',
 					justifyContent: 'center',
-					gap: compact ? 0 : 8,
-					width: compact ? 44 : undefined,
-					height: compact ? 44 : undefined,
-					padding: compact ? 0 : '6px 11px',
+					...tableControlBox(layout),
 					borderRadius: 9,
 					background: preview ? T.accSub : T.surf,
 					border: `1px solid ${preview ? T.accBd : T.bd}`,
@@ -182,14 +213,14 @@ export function ViewAsControl({
 				}}
 			>
 				<Icon name="visibility-players" size="sm" />
-				{!compact && (
-					<span style={{ font: `12px ${T.sans}`, whiteSpace: 'nowrap' }}>
+				{!iconOnly && (
+					<span style={{ font: `12px ${T.sans}`, whiteSpace: 'nowrap', flex: row ? 1 : undefined }}>
 						{preview
 							? t('viewAs.previewChip', { label })
 							: t(scene ? 'viewAs.sceneLabel' : 'viewAs.label')}
 					</span>
 				)}
-				{!compact && <Icon name="chevron-down" size={12} />}
+				{!iconOnly && <Icon name="chevron-down" size={12} />}
 			</button>
 			{open &&
 				portal(

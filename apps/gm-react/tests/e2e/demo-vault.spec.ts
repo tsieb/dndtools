@@ -142,10 +142,11 @@ function refusals(page: Page) {
 	});
 }
 
-/** Open the host dialog from this viewport's top bar (the phone keeps it in Table controls). */
+/** Open the host dialog from this viewport's top bar (below 1440px it sits in Table controls). */
 async function openHostDialog(page: Page): Promise<Locator> {
-	if (isPhone(page)) await page.getByRole('button', { name: 'Table controls' }).click();
-	await page.getByRole('button', { name: /Host a live table/ }).click();
+	const tableControls = page.getByRole('button', { name: 'Table controls' });
+	if (await tableControls.isVisible()) await tableControls.click();
+	await page.getByRole('button', { name: /^Host table/ }).click();
 	const dialog = page.getByRole('dialog', { name: 'Host a live table' });
 	await expect(dialog).toBeVisible();
 	return dialog;

@@ -32,7 +32,9 @@ test('joined companion sees three PCs with private sheets and follows DM HP chan
 		return { pcs, player: players[0]!.id };
 	});
 	expect(fixture.pcs).toHaveLength(3);
-	await page.getByRole('button', { name: 'Host a live table' }).click();
+	const tableControls = page.getByRole('button', { name: 'Table controls' });
+	if (await tableControls.isVisible()) await tableControls.click();
+	await page.getByRole('button', { name: 'Host table', exact: true }).click();
 	await page.getByRole('button', { name: 'Host on local network', exact: true }).click();
 	await page.getByLabel('Invite participant').selectOption(fixture.player);
 	await page.getByRole('button', { name: 'Create invite', exact: true }).click();

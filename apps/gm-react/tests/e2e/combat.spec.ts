@@ -484,9 +484,9 @@ test.describe('leaving a LIVE session for standby is confirmed', () => {
 // icon-only 48x48 tap — with no confirmation at all. Its glyph was `audio-off`, a muted speaker, so
 // the app's most destructive control read as "mute audio".
 test.describe('the top bar cannot end a live session by accident', () => {
-	const endControl = (page: Page) => page.getByRole('button', { name: 'End live session' });
-	// On a phone the whole top-bar control cluster collapses into the "Table controls" bottom sheet
-	// (`AppShell.tsx`), so the control only exists once that is open.
+	const endControl = (page: Page) => page.getByRole('button', { name: 'End session (live)' });
+	// Below 1440px the whole top-bar control cluster collapses into the "Table controls" sheet
+	// (`TopBar.tsx`), so the control only exists once that is open.
 	const reachTopBar = async (page: Page) => {
 		const opener = page.getByRole('button', { name: 'Table controls' });
 		if ((await opener.count()) > 0) await opener.click();
