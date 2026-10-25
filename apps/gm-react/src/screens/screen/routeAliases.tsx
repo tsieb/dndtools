@@ -81,8 +81,12 @@ export function ScreenRouteAliases() {
 				{ replace: true, state: location.state },
 			);
 		} else if (location.pathname === '/board' && boardTarget) {
-			// Any create intent (the Command Center's "New widget") travels with it.
-			navigate(boardTarget, { replace: true, state: location.state });
+			// Any create intent (the Command Center's "New widget") and the bookmark's query travel
+			// with it (RC-ENG-15.3).
+			navigate(
+				{ pathname: boardTarget, search: location.search },
+				{ replace: true, state: location.state },
+			);
 		}
 	});
 	return null;
