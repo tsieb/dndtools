@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { CombatTrackerView } from '@dndtools/core';
-import { Badge, HPBar, Icon, IconButton, VisibilityChip } from '../../../../ds';
+import { Badge, HPBar, Icon, IconButton, Sheet, VisibilityChip } from '../../../../ds';
 import { useI18n } from '../../../../i18n';
 import { T } from '../../../screen-kit';
-import { SR_ONLY, bodyWrap } from '../../../widget-body-kit';
+import { OpChip, SR_ONLY, bodyWrap } from '../../../widget-body-kit';
 import { HpKeypadSheet, type CombatantRow, type HpIntent } from '../../../combat/HpKeypadSheet';
 import { LiveReadout } from '../../builtin/live';
 import type { WidgetCommandOutcome } from './boardData';
@@ -32,6 +33,8 @@ import { NextTurnControl } from './NextTurnControl';
 const SWIPE_PX = 44;
 /** Past this much horizontal travel the gesture is a swipe, and the row must not also click. */
 const SWIPE_SLOP = 12;
+/** A combatant row's floor: the touch target with room for a name and a bar. */
+const ROW_MIN = 56;
 
 /**
  * RC-WID-4.4 — a row's icon buttons get the density's touch target, the size the HP button beside
@@ -78,6 +81,49 @@ export function InitiativeTrackerCompact({
 	const swipedLast = useRef(false);
 
 	const target = hpSheet ? (tracker.combatants.find((c) => c.id === hpSheet.id) ?? null) : null;
+
+	// RC-ENG-8.15 — every control the tile draws must take a tap where it rests, with no scrolling
+	// first. A phone tile at its default size has room for the header and about one row, so the tile
+	// shows the rows that fit, starting at the one whose turn it is, and the whole order opens in a
+	// sheet. `null` is "not measured" (and any layout that cannot be measured): every row shows.
+	const rootRef = useRef<HTMLDivElement>(null);
+	const headerRef = useRef<HTMLDivElement>(null);
+	const [rowsThatFit, setRowsThatFit] = useState<number | null>(null);
+	const [orderOpen, setOrderOpen] = useState(false);
+	const listed = running && tracker.combatants.length > 0;
+	useLayoutEffect(() => {
+		const root = rootRef.current;
+		const header = headerRef.current;
+		if (!listed || !root || !header || typeof ResizeObserver === 'undefined') return;
+		const measure = () => {
+			if (!root.clientHeight) return;
+			const gap = parseFloat(getComputedStyle(root).rowGap) || 0;
+			// A row grows past its floor with large text; size by the tallest one drawn.
+			let row = ROW_MIN;
+			for (const li of root.querySelectorAll<HTMLElement>(':scope > ul > li'))
+				row = Math.max(row, li.offsetHeight);
+			const room = root.clientHeight - header.offsetHeight - gap;
+			setRowsThatFit(Math.max(0, Math.floor(room / row)));
+		};
+		const observer = new ResizeObserver(measure);
+		observer.observe(root);
+		observer.observe(header);
+		measure();
+		return () => observer.disconnect();
+	}, [listed]);
+	const folded = rowsThatFit !== null && rowsThatFit < tracker.combatants.length;
+	const start = Math.max(
+		0,
+		tracker.combatants.findIndex((c) => c.id === tracker.activeCombatantId),
+	);
+	// A sheet left open when the tile grew back must not reopen the next time it folds.
+	if (!folded && orderOpen) setOrderOpen(false);
+	const shown = folded
+		? Array.from(
+				{ length: rowsThatFit },
+				(_, i) => tracker.combatants[(start + i) % tracker.combatants.length],
+			)
+		: tracker.combatants;
 
 	// A combatant can leave the order mid-fight (removed, or newly hidden from this actor); a tray or
 	// sheet still pointing at them would be a control with nothing behind it.
@@ -172,9 +218,164 @@ export function InitiativeTrackerCompact({
 		);
 	}
 
+	/** One combatant's row: the same row, and the same handlers, in the tile and in the order sheet. */
+	function renderRow(c: CombatantRow, inSheet = false) {
+		const res = c.resources;
+		const trayOpen = openTray === c.id;
+		const active = c.id === tracker.activeCombatantId;
+		return (
+			<li
+				key={c.id}
+				data-testid={inSheet ? undefined : `initiative-tile-row-${c.id}`}
+				onPointerDown={(e) => interactive && onPointerDown(c.id, e)}
+				onPointerMove={(e) => interactive && onPointerMove(e)}
+				onPointerUp={endDrag}
+				onPointerCancel={endDrag}
+				style={{
+					display: 'flex',
+					alignItems: 'center',
+					gap: 8,
+					minHeight: 56,
+					padding: '4px 6px',
+					borderBottom: `1px solid ${T.bd}`,
+					borderLeft: `3px solid ${active ? T.acc : 'transparent'}`,
+					background: active ? T.accSub : 'transparent',
+					// Vertical scrolling still belongs to the board; horizontal travel is ours.
+					touchAction: 'pan-y',
+				}}
+			>
+				<span
+					aria-hidden="true"
+					style={{
+						font: `700 max(13px, var(--fit-text-min, 0px)) ${T.mono}`,
+						color: T.sub,
+						width: 22,
+						textAlign: 'right',
+						flexShrink: 0,
+					}}
+				>
+					{c.statBlock.initiative ?? '—'}
+				</span>
+				<div style={{ minWidth: 0, flex: 1 }}>
+					<div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+						<span
+							style={{
+								font: `600 max(13.5px, var(--fit-text-min, 0px)) ${T.sans}`,
+								color: T.ink,
+								whiteSpace: 'nowrap',
+								overflow: 'hidden',
+								textOverflow: 'ellipsis',
+							}}
+						>
+							{c.name}
+						</span>
+						{c.hidden && <VisibilityChip level="dm-only" compact />}
+						{active && <Badge status="success">{t('session.combat.active')}</Badge>}
+						{c.isDefeated && <Badge status="error">{t('session.combat.down')}</Badge>}
+					</div>
+					{showHp && res && (
+						<div style={{ marginTop: 3 }}>
+							<HPBar current={res.hp} max={res.maxHp} size="sm" showText={false} />
+						</div>
+					)}
+				</div>
+				{trayOpen ? (
+					<div
+						role="group"
+						aria-label={t('widgetBody.initiative.compactActions', { name: c.name })}
+						style={{ display: 'flex', gap: 4, flexShrink: 0 }}
+					>
+						<IconButton
+							icon="sword"
+							size="md"
+							style={ROW_TARGET}
+							label={t('session.combat.hp.damage')}
+							onClick={() => !swallowed() && setHpSheet({ id: c.id, intent: 'damage' })}
+						/>
+						<IconButton
+							icon="heart"
+							size="md"
+							style={ROW_TARGET}
+							label={t('session.combat.hp.heal')}
+							onClick={() => !swallowed() && setHpSheet({ id: c.id, intent: 'heal' })}
+						/>
+						{isDm && onSetVisibility && (
+							<IconButton
+								icon={c.hidden ? 'reveal' : 'conceal'}
+								size="md"
+								style={ROW_TARGET}
+								label={t(
+									c.hidden
+										? 'widgetBody.initiative.compactReveal'
+										: 'widgetBody.initiative.compactHide',
+									{ name: c.name },
+								)}
+								onClick={() => !swallowed() && void toggleHidden(c)}
+							/>
+						)}
+						<IconButton
+							icon="close"
+							size="md"
+							style={ROW_TARGET}
+							label={t('widgetBody.initiative.compactCloseActions', { name: c.name })}
+							onClick={() => setOpenTray(null)}
+						/>
+					</div>
+				) : (
+					<div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+						{showHp && res && (
+							<button
+								type="button"
+								disabled={!interactive}
+								aria-label={t('session.combat.hp.adjust', { name: c.name })}
+								title={t('session.combat.hp.adjust', { name: c.name })}
+								onClick={() => !swallowed() && setHpSheet({ id: c.id, intent: 'damage' })}
+								style={{
+									minHeight: 44,
+									minWidth: 60,
+									padding: '0 8px',
+									borderRadius: 'var(--radius-sm)',
+									border: `1px solid ${T.bd}`,
+									background: T.surf,
+									color: T.ink,
+									font: `700 max(13px, var(--fit-text-min, 0px)) ${T.mono}`,
+									cursor: interactive ? 'pointer' : 'default',
+								}}
+							>
+								{res.hp}
+								<span style={{ color: T.ter }}>/{res.maxHp}</span>
+							</button>
+						)}
+						<IconButton
+							icon="more"
+							size="md"
+							style={ROW_TARGET}
+							disabled={!interactive}
+							label={t('widgetBody.initiative.compactMore', { name: c.name })}
+							onClick={() => !swallowed() && setOpenTray(c.id)}
+						/>
+					</div>
+				)}
+			</li>
+		);
+	}
+
+	const swipeHint = (
+		<p style={{ margin: 0, font: `max(11.5px, var(--fit-text-min, 0px)) ${T.sans}`, color: T.ter }}>
+			<Icon name="chevron-left" size="micro" aria-hidden="true" />{' '}
+			{t('widgetBody.initiative.compactSwipeHint')}
+		</p>
+	);
+
 	return (
-		<div style={{ ...bodyWrap, overflowY: 'auto' }} data-testid="initiative-tile-compact">
+		<div
+			ref={rootRef}
+			// The tighter gap leaves a default phone tile room for its header and one whole row.
+			style={{ ...bodyWrap, gap: T.space.one, overflowY: 'auto' }}
+			data-testid="initiative-tile-compact"
+		>
 			<div
+				ref={headerRef}
 				style={{
 					display: 'flex',
 					// CENTRE, not baseline. The Next-turn chip is a touch target sized against the
@@ -192,13 +393,26 @@ export function InitiativeTrackerCompact({
 				{/* RC-WID-4.4 — the order moving on is this tile's value, so the heading is a live
 				    readout. The turn is spoken as its place in the order, not the name: the name is
 				    already in its row, and a second copy in the DOM makes every by-name lookup ambiguous. */}
-				<LiveReadout style={{ display: 'inline' }}>
-					{t('widgetBody.initiative.compactHeading', { round: tracker.round })}
-					<span style={SR_ONLY}>
-						{' '}
-						· {t('widgetBody.initiative.turn')} {tracker.turn + 1}
-					</span>
-				</LiveReadout>
+				{/* One line: a heading wrapped under the chips grew the header past the room the rows
+				    need. The full heading stays in the tooltip and in the live readout's text. */}
+				<span
+					title={t('widgetBody.initiative.compactHeading', { round: tracker.round })}
+					style={{
+						flex: '1 1 auto',
+						minWidth: 0,
+						overflow: 'hidden',
+						textOverflow: 'ellipsis',
+						whiteSpace: 'nowrap',
+					}}
+				>
+					<LiveReadout style={{ display: 'inline' }}>
+						{t('widgetBody.initiative.compactHeading', { round: tracker.round })}
+						<span style={SR_ONLY}>
+							{' '}
+							· {t('widgetBody.initiative.turn')} {tracker.turn + 1}
+						</span>
+					</LiveReadout>
+				</span>
 				{/* RC-WID-4.2 — advancing the order is the phone tile's most-wanted action, so it sits in
 				    the header rather than behind a trip to /session. */}
 				{/* `dense`: the chip's board-scale touch-target compensation is deliberately off here. On
@@ -206,9 +420,24 @@ export function InitiativeTrackerCompact({
 				    roughly twice that in layout — it filled the body on its own and clipped every
 				    combatant row out of the tile, so the widget drew a Next-turn button and no combat.
 				    It now matches the row controls beside it. */}
-				<span style={{ marginLeft: 'auto' }}>
+				<span style={{ marginLeft: 'auto', flexShrink: 0 }}>
 					<NextTurnControl dense running onAdvance={onAdvance} />
 				</span>
+				{/* RC-ENG-8.15 — the rows the tile has no room for are one press away, never scrolled
+				    out of reach under the ones it shows. */}
+				{folded && (
+					<span style={{ flexShrink: 0 }}>
+						<OpChip
+							dense
+							icon="layout-list"
+							label={String(tracker.combatants.length)}
+							ariaLabel={t('widgetBody.initiative.compactShowAll', {
+								count: tracker.combatants.length,
+							})}
+							onPress={interactive ? () => setOrderOpen(true) : undefined}
+						/>
+					</span>
+				)}
 			</div>
 			<ul
 				style={{
@@ -219,166 +448,40 @@ export function InitiativeTrackerCompact({
 					flex: '0 0 auto',
 				}}
 			>
-				{tracker.combatants.map((c) => {
-					const res = c.resources;
-					const trayOpen = openTray === c.id;
-					const active = c.id === tracker.activeCombatantId;
-					return (
-						<li
-							key={c.id}
-							data-testid={`initiative-tile-row-${c.id}`}
-							onPointerDown={(e) => interactive && onPointerDown(c.id, e)}
-							onPointerMove={(e) => interactive && onPointerMove(e)}
-							onPointerUp={endDrag}
-							onPointerCancel={endDrag}
-							style={{
-								display: 'flex',
-								alignItems: 'center',
-								gap: 8,
-								minHeight: 56,
-								padding: '4px 6px',
-								borderBottom: `1px solid ${T.bd}`,
-								borderLeft: `3px solid ${active ? T.acc : 'transparent'}`,
-								background: active ? T.accSub : 'transparent',
-								// Vertical scrolling still belongs to the board; horizontal travel is ours.
-								touchAction: 'pan-y',
-							}}
-						>
-							<span
-								aria-hidden="true"
-								style={{
-									font: `700 max(13px, var(--fit-text-min, 0px)) ${T.mono}`,
-									color: T.sub,
-									width: 22,
-									textAlign: 'right',
-									flexShrink: 0,
-								}}
-							>
-								{c.statBlock.initiative ?? '—'}
-							</span>
-							<div style={{ minWidth: 0, flex: 1 }}>
-								<div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-									<span
-										style={{
-											font: `600 max(13.5px, var(--fit-text-min, 0px)) ${T.sans}`,
-											color: T.ink,
-											whiteSpace: 'nowrap',
-											overflow: 'hidden',
-											textOverflow: 'ellipsis',
-										}}
-									>
-										{c.name}
-									</span>
-									{c.hidden && <VisibilityChip level="dm-only" compact />}
-									{active && <Badge status="success">{t('session.combat.active')}</Badge>}
-									{c.isDefeated && <Badge status="error">{t('session.combat.down')}</Badge>}
-								</div>
-								{showHp && res && (
-									<div style={{ marginTop: 3 }}>
-										<HPBar current={res.hp} max={res.maxHp} size="sm" showText={false} />
-									</div>
-								)}
-							</div>
-							{trayOpen ? (
-								<div
-									role="group"
-									aria-label={t('widgetBody.initiative.compactActions', { name: c.name })}
-									style={{ display: 'flex', gap: 4, flexShrink: 0 }}
-								>
-									<IconButton
-										icon="sword"
-										size="md"
-										style={ROW_TARGET}
-										label={t('session.combat.hp.damage')}
-										onClick={() => !swallowed() && setHpSheet({ id: c.id, intent: 'damage' })}
-									/>
-									<IconButton
-										icon="heart"
-										size="md"
-										style={ROW_TARGET}
-										label={t('session.combat.hp.heal')}
-										onClick={() => !swallowed() && setHpSheet({ id: c.id, intent: 'heal' })}
-									/>
-									{isDm && onSetVisibility && (
-										<IconButton
-											icon={c.hidden ? 'reveal' : 'conceal'}
-											size="md"
-											style={ROW_TARGET}
-											label={t(
-												c.hidden
-													? 'widgetBody.initiative.compactReveal'
-													: 'widgetBody.initiative.compactHide',
-												{ name: c.name },
-											)}
-											onClick={() => !swallowed() && void toggleHidden(c)}
-										/>
-									)}
-									<IconButton
-										icon="close"
-										size="md"
-										style={ROW_TARGET}
-										label={t('widgetBody.initiative.compactCloseActions', { name: c.name })}
-										onClick={() => setOpenTray(null)}
-									/>
-								</div>
-							) : (
-								<div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-									{showHp && res && (
-										<button
-											type="button"
-											disabled={!interactive}
-											aria-label={t('session.combat.hp.adjust', { name: c.name })}
-											title={t('session.combat.hp.adjust', { name: c.name })}
-											onClick={() => !swallowed() && setHpSheet({ id: c.id, intent: 'damage' })}
-											style={{
-												minHeight: 44,
-												minWidth: 60,
-												padding: '0 8px',
-												borderRadius: 'var(--radius-sm)',
-												border: `1px solid ${T.bd}`,
-												background: T.surf,
-												color: T.ink,
-												font: `700 max(13px, var(--fit-text-min, 0px)) ${T.mono}`,
-												cursor: interactive ? 'pointer' : 'default',
-											}}
-										>
-											{res.hp}
-											<span style={{ color: T.ter }}>/{res.maxHp}</span>
-										</button>
-									)}
-									<IconButton
-										icon="more"
-										size="md"
-										style={ROW_TARGET}
-										disabled={!interactive}
-										label={t('widgetBody.initiative.compactMore', { name: c.name })}
-										onClick={() => !swallowed() && setOpenTray(c.id)}
-									/>
-								</div>
-							)}
-						</li>
-					);
-				})}
+				{shown.map((c) => renderRow(c))}
 			</ul>
 			{/* The swipe is a shortcut, not a secret: say so once, under the order. */}
-			<p
-				style={{ margin: 0, font: `max(11.5px, var(--fit-text-min, 0px)) ${T.sans}`, color: T.ter }}
-			>
-				<Icon name="chevron-left" size="micro" aria-hidden="true" />{' '}
-				{t('widgetBody.initiative.compactSwipeHint')}
-			</p>
+			{!folded && swipeHint}
 			<div role="status" aria-live="polite" style={SR_ONLY}>
 				{announcement}
 			</div>
-			{target && (
-				<HpKeypadSheet
-					key={`${target.id}:${hpSheet?.intent}`}
-					target={target}
-					intent={hpSheet?.intent ?? 'damage'}
-					side="bottom"
-					onClose={() => setHpSheet(null)}
-					onApply={applyHp}
-				/>
+			{/* Portalled: inside the board's transform layer a fixed sheet is placed and sized against
+			    the canvas, not the screen (the phone canvas put the keypad half off the left edge). */}
+			{createPortal(
+				<>
+					<Sheet
+						open={folded && orderOpen}
+						side="bottom"
+						title={t('widgetBody.initiative.compactHeading', { round: tracker.round })}
+						onClose={() => setOrderOpen(false)}
+					>
+						<ul style={{ listStyle: 'none', margin: T.space.zero, padding: T.space.zero }}>
+							{tracker.combatants.map((c) => renderRow(c, true))}
+						</ul>
+						{swipeHint}
+					</Sheet>
+					{target && (
+						<HpKeypadSheet
+							key={`${target.id}:${hpSheet?.intent}`}
+							target={target}
+							intent={hpSheet?.intent ?? 'damage'}
+							side="bottom"
+							onClose={() => setHpSheet(null)}
+							onApply={applyHp}
+						/>
+					)}
+				</>,
+				document.body,
 			)}
 		</div>
 	);

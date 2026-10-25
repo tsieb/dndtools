@@ -77,6 +77,22 @@ async function boardWithTracker(page: Page): Promise<void> {
 	);
 }
 
+/**
+ * RC-ENG-8.15 — the whole order. A tile with room for every row lists it; the home board's default
+ * phone tile has room for its header and one row, so it shows the active row and opens every row in
+ * a sheet. Either way the rows, and their controls, are the same.
+ */
+async function wholeOrder(page: Page) {
+	const tile = page.getByTestId('initiative-tile-compact');
+	await expect(tile).toBeVisible();
+	const all = tile.getByRole('button', { name: /^Show the whole order/ });
+	if ((await all.count()) === 0) return tile;
+	await all.click();
+	const sheet = page.getByRole('dialog', { name: /initiative order/ });
+	await expect(sheet).toBeVisible();
+	return sheet;
+}
+
 /** Current HP of a combatant by name, read from the Core rather than from the pixels. */
 function hpOf(page: Page, name: string): Promise<number | null> {
 	return page.evaluate((who) => {
@@ -112,11 +128,22 @@ test.describe('touch-first combat tile', () => {
 	test('the tile lists the order in rows a thumb can hit', async ({ page }) => {
 		const tile = page.getByTestId('initiative-tile-compact');
 		await expect(tile).toBeVisible();
+		// The row whose turn it is always rests in the tile, whole, with its controls in reach.
 		await expect(tile.getByText('Bog Lurker')).toBeVisible();
-		await expect(tile.getByText('Reed Stalker')).toBeVisible();
+		const shown = await tile.evaluate((el) => {
+			const box = el.getBoundingClientRect();
+			return [...el.querySelectorAll('li')].every((li) => {
+				const row = li.getBoundingClientRect();
+				return row.top >= box.top - 1 && row.bottom <= box.bottom + 1;
+			});
+		});
+		expect(shown, 'every row the tile draws rests inside it').toBe(true);
+		const order = await wholeOrder(page);
+		await expect(order.getByText('Bog Lurker')).toBeVisible();
+		await expect(order.getByText('Reed Stalker')).toBeVisible();
 
 		// 56px is the story's floor, and it is a floor for EVERY row, not an average.
-		const rows = tile.getByRole('listitem');
+		const rows = order.getByRole('listitem');
 		await expect(rows).toHaveCount(2);
 		// LAYOUT height, not the on-screen box: the board canvas scales its tiles, and a scaled 56px
 		// row is still a 56px row in the layout the DM zooms into.
@@ -168,18 +195,18 @@ test.describe('touch-first combat tile', () => {
 		});
 		await expect.poll(() => hpOf(page, 'Reed Stalker')).toBe(4);
 
-		const tile = page.getByTestId('initiative-tile-compact');
+		const order = await wholeOrder(page);
 		// The swipe is a shortcut; this is the same tray, opened from the tab order.
-		const more = tile.getByRole('button', { name: 'More actions — Reed Stalker' });
+		const more = order.getByRole('button', { name: 'More actions — Reed Stalker' });
 		await more.focus();
 		await page.keyboard.press('Enter');
 
-		const heal = tile.getByRole('button', { name: 'Heal', exact: true });
+		const heal = order.getByRole('button', { name: 'Heal', exact: true });
 		await expect(heal).toBeVisible();
 		await heal.focus();
 		await page.keyboard.press('Enter');
 
-		const sheet = page.getByRole('dialog');
+		const sheet = page.getByRole('dialog', { name: /Hit points/ });
 		await expect(sheet).toBeVisible();
 		// The sheet takes typed digits too, so the keypad is never the only way to enter an amount.
 		await page.keyboard.press('6');

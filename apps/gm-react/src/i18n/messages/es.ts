@@ -6297,6 +6297,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'widgetBody.initiative.compactCloseActions': 'Cerrar acciones rápidas: {name}',
 	'widgetBody.initiative.compactHide': 'Ocultar a {name} de los jugadores',
 	'widgetBody.initiative.compactReveal': 'Mostrar a {name} a los jugadores',
+	'widgetBody.initiative.compactShowAll': 'Ver todo el orden — {count} en combate',
 	'widgetBody.initiative.compactSwipeHint':
 		'Desliza una fila a la izquierda para ver acciones rápidas.',
 	'widgetBody.character.noBinding':
@@ -6318,6 +6319,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'widgetBody.map.overlayOff': 'Ocultar la capa de combate',
 	'widgetBody.map.overlayShown': 'Capa de combate mostrada',
 	'widgetBody.map.overlayHidden': 'Capa de combate oculta',
+	'widgetBody.map.moreControls': 'Más controles del mapa',
 	'widgetBody.map.openInEditor': 'Abrir en el editor',
 	'widgetBody.map.pois': '{count, plural, one {# lugar} other {# lugares}}',
 	'widgetBody.map.inFight': '{count, plural, one {# en el combate} other {# en el combate}}',

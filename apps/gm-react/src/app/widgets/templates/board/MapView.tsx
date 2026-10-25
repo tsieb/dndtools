@@ -1,12 +1,13 @@
 import {
 	useEffect,
+	useLayoutEffect,
 	useMemo,
 	useRef,
 	useState,
 	type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
 import { resolveWidgetIntent, type MapView } from '@dndtools/core';
-import { IconButton, Select, Toaster } from '../../../../ds';
+import { Button, Dialog, IconButton, Select, Toaster } from '../../../../ds';
 import { useRuntime } from '../../../../runtime/RuntimeContext';
 import { useI18n } from '../../../../i18n';
 import { T } from '../../../screen-kit';
@@ -53,6 +54,15 @@ const PAN_STEP = 0.12;
 
 function zoomed(zoom: number, delta: number): number {
 	return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, +(zoom + delta).toFixed(2)));
+}
+
+/** One of the tile's view or operation controls, drawn in its tool row or in "More map controls". */
+interface MapControl {
+	id: string;
+	icon: string;
+	label: string;
+	disabled?: boolean;
+	run: () => void;
 }
 
 /**
@@ -107,6 +117,29 @@ export function MapViewTemplate({ widget, definition, data, onCommand }: WidgetT
 	const rasterAssetId = bound?.rasterAssetId ?? null;
 	const party = useMemo(() => (followParty ? partyCentre(view) : null), [followParty, view]);
 	const shownCentre = party ?? centre;
+
+	// How many controls the tool row holds at its current width; `null` until measured (and wherever
+	// layout cannot be measured), which shows every control in the row.
+	const toolRowRef = useRef<HTMLDivElement>(null);
+	const [toolsThatFit, setToolsThatFit] = useState<number | null>(null);
+	const [moreOpen, setMoreOpen] = useState(false);
+	const hasToolRow = interactive && view !== null;
+	useLayoutEffect(() => {
+		const row = toolRowRef.current;
+		if (!hasToolRow || !row || typeof ResizeObserver === 'undefined') return;
+		const measure = () => {
+			const size = row.querySelector('button')?.offsetWidth ?? 0;
+			if (!row.clientWidth || !size) return;
+			const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
+			setToolsThatFit(Math.max(1, Math.floor((row.clientWidth + gap) / (size + gap))));
+		};
+		const observer = new ResizeObserver(measure);
+		observer.observe(row);
+		const first = row.querySelector('button');
+		if (first) observer.observe(first);
+		measure();
+		return () => observer.disconnect();
+	}, [hasToolRow]);
 
 	// RC-ENG-8.2 — `MapCanvas` draws tokens and POIs as `<button>`s whether or not anything handles a
 	// press. The tile never does (pan is its only gesture), and the board shrinks tiles on the phone
@@ -267,68 +300,124 @@ export function MapViewTemplate({ widget, definition, data, onCommand }: WidgetT
 		minHeight: 'var(--operation-touch-target)',
 		flexShrink: 0,
 	};
+	const mapSelect = interactive && isDm && placed && canConfigure && choices.length > 0 && (
+		<div style={{ flex: '1 1 120px', minWidth: 100 }}>
+			<Select
+				// The board scales its tiles down, so a control sized in plain density units lands well
+				// under the 48dp Android floor once painted. `scene-board-operation` divides the density
+				// target by the layer's own scale — the same compensation the tile's other operations
+				// already get; the inline `minHeight` is needed because `Select` sets one of its own,
+				// which a class cannot outrank.
+				className="scene-board-operation"
+				style={{
+					minHeight: 'var(--operation-touch-target, var(--density-input-height, 2.25rem))',
+				}}
+				aria-label={t('widgetBody.map.changeMap')}
+				value={view?.mapId ?? ''}
+				options={[
+					...(view ? [] : [{ value: '', label: t('widgetBody.map.chooseMap') }]),
+					...choices.map((entry) => ({ value: entry.id, label: entry.name })),
+				]}
+				onChange={(e: { target: { value: string } }) => changeMap(e.target.value)}
+			/>
+		</div>
+	);
+	const operations: MapControl[] =
+		interactive && isDm && placed
+			? [
+					...(canConfigure
+						? [
+								{
+									id: 'overlay',
+									icon: overlayOn ? 'visibility-players' : 'visibility-hidden',
+									label: overlayOn ? t('widgetBody.map.overlayOff') : t('widgetBody.map.overlayOn'),
+									run: toggleOverlay,
+								},
+							]
+						: []),
+					...(openIntent
+						? [
+								{
+									id: 'editor',
+									icon: 'edit',
+									label: t('widgetBody.map.openInEditor'),
+									disabled: !view,
+									run: openInEditor,
+								},
+							]
+						: []),
+					...(canProject
+						? [
+								{
+									id: 'project',
+									icon: 'visibility-shared',
+									label: t('projection.toPlayers'),
+									disabled: !view || !bound?.sessionLive,
+									run: () => void projectToPlayers(),
+								},
+							]
+						: []),
+				]
+			: [];
+	// A control drawn over the map needs its own surface, and the press the row lets through.
+	const onMap = { pointerEvents: 'auto', background: 'var(--color-surface-raised)' } as const;
+	const tool = (control: MapControl, overMap = false) => (
+		<IconButton
+			key={control.id}
+			className="scene-board-operation"
+			style={overMap ? { ...actionTarget, ...onMap } : actionTarget}
+			icon={control.icon}
+			label={control.label}
+			variant="outline"
+			size="sm"
+			disabled={control.disabled}
+			onClick={control.run}
+		/>
+	);
 	const actions =
-		interactive && isDm && placed ? (
+		mapSelect || operations.length > 0 ? (
 			<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-				{canConfigure && choices.length > 0 && (
-					<div style={{ flex: '1 1 120px', minWidth: 100 }}>
-						<Select
-							// The board scales its tiles down, so a control sized in plain density units
-							// lands well under the 48dp Android floor once painted. `scene-board-operation`
-							// divides the density target by the layer's own scale — the same compensation
-							// the tile's other operations already get; the inline `minHeight` is needed
-							// because `Select` sets one of its own, which a class cannot outrank.
-							className="scene-board-operation"
-							style={{
-								minHeight: 'var(--operation-touch-target, var(--density-input-height, 2.25rem))',
-							}}
-							aria-label={t('widgetBody.map.changeMap')}
-							value={view?.mapId ?? ''}
-							options={[
-								...(view ? [] : [{ value: '', label: t('widgetBody.map.chooseMap') }]),
-								...choices.map((entry) => ({ value: entry.id, label: entry.name })),
-							]}
-							onChange={(e: { target: { value: string } }) => changeMap(e.target.value)}
-						/>
-					</div>
-				)}
-				{canConfigure && (
-					<IconButton
-						className="scene-board-operation"
-						style={actionTarget}
-						icon={overlayOn ? 'visibility-players' : 'visibility-hidden'}
-						label={overlayOn ? t('widgetBody.map.overlayOff') : t('widgetBody.map.overlayOn')}
-						variant="outline"
-						size="sm"
-						onClick={toggleOverlay}
-					/>
-				)}
-				{openIntent && (
-					<IconButton
-						className="scene-board-operation"
-						style={actionTarget}
-						icon="edit"
-						label={t('widgetBody.map.openInEditor')}
-						variant="outline"
-						size="sm"
-						disabled={!view}
-						onClick={openInEditor}
-					/>
-				)}
-				{canProject && (
-					<IconButton
-						className="scene-board-operation"
-						style={actionTarget}
-						icon="visibility-shared"
-						label={t('projection.toPlayers')}
-						variant="outline"
-						size="sm"
-						disabled={!view || !bound?.sessionLive}
-						onClick={() => void projectToPlayers()}
-					/>
-				)}
+				{mapSelect}
+				{operations.map((control) => tool(control))}
 			</div>
 		) : null;
+
+	// RC-ENG-8.15 — every control the tile draws takes a tap where it rests. View and operations
+	// share ONE row under the map, which gives up height so the row always rests inside the body;
+	// what the row's width cannot hold folds into "More map controls" instead of wrapping out of view.
+	const controls: MapControl[] = interactive
+		? [
+				{
+					id: 'zoom-in',
+					icon: 'zoom-in',
+					label: t('atlas.zoomIn'),
+					disabled: zoom >= ZOOM_MAX,
+					run: () => setZoom((z) => zoomed(z, ZOOM_STEP)),
+				},
+				{
+					id: 'zoom-out',
+					icon: 'zoom-out',
+					label: t('atlas.zoomOut'),
+					disabled: zoom <= ZOOM_MIN,
+					run: () => setZoom((z) => zoomed(z, -ZOOM_STEP)),
+				},
+				{
+					id: 'fit',
+					icon: 'zoom-fit',
+					label: t('atlas.fit'),
+					run: () => {
+						setZoom(ZOOM_MIN);
+						setCentre({ x: 0.5, y: 0.5 });
+					},
+				},
+				...operations,
+			]
+		: [];
+	const fits = toolsThatFit ?? controls.length;
+	const foldedTools = controls.length > fits;
+	const rowTools = foldedTools ? controls.slice(0, Math.max(0, fits - 1)) : controls;
+	const moreTools = foldedTools ? controls.slice(rowTools.length) : [];
+	if (!foldedTools && moreOpen) setMoreOpen(false);
 
 	// No binding at all is the "choose a map" empty state, never "missing": the board resolves an
 	// unbound tile as available, so the status alone cannot tell the two apart (RC-ENG-8.2).
@@ -421,46 +510,61 @@ export function MapViewTemplate({ widget, definition, data, onCommand }: WidgetT
 						))}
 					</div>
 				</MapCanvas>
-			</div>
-			{/* Zoom lives in the tile's own scrolling column, not stacked inside the map: a board-scaled
-			    touch target is several times a small tile's height, and inside the clipped map it ran off
-			    the bottom with no way to scroll to it. */}
-			{interactive && (
-				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-					<IconButton
-						className="scene-board-operation"
-						style={actionTarget}
-						icon="zoom-in"
-						label={t('atlas.zoomIn')}
-						variant="outline"
-						size="sm"
-						disabled={zoom >= ZOOM_MAX}
-						onClick={() => setZoom((z) => zoomed(z, ZOOM_STEP))}
-					/>
-					<IconButton
-						className="scene-board-operation"
-						style={actionTarget}
-						icon="zoom-out"
-						label={t('atlas.zoomOut')}
-						variant="outline"
-						size="sm"
-						disabled={zoom <= ZOOM_MIN}
-						onClick={() => setZoom((z) => zoomed(z, -ZOOM_STEP))}
-					/>
-					<IconButton
-						className="scene-board-operation"
-						style={actionTarget}
-						icon="zoom-fit"
-						label={t('atlas.fit')}
-						variant="outline"
-						size="sm"
-						onClick={() => {
-							setZoom(ZOOM_MIN);
-							setCentre({ x: 0.5, y: 0.5 });
+				{/* RC-ENG-8.15 — the tool row rides the map's bottom edge: below the map it needed a body
+				    taller than a rail tile at Fit, and it rested out of reach. One row, never wrapped, inside
+				    the map's own floor (the map keeps its 64px, so its markers do not crowd its edge). */}
+				{controls.length > 0 && (
+					<div
+						ref={toolRowRef}
+						style={{
+							position: 'absolute',
+							left: 4,
+							right: 4,
+							bottom: 4,
+							display: 'flex',
+							gap: 6,
+							// The map between the buttons still pans.
+							pointerEvents: 'none',
 						}}
-					/>
+					>
+						{rowTools.map((control) => tool(control, true))}
+						{foldedTools && (
+							<IconButton
+								className="scene-board-operation"
+								style={{ ...actionTarget, ...onMap }}
+								icon="more"
+								label={t('widgetBody.map.moreControls')}
+								aria-haspopup="dialog"
+								variant="outline"
+								size="sm"
+								onClick={() => setMoreOpen(true)}
+							/>
+						)}
+					</div>
+				)}
+			</div>
+			<Dialog
+				open={foldedTools && moreOpen}
+				onClose={() => setMoreOpen(false)}
+				title={t('widgetBody.map.moreControls')}
+				size="sm"
+			>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.two }}>
+					{moreTools.map((control) => (
+						<Button
+							key={control.id}
+							icon={control.icon}
+							disabled={control.disabled}
+							onClick={() => {
+								setMoreOpen(false);
+								control.run();
+							}}
+						>
+							{control.label}
+						</Button>
+					))}
 				</div>
-			)}
+			</Dialog>
 			<div
 				style={{
 					display: 'flex',
@@ -480,7 +584,7 @@ export function MapViewTemplate({ widget, definition, data, onCommand }: WidgetT
 					{party ? ` · ${t('widgetBody.map.following')}` : ''}
 				</span>
 			</div>
-			{actions}
+			{mapSelect}
 		</div>
 	);
 }

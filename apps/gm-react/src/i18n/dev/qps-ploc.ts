@@ -6454,6 +6454,8 @@ export default {
 	'widgetBody.initiative.compactCloseActions': '[Çľóšé ɋúíçķ áçţíóñš — ~~~~ ~~~~{name}]',
 	'widgetBody.initiative.compactHide': '[Ĥíďé ~~{name} ƒŕóḿ ƥľáýéŕš~~~~ ~]',
 	'widgetBody.initiative.compactReveal': '[Šĥóŵ ~~{name} ţó ƥľáýéŕš~~~~ ]',
+	'widgetBody.initiative.compactShowAll':
+		'[Šĥóŵ ţĥé ŵĥóľé óŕďéŕ — ~~~~ ~~~~ {count} íñ çóḿƀáţ~~~~]',
 	'widgetBody.initiative.compactSwipeHint': '[Šŵíƥé á ŕóŵ ľéƒţ ƒóŕ ɋúíçķ áçţíóñš.~~~~ ~~~~ ~~~~]',
 	'widgetBody.character.noBinding':
 		'[Ñó çĥáŕáçţéŕ ľíñķéď — çĥóóšé óñé ţó šĥóŵ íţš šţáţ ƀľóçķ.~~~~ ~~~~ ~~~~ ~~~~ ~~~]',
@@ -6473,6 +6475,7 @@ export default {
 	'widgetBody.map.overlayOff': '[Ĥíďé çóḿƀáţ óṽéŕľáý~~~~ ~~~]',
 	'widgetBody.map.overlayShown': '[Çóḿƀáţ óṽéŕľáý šĥóŵñ~~~~ ~~~]',
 	'widgetBody.map.overlayHidden': '[Çóḿƀáţ óṽéŕľáý ĥíďďéñ~~~~ ~~~~]',
+	'widgetBody.map.moreControls': '[Ḿóŕé ḿáƥ çóñţŕóľš~~~~ ~~]',
 	'widgetBody.map.openInEditor': '[Óƥéñ íñ éďíţóŕ~~~~ ~]',
 	'widgetBody.map.pois': '[{count, plural, one {# ƥľáçé~~~} other {# ƥľáçéš~~~~}}]',
 	'widgetBody.map.inFight':
