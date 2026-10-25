@@ -129,9 +129,14 @@ test.describe('phone: Screens is one tap away', () => {
 		await setPins(page, 0);
 		const tab = page.getByRole('button', { name: 'Screens', exact: true });
 		await expect(tab).toHaveAttribute('aria-haspopup', 'dialog');
+		await expect(tab).toHaveAttribute('aria-expanded', 'false');
 		await tab.click();
 		const chooser = page.getByRole('dialog', { name: 'Open a screen' });
-		await expect(tab).toHaveAttribute('aria-expanded', 'true');
+		await expect(chooser).toBeVisible();
+		// The modal sheet makes the tab bar inert, so read the state off the DOM.
+		await expect(page.locator('button[aria-haspopup="dialog"][aria-expanded="true"]')).toHaveCount(
+			1,
+		);
 		for (const name of [/^Command Center/, /screen/, /^Session/, /^All screens/])
 			await expect(chooser.getByRole('button', { name }).first()).toBeVisible();
 		await expect(chooser.getByTestId('pinned-screens')).toHaveCount(0);
@@ -178,9 +183,15 @@ test.describe('phone: Screens is one tap away', () => {
 		const chooser = page.getByRole('dialog', { name: 'Open a screen' });
 		const live = chooser.getByTestId('screens-sheet-live');
 		await expect(live.getByRole('button', { name: /Pin 01.*Live/ })).toBeVisible();
-		const liveBox = (await live.boundingBox())!;
-		const sessionBox = (await chooser.getByRole('button', { name: /^Session/ }).boundingBox())!;
-		expect(liveBox.y).toBeLessThan(sessionBox.y);
+		// The live screen leads the list (DOM order; the sheet may still be sliding in).
+		const session = await chooser.getByRole('button', { name: /^Session/ }).elementHandle();
+		expect(
+			await live.evaluate(
+				(node, other) =>
+					!!(node.compareDocumentPosition(other!) & Node.DOCUMENT_POSITION_FOLLOWING),
+				session,
+			),
+		).toBe(true);
 		await live.getByRole('button').click();
 		await page.waitForURL((url) => url.hash === `#/screen/${id}`);
 		await setLive(page, null);
