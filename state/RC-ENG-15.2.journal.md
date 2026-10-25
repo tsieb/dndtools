@@ -99,3 +99,10 @@ top-bar view-as", Maps/Story/Notes, `{gm} screen`), RC_ROADMAP Epic ENG-15.
   `pnpm exec tsx scripts/feature-complexity.ts` (2-line diff, those two rows only).
 - `pnpm test:tooling` 33 files / 274 passed; `pnpm test:critical` 302 files / 5433 passed;
   prettier clean on the regenerated doc.
+
+## Recovery after operator interruption
+
+- Tree clean on `deba5ca96`; nothing uncommitted was lost. Re-checked on this head: typecheck,
+  lint (0 errors), `test:tooling` 274 passed, `format:check:changed --base loop/rc` clean,
+  feature-audit 0 stale, `CI=true pnpm test:app --maxWorkers=2` 200 files / 2412 passed,
+  `table-controls.spec.ts` both profiles 32 passed. No code change in this attempt.
