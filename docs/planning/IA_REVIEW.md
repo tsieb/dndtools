@@ -1,9 +1,11 @@
 # RC-UX-5.5 — Navigation review before release
 
-Status: **Accepted 2026-10-24 (decider: owner, Engineering; UX and Accessibility consulted through this review); implementation follow-ups RC-ENG-15.1–15.4 gate RC-ENG-7.3.** Reviewed 2026-10-12 against repository
-commit `020cc6a07f3a2296d8cd032344010f37873782e4`. This is the decision proposal required by
-[RC_ROADMAP](RC_ROADMAP.md), §1.6 D6 and UX-5.5, following CAN-7.9. It does not authorize a
-navigation change. [NAVIGATION](../architecture/NAVIGATION.md) remains the implemented contract;
+Status: **Accepted 2026-10-24 (decider: owner, Engineering; UX and Accessibility consulted through this review); implementation follow-ups RC-ENG-15.1–15.4 gate RC-ENG-7.3.**
+As of 2026-10-25, 15.1–15.3 are integrated on `loop/rc` and 15.4's evidence is
+[below](#task-based-checks-and-exact-candidate-gates-rc-eng-154). One task-based check still fails.
+Reviewed 2026-10-12 against repository commit `020cc6a07f3a2296d8cd032344010f37873782e4`. This is
+the decision proposal required by [RC_ROADMAP](RC_ROADMAP.md), §1.6 D6 and UX-5.5, following
+CAN-7.9. It does not authorize a navigation change. [NAVIGATION](../architecture/NAVIGATION.md) remains the implemented contract;
 this review owns the recommendation, not a second runtime specification.
 
 ## Evidence and limits
@@ -167,8 +169,8 @@ decider, consultation with UX/Accessibility, date, and this review's merged comm
 | Engineering accepts decision, with UX/Accessibility consultation     | Accepted 2026-10-24 by the owner as Engineering decider; IA-1 (six sections) is the release target. |
 | Review merged                                                        | Merged on `loop/rc` in `3d8d8e96a` (proposal) with `2a9c1a81b` and `74efcfe28`.                     |
 | ADR-013 amendment adopted                                            | Adopted 2026-10-24 (owner-authorized edit); see ADR-013 Decision.                                   |
-| ENG-7.3 explicitly lists accepted decision as a release precondition | Applied in RC_ROADMAP ENG-7.3 (text below); the precondition itself is unmet until acceptance.      |
-| Implementation stories filed after acceptance                        | Filed as RC-ENG-15.1–15.4 in RC_ROADMAP; verification on the RC commit is ENG-7.3's to confirm.     |
+| ENG-7.3 explicitly lists accepted decision as a release precondition | Applied in RC_ROADMAP ENG-7.3 (text below); checklist box recorded by RC-ENG-15.4.                  |
+| Implementation stories filed after acceptance                        | 15.1 `f79675059`, 15.2 `2c97e96f8`, 15.3 `f168547c4` on `loop/rc`; RC-commit check is ENG-7.3's.    |
 
 [RC_ROADMAP](RC_ROADMAP.md) RC-ENG-7.3 now carries this release precondition, added by this task
 after independent review cited the gap (claim widened to the ENG-7.3 bullet only):
@@ -180,11 +182,11 @@ after independent review cited the gap (claim widened to the ENG-7.3 bullet only
 > pending decision, an unmerged review or an unfinished required follow-up blocks RC-ENG-7.2; the
 > UX-5.5 dependency alone is not acceptance evidence, and `RC_CHECKLIST.md` carries this as a check.
 
-ENG-7.3's acceptance line now opens with "the RC-UX-5.5 precondition is met". The checkbox in
-`docs/development/RC_CHECKLIST.md` (owned by ENG-7.3, not yet present) is ENG-7.3's to write.
-Listing the precondition is not meeting it: the decision is still unaccepted, so release stays
-blocked until the rows above marked Pending are recorded. Do not mark the review accepted to clear
-the gate.
+ENG-7.3's acceptance line now opens with "the RC-UX-5.5 precondition is met". The
+[RC_CHECKLIST](../development/RC_CHECKLIST.md) IA box records the decision, decider, date, commits
+and the four story IDs with their evidence (RC-ENG-15.4). It stays unchecked. Listing the evidence
+does not meet the precondition: ENG-7.3 must verify the follow-ups on the release-candidate commit,
+and the preview-return failure below has to be fixed first.
 
 The decision is accepted; these bounded stories are filed as RC-ENG-15.1 (grouping), 15.2 (vocabulary), 15.3 (bookmarks) and 15.4 (evidence) through the roadmap owner with actual IDs and
 explicit Owns/Deps; all depend on the accepted decision, not just this document's existence:
@@ -203,6 +205,46 @@ explicit Owns/Deps; all depend on the accepted decision, not just this document'
    usability findings and exact-candidate gates to ENG-7.3.
    Do not call a proposed migration tested because existing alias tests pass.
 
+## Task-based checks and exact-candidate gates (RC-ENG-15.4)
+
+Run on 2026-10-25 against `f168547c4` (the `loop/rc` head after RC-ENG-15.3), not a tagged RC
+commit. Each check started on the seeded local vault's default home (`#/`) and used only visible
+labels and accessible names, never the `__rt` runtime handle. The scratch Playwright spec drove
+the dev server (`vite`, cloud variables blank, as in `playwright.config.ts`) on the desktop profile
+at 1440px (1280px for the second preview case) and on the Pixel 5 phone profile (393px). It was not
+committed. This is scripted task coverage, not a usability study with people.
+
+| Task                          | Path observed                                                                                                                                                                                          | Desktop                                                                                                            | Phone                                             |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------- |
+| Find an NPC                   | Characters (Primary or tab) › Roster filter **NPCs** › Mira the Ferryman → `/characters/:id`; Characters stays current.                                                                                | Pass, 3 actions                                                                                                    | Pass, 3 actions                                   |
+| Open a pinned screen on phone | Setup pinned Harbor of Saltreach from Screens › All screens › Pin. From a fresh home: **Screens** tab › chooser's Pinned screens › Harbor of Saltreach → `/screen/:id`. More also lists the pin first. | Not applicable                                                                                                     | Pass, 2 actions                                   |
+| Return from player preview    | From Characters: Preview as player (in Table controls when constrained) › Any player → `/play` with banner › **Exit preview**.                                                                         | **Fail at 1440px**: lands on `#/`, not `#/characters`. Pass at 1280px: back on Characters, focus on Table controls | Pass: back on Characters, focus on Table controls |
+| Find billing                  | Settings utility (phone: More › Settings) › Subscription › **Full comparison** → `/upgrade` (heading Settings). Primary has no Plans or billing entry.                                                 | Pass, 3 actions                                                                                                    | Pass, 4 actions                                   |
+
+Findings:
+
+- **Preview return at the wide tier (blocks the IA box).** With the inline Preview as player control
+  (1440px and wider), Exit preview goes back to the route where the shell first loaded, not to the
+  route the GM left. In a separate probe on both profiles, the `/play` history state carried
+  `previewFrom: "/"` after a click from `/` to `/characters` at 1440px and 1600px, but
+  `"/characters"` after a cold load of `/characters` or at 1280px (sheet control). The value is set
+  in `ViewAsControl.tsx` (`previewFrom`) and read by `PreviewExitBanner` in `screens/play/Frame.tsx`.
+  The cause is not established. `table-controls.spec.ts` misses this because it starts each preview
+  from a cold `/screens`. A fix and a regression test need an owning story, which this docs story
+  cannot file in RC_ROADMAP.
+- **"billing" finds nothing in the palette.** `plans` finds Plans & cloud, but `billing` returns
+  No matches in the local build. The Subscription notice also names Plans & cloud in bold text,
+  not as a link, so Full comparison is the only way through. The live Billing panel (Manage billing)
+  appears only with a configured cloud account, and these checks did not exercise it.
+
+Exact-candidate gates on the same commit: `primary-sections.spec.ts`, `table-controls.spec.ts` and
+`route-compat.spec.ts`, both profiles (`DNDTOOLS_E2E_PORT=<free port> pnpm exec playwright test
+<those three specs> --workers=3` in `apps/gm-react`): 78 passed. The stories' full-suite, axe,
+visual and unit results are in their run journals (`state/RC-ENG-15.1.journal.md`,
+`state/RC-ENG-15.2.journal.md`) and commits. None of these results stands in for the RC commit:
+ENG-7.3 re-runs the three specs and the four tasks on the tagged commit with the RC checklist
+gates, and attaches them to its exit audit.
+
 ## Validation plan and review limits
 
 Existing tests inspected: `sections.test.ts`, `pinned-screens.spec.ts`, `screens.spec.ts` (including
@@ -212,6 +254,6 @@ extend them, run responsive and axe coverage, golden paths and the pinned visual
 real task-based checks for finding an NPC, opening a pinned screen on phone, returning from player
 preview, and finding billing. Test English/Spanish, both GM vocabularies, keyboard and touch.
 
-This documentation change is checked with the repository docs-link audit, changed-file formatting
-and quality gates. No runtime, browser usability, migration or release success is claimed here.
-The run journal records exact local results; central gates and independent review remain pending.
+The original review made no runtime claim. The RC-ENG-15.4 section above records observed
+scripted browser results on one `loop/rc` commit. It does not claim release success or usability
+evidence from real users. Central gates and independent review of this update remain pending.

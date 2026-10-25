@@ -118,6 +118,28 @@ items pending; neither an exit code nor a green path-filtered `ci-gate` substitu
       implementation follow-up has an owner and is verified on this RC commit. Attach this
       evidence to the RC-ENG-7.3 exit audit. A pending decision, unmerged review or unfinished
       required follow-up blocks the RC-ENG-7.2 rehearsal.
+      Recorded by RC-ENG-15.4 on 2026-10-25 (still unchecked: verify on the RC commit):
+  - Decision **IA-1, six primary sections** (Screens, Characters, Maps, Story, Notes, Tools). The
+    owner accepted it as Engineering decider on 2026-10-24, with UX and Accessibility consulted
+    through the review. The review merged in `3d8d8e96a` (with `2a9c1a81b` and `74efcfe28`; on
+    main). The acceptance and ADR-013 amendment are `43e0ffaa5`, merged into `loop/rc` by
+    `bbbf3ce60` but not yet on main. See the
+    [IA_REVIEW acceptance record](../planning/IA_REVIEW.md#acceptance-record-and-eng-73-release-precondition).
+  - **RC-ENG-15.1** grouping and phone Screens access: integrated on `loop/rc` at `f79675059`.
+    Evidence: `nav.test.ts`, `primary-sections.spec.ts`, responsive, axe and pinned visual gate
+    (`state/RC-ENG-15.1.journal.md`).
+  - **RC-ENG-15.2** vocabulary and table controls: integrated at `2c97e96f8`. Evidence:
+    `table-controls.spec.ts`, `TableControls.test.tsx`, `section-vocabulary.test.ts`, re-baselined
+    goldens (`state/RC-ENG-15.2.journal.md`).
+  - **RC-ENG-15.3** bookmark compatibility: integrated at `f168547c4`. Evidence:
+    `route-compat.spec.ts`, one test per route-table row on both profiles.
+  - **RC-ENG-15.4** decision and release evidence: this box, plus the
+    [task-based checks](../planning/IA_REVIEW.md#task-based-checks-and-exact-candidate-gates-rc-eng-154)
+    (find an NPC, open a pinned screen on phone, return from player preview, find billing). On
+    `f168547c4` three tasks passed. **Return from player preview fails at 1440px and wider** after
+    in-app navigation: Exit preview lands on the route the shell first loaded, not the route the
+    GM left. That needs a fix before this box can be checked. The three IA-1 specs passed on that
+    commit (78 tests, both profiles). Re-run them and the task checks on the RC commit.
 - [ ] **Static/unit:** `pnpm check` and `pnpm test:coverage:core` pass; coverage floors have not
       decreased from the previous release.
 - [ ] **Browser:** `pnpm e2e` ran desktop and mobile profiles, with at least one spec per §5–§17 epic.
