@@ -254,26 +254,33 @@ tap_ui_button() {
 # swipe from the native accessibility bounds of the innermost scroll region, so the gesture stays
 # inside the sheet or page. `down` reveals content below the fold; `up` returns toward the top.
 # The bounded search still fails when a destination is absent or the surface cannot scroll.
+# Swipe the last enabled scrollable region half its height (`down` scrolls content up into view).
+swipe_scrollable() {
+	local direction=${1:-down}
+	local node bounds left top right bottom x from to
+	node=$(dump_ui | sed 's/></>\n</g' | grep -F 'scrollable="true"' \
+		| grep -F 'enabled="true"' | tail -1 || true)
+	bounds=$(sed -n 's/.*bounds="\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]".*/\1 \2 \3 \4/p' <<<"$node")
+	read -r left top right bottom <<<"$bounds"
+	[[ -n "${bottom:-}" ]] || return 1
+	((right > left && bottom > top)) || return 1
+	x=$(((left + right) / 2))
+	from=$((top + (bottom - top) * 3 / 4))
+	to=$((top + (bottom - top) / 4))
+	[[ "$direction" == up ]] && read -r from to <<<"$to $from"
+	adb shell input swipe "$x" "$from" "$x" "$to" 300 || return 1
+	sleep 0.25
+}
+
 tap_ui_scrolling() {
 	local tap=$1
 	local label=$2
 	local direction=${3:-down}
-	local node bounds left top right bottom x from to attempt
+	local attempt
 	for attempt in {1..12}; do
 		"$tap" "$label" && return 0
 		[[ "$attempt" -lt 12 ]] || return 1
-		node=$(dump_ui | sed 's/></>\n</g' | grep -F 'scrollable="true"' \
-			| grep -F 'enabled="true"' | tail -1 || true)
-		bounds=$(sed -n 's/.*bounds="\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]".*/\1 \2 \3 \4/p' <<<"$node")
-		read -r left top right bottom <<<"$bounds"
-		[[ -n "${bottom:-}" ]] || return 1
-		((right > left && bottom > top)) || return 1
-		x=$(((left + right) / 2))
-		from=$((top + (bottom - top) * 3 / 4))
-		to=$((top + (bottom - top) / 4))
-		[[ "$direction" == up ]] && read -r from to <<<"$to $from"
-		adb shell input swipe "$x" "$from" "$x" "$to" 300 || return 1
-		sleep 0.25
+		swipe_scrollable "$direction" || return 1
 	done
 	return 1
 }
@@ -497,10 +504,11 @@ wait_for_ui_text 'Open scene' || fail 'root destination did not render after fir
 step 'fresh vault scene'
 tap_ui_button_scrolling 'Open scene' || fail 'Open scene was not reachable on the fresh vault'
 wait_for_ui_text 'New screen' || fail 'Open scene did not open the Screens library'
-# The library can open still scrolled from the home page, with its header button clipped above
-# the viewport, so scroll up to it.
-tap_ui_scrolling tap_ui_button 'New screen' up \
-	|| fail 'New screen was not reachable in the Screens library'
+# The library opens with #main-content still scrolled from the home page's CTA. Part-way up, its
+# header button sits under the sticky top bar and a tap lands on Search (the command palette), so
+# return the region all the way to the top before tapping.
+for _ in 1 2 3 4; do swipe_scrollable up || break; done
+tap_ui_button 'New screen' || fail 'New screen was not reachable in the Screens library'
 wait_for_ui_text 'Create screen' || fail 'the New screen dialog did not open'
 tap_ui_button 'Create screen' || fail 'the New screen dialog could not be confirmed'
 wait_for_ui_text_absent 'Create screen' || fail 'the new screen was not created'

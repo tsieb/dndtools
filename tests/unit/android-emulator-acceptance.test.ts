@@ -50,13 +50,16 @@ describe('Android emulator acceptance gate', () => {
 		'scrolls to Settings and fails closed if absent (present=%s)',
 		(present) => {
 			const source = fs.readFileSync(scriptPath, 'utf-8');
-			const helpers = ['tap_ui_button', 'tap_ui_scrolling', 'tap_ui_button_scrolling'].map(
-				(name) => {
-					const match = new RegExp(`^${name}\\(\\) \\{\\n[\\s\\S]*?^\\}$`, 'm').exec(source);
-					expect(match, `missing helper ${name}`).not.toBeNull();
-					return match?.[0] ?? '';
-				},
-			);
+			const helpers = [
+				'tap_ui_button',
+				'swipe_scrollable',
+				'tap_ui_scrolling',
+				'tap_ui_button_scrolling',
+			].map((name) => {
+				const match = new RegExp(`^${name}\\(\\) \\{\\n[\\s\\S]*?^\\}$`, 'm').exec(source);
+				expect(match, `missing helper ${name}`).not.toBeNull();
+				return match?.[0] ?? '';
+			});
 			const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'android-scroll-'));
 			try {
 				const node = (bounds: string) =>
@@ -129,7 +132,12 @@ describe('Android emulator acceptance gate', () => {
 
 	it('scrolls back up to a control above the fold', () => {
 		const source = fs.readFileSync(scriptPath, 'utf-8');
-		const helpers = ['tap_ui_control', 'visible_node_bounds', 'tap_ui_scrolling'].map((name) => {
+		const helpers = [
+			'tap_ui_control',
+			'visible_node_bounds',
+			'swipe_scrollable',
+			'tap_ui_scrolling',
+		].map((name) => {
 			const match = new RegExp(`^${name}\\(\\) \\{\\n[\\s\\S]*?^\\}$`, 'm').exec(source);
 			expect(match, `missing helper ${name}`).not.toBeNull();
 			return match?.[0] ?? '';
@@ -185,7 +193,12 @@ describe('Android emulator acceptance gate', () => {
 		// The API 36 dump that failed: the picker reported [198,327] while its scroll region starts
 		// at 306, so its centre (262) was on the top bar and the native dropdown never opened.
 		const source = fs.readFileSync(scriptPath, 'utf-8');
-		const helpers = ['tap_ui_control', 'visible_node_bounds', 'tap_ui_scrolling'].map((name) => {
+		const helpers = [
+			'tap_ui_control',
+			'visible_node_bounds',
+			'swipe_scrollable',
+			'tap_ui_scrolling',
+		].map((name) => {
 			const match = new RegExp(`^${name}\\(\\) \\{\\n[\\s\\S]*?^\\}$`, 'm').exec(source);
 			expect(match, `missing helper ${name}`).not.toBeNull();
 			return match?.[0] ?? '';
@@ -236,7 +249,12 @@ describe('Android emulator acceptance gate', () => {
 	describe('choose_experience_level', () => {
 		const run = (states: string[], command = "choose_experience_level 'Expert'") => {
 			const source = fs.readFileSync(scriptPath, 'utf-8');
-			const helpers = ['choose_experience_level', 'visible_node_bounds', 'tap_ui_scrolling'].map(
+			const helpers = [
+				'choose_experience_level',
+				'visible_node_bounds',
+				'swipe_scrollable',
+				'tap_ui_scrolling',
+			].map(
 				(name) => new RegExp(`^${name}\\(\\) \\{\\n[\\s\\S]*?^\\}$`, 'm').exec(source)?.[0] ?? '',
 			);
 			expect(helpers.every(Boolean)).toBe(true);
