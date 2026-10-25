@@ -106,3 +106,24 @@ top-bar view-as", Maps/Story/Notes, `{gm} screen`), RC_ROADMAP Epic ENG-15.
   lint (0 errors), `test:tooling` 274 passed, `format:check:changed --base loop/rc` clean,
   feature-audit 0 stale, `CI=true pnpm test:app --maxWorkers=2` 200 files / 2412 passed,
   `table-controls.spec.ts` both profiles 32 passed. No code change in this attempt.
+
+## Attempt after independent review (section vocabulary audit)
+
+- Review: Settings › Vault empty state, disconnect confirm and toast still said "Knowledge →
+  Sources" (ES "Conocimiento → Fuentes"); compendium select prompt, community export hint, wiki
+  preview-empty and needs-pages still said "in Knowledge". Full catalog audit (case-insensitive
+  `atlas|knowledge` / `conocimiento|atlas` over every value) found two more: `importHub.maps.description`
+  "selected Atlas map" and `play.tier.codmBlurb` "the revealed Atlas".
+- Fixed all 10 in EN and ES (value-only; en.ts/es.ts line counts unchanged, 7716/7899 —
+  `community.wiki.needsPages` reworded so Prettier keeps it on two lines). Palette `*Keywords`
+  keep `atlas` as a search synonym (IA_REVIEW). qps-ploc regenerated (10 entries).
+- Coverage: `src/i18n/section-vocabulary.test.ts` scans every EN/ES message (keywords excepted)
+  for `Knowledge|Atlas` / `Conocimiento|Atlas` and pins the Notes → Sources / in Notes keys to
+  `nav.knowledge` + `knowledge.sources`; `table-controls.spec.ts` reads the rendered Settings ›
+  Vault empty state in EN and ES. `vitest src/i18n` 59 passed; `tsc --noEmit` clean; eslint +
+  prettier clean; `table-controls.spec.ts` both profiles 36 passed.
+- Visual: `run-in-container.sh --update-snapshots=changed --workers=2` 588 passed (12.0m),
+  rewrote exactly the 15 `settings-vault-empty--*` goldens (the empty-state body names Notes →
+  Sources). zopfli (`0me`, 5 iterations), pngjs RGBA equality asserted for all 15; budget
+  35,034.5 / 37,888 KiB. Strict `--update-snapshots=none` settings-polish: 15 passed.
+- `CI=true pnpm test:app --maxWorkers=2`: 201 files / 2417 passed.
