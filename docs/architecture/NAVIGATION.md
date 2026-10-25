@@ -1,8 +1,8 @@
 # Navigation, Layout, and the App Shell
 
 The [pre-release navigation review](../planning/IA_REVIEW.md) records decision IA-1 (accepted
-2026-10-24, ADR-013 amended). RC-ENG-15.1 implements its grouping and phone Screens access; this
-page is the implemented contract.
+2026-10-24, ADR-013 amended). RC-ENG-15.1 implements its grouping and phone Screens access, RC-ENG-15.2 its
+vocabulary and table controls (§4); this page is the implemented contract.
 
 The single source of navigation truth is `apps/gm-react/src/app/nav.ts`. `apps/gm-react/src/app/AppShell.tsx`
 is the only renderer of primary destinations: a sidebar on desktop, `NavRail` on tablet, and
@@ -177,11 +177,11 @@ Page primitives in `screen-kit.tsx`: `Page` (centered column, max 1180px), `Pane
 3. A status-only "Session live · 01:12" label while a session is active. No button, no link, not an
    `aria-live` region. Omitted on the phone tier, which carries the status strip instead.
 4. Right-aligned utilities: `HostSessionButton`, `ViewAsControl`, `ProjectionControl`,
-   `HelpLauncher`, `AccountButton`.
+   `HelpLauncher`, `AccountButton` — inline from 1440px, otherwise in the Table controls sheet.
 5. Help (`HelpLauncher` from `app/help/HelpMenu.tsx`) on the desktop and rail tiers only. WCAG 3.2.6
    wants Help in the same place on every screen, and above 640px the top bar is the only chrome that
    follows the DM onto every route — the phone's own trigger sits in `Footer.tsx`, which those tiers
-   never mount. It is 44px tall and, unlike the other utilities, keeps its visible word "Help" at
+   never mount. It is 44px tall and keeps its visible word "Help" at
    both tiers (RC-UX-6.6, ONB-10): an "i" alone reads as About, and the guides tell a lost GM to
    "open Help". The phone's footer row carries the same word. The menu opens on the guide for the
    current route (screens, session, characters, maps, notes, settings; `guideForRoute` in
@@ -192,16 +192,27 @@ Page primitives in `screen-kit.tsx`: `Page` (centered column, max 1180px), `Pane
 It must not host content actions (create, delete, roll, push), a duplicate settings or navigation
 destination, or any control that is not relevant across routes.
 
-The action budget depends on the tier, and it is the same on every route:
+The action budget depends on the tier, and it is the same on every route. RC-ENG-15.2 (IA_REVIEW,
+"Four unlabeled icons") retired the unlabelled 44px icon row: a table control is either labelled in
+the bar or a named row in the **Table controls** sheet.
 
-| Tier                          | Top bar actions                                                                                                                                                                                                                                                    |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Phone (≤ 640px)               | One inline action, Search (the palette reaches every destination and command), and one overflow, **Table controls** (`aria-haspopup="dialog"`, `aria-expanded`). Its bottom sheet holds the four utilities. Nothing in the bar is filled and no status chip shows. |
-| Rail and desktop under 1280px | Search and the utilities inline as 44px icon buttons (Help keeps its word), with no overflow.                                                                                                                                                                      |
-| Desktop from 1280px           | The same controls with their labels.                                                                                                                                                                                                                               |
+| Tier                        | Top bar actions                                                                                                                                                                                                      |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Phone (≤ 640px)             | Search and one overflow, **Table controls** (an icon button named Table controls, `aria-haspopup="dialog"`, `aria-expanded`). Its bottom sheet lists the utilities as named rows. Nothing in the bar is filled.      |
+| Rail and desktop under 1440 | Search, a **Table controls** button with its visible word (opening the same rows in a right-hand sheet) and Help.                                                                                                    |
+| Desktop from 1440px         | **Host table**, **Preview as player**, the session state with **Start session** / **End session**, Help and **Account**, each with its label. Under 1440px the four labels squeezed the page title to a few letters. |
+
+The labels are catalog copy: "Preview as {playerLower}" follows the system vocabulary, and Host table
+keeps one visible label in every state, its accessible name spelling out hosting counts and waiting
+approvals. The glyphs differ as reinforcement only: players (Host table), the player-visibility eye
+(Preview), play / close (Start / End session), a person (Account), the session bolt (Table
+controls). Account opens a menu (Account settings → `/settings?tab=account`, Sign out) rather than
+signing out on its first press; signed out, it opens sign-in. A companion preview opened from Preview
+as player returns focus, on exit or Back, to the control it started from — the inline trigger, or
+Table controls when the controls live in the sheet.
 
 On every tier the only primary-weight (filled) control the top bar owns is Start session / End session.
-On a phone it is the one filled action inside the Table controls sheet.
+Below 1440px it is the one filled action inside the Table controls sheet.
 
 ## 5. Icons
 
