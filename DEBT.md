@@ -11,11 +11,12 @@ a `TODO(APP)` that survives a quarter gets an entry here before merge.
 - Severity: low · Owner: platform · Resolution window: 2026 Q4
 - Impact: remaining inconsistencies are limited to secondary configuration and picker surfaces.
 - Status: re-scoped to non-primary surfaces — (a) and (d) resolved by RC-DSN-1.1; (b) resolved
-  by RC-ENG-8.11. Atlas now composes `LayerRow` inside `LayerPanel`, retaining actor filtering,
+  by RC-ENG-8.11. Atlas now composes `LayerRow` inside `screens/atlas/LayersPanel.tsx`, retaining actor filtering,
   reorder buttons, visibility chips and the focus-preserving enabled switch. The editor dock
   already uses `LayerRow`.
-- Import conformance: `app/map/ImportMapDialog.tsx` deliberately composes DS `Dialog`, `Stepper`,
-  `SegmentedControl`, fields and navigation buttons. DS `ImportWizard` fixes three pages, owns
+- Import conformance: `app/map/ImportMapDialog.tsx` deliberately composes DS `Dialog` and `Stepper`;
+  its steps (`ImportMapSteps.tsx`, `ImportMapPanels.tsx`) compose `SegmentedControl`, fields and
+  navigation buttons. DS `ImportWizard` fixes three pages, owns
   source/adapter state internally and exposes neither file-selection nor calibration hooks;
   the production native flow needs Source/Align/Scale/Walls/Preview/Result. `useImportMap.ts`
   performs pure previews with the asset-size cap and adapter registry; only explicit import

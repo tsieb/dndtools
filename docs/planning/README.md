@@ -29,6 +29,17 @@ paths on five runs, the a11y gate, a `ux-ui-reviewer` pass over the primary rout
 and the primary-path reading of DEBT.md and FEATURE-GAPS.md, with the verdict and the stories its
 findings became. The fifth run, on `d1b4e6e4d`, passed; the four before it are kept below it.
 
+The RC-ENG-7.3 exit audit for RC-1 is recorded in
+[`RC_CHECKLIST.md`](../development/RC_CHECKLIST.md#rc-eng-73-exit-audit), beside the checklist it
+gates. It covers every §2 gate on one commit, every inventory row re-read, every §20 waiver, and a
+`ux-ui-reviewer` pass over the surfaces M2.5 did not cover. The first run, on `3cbf4b7cc`, did not
+pass. Its findings are epics ENG-11 to ENG-14 in the roadmap, and the owner's steps are in §24.
+The second run, on `c97e5da65` (application tree `aa300d6d5`), applied the owner's 2026-10-24
+decisions. It met every clause except the IA-1 precondition, which stayed open because RC-ENG-15.2
+left the hosted `ci-gate` red. Its new findings are epic ENG-16. A third run fixed the live-P2P probe
+that 15.2 broke and verified the pending Electron smoke fix locally. Hosted `ci-gate` stays red
+until that fix lands.
+
 For what is actually built, read [`../requirements/FEATURE-GAPS.md`](../requirements/FEATURE-GAPS.md)
 and run `pnpm feature-audit`, not this folder.
 

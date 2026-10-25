@@ -262,6 +262,9 @@ maps to a story in §18/§19.
    signed desktop certificates, curation service) or the one **deferred capability** (Cloud-Enhanced
    phase 2, epic CLD-6) — nothing else. The deferral is a scope decision of this plan, not an outside
    dependency, and the copy for it says the feature is not in this edition rather than "coming soon".
+   Owner waiver for RC-1 (2026-10-24): a limit outside the four is admitted when the RC-ENG-7.3
+   audit lists it in `RC_CHECKLIST.md` §3 with the story that owns it. Such limits are not re-filed.
+   The WorkerHost refusal of worker widgets stays until a storage-isolated host exists (RC-ENG-13.8).
 3. The design package's System Package contract, the widget brief's trust lifecycle and sandbox,
    ADR-024's editor IA, and the session/map/board interaction models are **implemented in React**, and
    the surface inventory (`docs/requirements/FEATURE-GAPS.md`) has been audited row by row against the
@@ -2335,6 +2338,9 @@ day the deferred Cloud-Enhanced platform (epic CLD-6) clears its sign-off.
 **Current state (G13).** ADR-021/025 shipped; smoke harness against Ollama; three write tools.
 _Updated 2026-09-11: AI-1..4 are merged (AI-1.1 `e97e718b`, AI-1.3 in `tool-registry.ts`). The smoke
 harness still needs a live Ollama, so no assistant path runs in CI — AI-5.1._
+_Corrected 2026-10-17 (RC-ENG-7.3): RC-AI-1.1 and RC-AI-1.3 are `cancelled` in the store. AI-1.1's
+tests landed in `e97e718b`, but no UI renders the streamed text. AI-1.3 shipped three of its four
+read tools, and cluster momentum has no tool; that remainder is RC-ENG-11.2._
 
 ### Epic AI-1 — Tool surface (P1→P2)
 
@@ -3318,7 +3324,7 @@ RC_CHECKLIST.md` (the §2 gates as a runnable list with commands), `release.yml`
   the release.
 - **RC-ENG-7.2 — RC-1 release rehearsal.** `S` · P4 · Deps: 7.1, 7.3, DOC-1.4 · **Operator action**
   (the tag push). Owns: `docs/development/RELEASING.md`, `CHANGELOG.md`. Run the RC checklist on the
-  candidate commit; `git tag v0.4.0 && git push origin v0.4.0` (plain semver — Android rejects `-rc`);
+  candidate commit; `git tag v<x.y.z> && git push origin v<x.y.z>` with an unused tag (plain semver — Android rejects `-rc`; v0.4.0 to v0.4.4 already exist);
   watch `release.yml` produce the six packages with SBOM and attestations; run
   `promote-production.yml` from the tag; probes green. Acceptance: the draft release carries the
   checklist output; prod serves the tag.
@@ -3336,6 +3342,21 @@ RC_CHECKLIST.md` (the §2 gates as a runnable list with commands), `release.yml`
   of the §2.1 external four, or is listed in `RC_CHECKLIST.md` §3 with an owning story and the owner's
   RC-1 waiver (2026-10-24: limits already filed as follow-ups are waived for RC-1 and are not re-filed;
   the WorkerHost security refusal stays until a storage-isolated host exists).
+  Runs (record: [`RC_CHECKLIST.md`](../development/RC_CHECKLIST.md#rc-eng-73-exit-audit)). The first
+  run, 2026-10-17 on `3cbf4b7cc`, did not pass; its findings are epics ENG-11 to ENG-14. The second
+  run, 2026-10-25 on `c97e5da65` (application tree `aa300d6d5`), **did not pass, with one blocker**.
+  Zero unverifiable claims and the open-limit bar are met, and RC-ENG-15.1 to 15.4 meet their own
+  acceptance on the candidate. RC-ENG-15.2, though, left the hosted `ci-gate` red: the Electron
+  smoke still looks for Start session in the top bar (R3-1). The dispatcher task
+  `ci-recovery-2c97e96f8c25` owns that fix. Once `ci-gate` is green on a `loop/rc` head whose only
+  application change from `aa300d6d5` is that fix, re-run the three IA-1 specs and the four IA
+  tasks there and record the result. The second run's other findings are RC-ENG-16.1 to 16.6.
+  The third run, 2026-10-25, met zero unverifiable claims and the open-limit bar. It fixed R3-2:
+  `verify:p2p-live` now follows the Table controls sheet and the "Host table" names, and passes
+  4 of 4. That file is outside this story's claim and awaits the operator's ruling. R3-1's fix is
+  `ci-recovery-2c97e96f8c25`'s candidate `16ffc75c4`, which this commit does not carry. With that
+  file on a scratch copy, the desktop smoke passed 3 of 3 runs in the CI image, and the IA-1 specs
+  passed again. The precondition closes once that task lands and hosted `ci-gate` is green.
 
 ### Epic ENG-8 — Early access: primary paths before platform depth (P2→P3)
 
@@ -3706,6 +3727,382 @@ should land after them.
   environment. Acceptance: the workflow-policy test (or a new one) fails on `always()` in a job with
   an `environment` and passes on the tree.
 
+### Epic ENG-11 — RC-1 exit audit: the release bars (P4)
+
+Current state (2026-10-17): the RC-ENG-7.3 exit audit ran on `3cbf4b7cc` (record:
+[`RC_CHECKLIST.md`](../development/RC_CHECKLIST.md#rc-eng-73-exit-audit)) and did not pass. Its
+findings that code or CI can close are filed in three epics, and each story names the audit id it
+came from. ENG-11 holds the §2 bars: data safety, the open P1 clause, performance, Nightly, file
+size and the visual set. ENG-12 holds strings and honest states, and ENG-13 holds the surfaces and
+contracts. RC-ENG-13.9 holds the owner rulings, and §24 holds the steps only the owner can take.
+ENG-14 holds the medium findings and the disposition of the low ones. When these land, RC-ENG-7.3
+runs again on one commit.
+
+- **RC-ENG-11.1 — A new GM can back up at every experience level.** `S` · P4 · Deps: none · Owns:
+  `packages/core/src/state/onboarding.ts`, `apps/gm-react/src/screens/settings/LocalBackup.tsx`,
+  `apps/gm-react/src/screens/settings/Experience.tsx`, `apps/gm-react/src/screens/settings/index.tsx`,
+  `packages/core/src/queries/command-actions.ts`. Finding G1: the local backup panel is gated
+  `minTier: 'advanced'` (`onboarding.ts:758-765`, `LocalBackup.tsx:94`), so at the default level
+  Settings › Backup & history has no Download backup or Restore. At Beginner the whole tab is
+  hidden, `SettingsSection` gives no hint, and the palette has no backup command. In a local-only
+  edition that is the only copy of the campaign. Gate download and restore at the lowest tier, keep
+  the tab reachable at Beginner, and add a palette action. Acceptance: an e2e on both profiles, on
+  a fresh profile at Beginner and at Standard, downloads a backup and opens Restore from Settings,
+  and the palette's "backup" query finds both.
+- **RC-ENG-11.2 — The assistant can read cluster momentum.** `S` · P4 · Deps: none · Owns:
+  `packages/core/src/mcp/tool-registry.ts`, `packages/core/src/mcp/semantic-bundles.ts`,
+  `packages/core/src/mcp/tool-dispatch.ts`. Finding R1-2: RC-AI-1.3 (P1) is cancelled in the store
+  with one acceptance clause open. Continuity, coverage gaps and stale notes are registered
+  (`tool-registry.ts:108-112`), but no tool exposes the cluster momentum RC-KNW-4.1 computes
+  (`queries/graph-quality-query.ts:113`), and its own commit `aaeb71efc` recorded that.
+  Add an actor-scoped read tool over that query. Acceptance: core tests, including a player actor
+  that sees no DM-only cluster; the operator then reconciles RC-AI-1.3.
+- **RC-ENG-11.3 — Large-vault budgets are measured and within target.** `M` · P4 · Deps: none ·
+  Owns: `packages/core/src/perf/budget-registry.ts`, `tests/perf/baseline.ci.json`,
+  `scripts/perf/capture.ts`, `docs/development/PERFORMANCE.md`. Finding R2-1: the eleven `:large`
+  rows are `provisional` (`budget-registry.ts:319`), and the latest hosted perf run (38944915663,
+  main `511fc6af4`) measured `widget-update:large` at 274 ms against its 100 ms target in both
+  repeats. §2.2 wants none provisional and none breached. Record CI baselines for the large rows,
+  then bring `widget-update:large` under target or re-justify the target in PERFORMANCE.md with the
+  owner's sign-off. Acceptance: no provisional budget in the registry; a hosted `perf.yml` run on
+  the candidate reports zero breaches.
+- **RC-ENG-11.4 — Five consecutive scheduled perf runs exist.** `S` · P4 · Deps: 11.3 · Owns:
+  `.github/workflows/perf.yml`. Finding R2-2: `perf.yml` has run on its schedule once (38245056229,
+  2026-10-12), and that run was cancelled. The cron is weekly (`0 4 * * 1`), so five consecutive
+  runs take five Mondays from whenever 11.3 lands. Either keep weekly and plan the RC date around
+  it, or schedule more often with the runner cost stated. Acceptance: five consecutive scheduled
+  runs green with no provisional or breached budget, linked from RC_CHECKLIST.md.
+- **RC-ENG-11.5 — Nightly whole-app validation and Android acceptance are green.** `M` · P4 ·
+  Deps: none · Owns: `apps/gm-react/scripts/verify-routes.mjs`,
+  `apps/gm-react/scripts/verify-canvas.mjs`, `apps/gm-react/scripts/verify-ui.mjs`,
+  `apps/gm-react/scripts/verify-p2p-live.mjs`, `scripts/validate`,
+  `scripts/android-emulator-acceptance.sh`. Finding R2-8: Nightly on main failed every day from
+  2026-10-14 to 2026-10-17. In run 39024122179: `verify:routes` "17/17 routes had errors",
+  `verify:canvas` "/board renders without page errors", `verify:ui` "2/10", `verify:p2p-live`, the
+  e2e check timed out at 25 minutes, the harness ended in `TypeError: Cannot read properties of
+undefined (reading 'length')`, and the Android API 36 job failed with "the start-session dialog
+  did not open". The verify scripts and the Android script hard-code selectors and a seeded boot
+  that the e2e suite does not keep current. Acceptance: two consecutive green Nightly runs on main.
+- **RC-ENG-11.6 — The file-size gate counts `.ts` files.** `S` · P4 · Deps: none · Owns:
+  `scripts/quality-gates.ts`, `packages/core/src/platform/quality-gates.ts`. Finding R2-6:
+  `scanTsxFiles` reads only `.tsx` (`scripts/quality-gates.ts:101-115`), so eight hand-written `.ts`
+  files over §2.3's 800 lines pass `pnpm gates`. Count `.ts` and `.tsx` under `apps/gm-react/src`.
+  Leave out only the message catalogs, snapshots and tests, and state that reading of §2.3 in the
+  gate. Acceptance: tests; the gate names the eight files of 11.7 and 11.8 until they are split.
+- **RC-ENG-11.7 — Split the widget-platform files over 800 lines.** `L` · P4 · Deps: 11.6 · Owns:
+  `apps/gm-react/src/app/widgets/dataEnvironment.ts`, `apps/gm-react/src/app/widgets/parity.ts`,
+  `apps/gm-react/src/app/widgets/WorkerHost.ts`, `apps/gm-react/src/app/widgetBuilder/draft.ts`, new
+  sibling modules beside each. Finding R2-6: 1979, 1016, 832 and 864 lines. A builtin body that
+  imports a new relative module must be listed in `SHARED_MODULE_USES`. Acceptance: each file
+  under 800 lines with no behaviour change; the existing widget, parity and builder tests pass.
+- **RC-ENG-11.8 — Split the storage and runtime files over 800 lines.** `L` · P4 · Deps: 11.6 ·
+  Owns: `apps/gm-react/src/platform/storage/coreStore.ts`, `apps/gm-react/src/runtime/demo-seed.ts`,
+  `apps/gm-react/src/runtime/audio-engine.ts`, `apps/gm-react/src/platform/backup.ts`, new sibling
+  modules beside each. Finding R2-6: 1758, 1277, 909 and 859 lines. Acceptance: each under 800
+  lines with no behaviour change; storage, backup, demo-vault and audio tests pass.
+- **RC-ENG-11.9 — The golden routes cover five themes.** `M` · P4 · Deps: none · Owns:
+  `apps/gm-react/tests/visual/golden-routes.spec.ts`,
+  `apps/gm-react/tests/visual/check-baseline-budget.mjs`. Finding R1-8: §2.2 wants the golden route
+  set in five themes and three tiers, but `THEMES` holds three (`golden-routes.spec.ts:14`) for the
+  six shelled routes and the editor. The baseline budget is 37,827 of 37,888 KiB, so adding
+  Scholar and Dungeon needs the owner to set a new cap or choose captures to retire. Acceptance:
+  the golden route set passes in five themes and three tiers in the pinned container, within the
+  cap the owner sets.
+
+### Epic ENG-12 — RC-1 exit audit: every string translated, every state honest (P4)
+
+The §2.3 i18n bar and §0.3 rule 9 as the exit audit found them on `3cbf4b7cc`. The Spanish catalog
+has every key (98.27% translated); the residue is text that never reaches `t()`, plus copy that
+promises a future or reports a success nobody checked.
+
+- **RC-ENG-12.1 — Live-table hosting and joining speak the player's language.** `M` · P4 · Deps:
+  none · Owns: `apps/gm-react/src/net/SessionPanel.tsx`, `apps/gm-react/src/net/SessionPanelParts.tsx`,
+  `apps/gm-react/src/net/HostModal.tsx`, `apps/gm-react/src/net/sessionStatus.ts`,
+  `apps/gm-react/src/ds/components/feedback/VisibilityChip.tsx`. Findings G5, G6 and E4: in Spanish
+  the player's Join dialog on `/play` is English (`SessionPanel.tsx:154,264,273,501-531`), the
+  top-bar "Host a live table" name is English on every route (`:86-92`), and the DM-only chip reads
+  "DJ only" beside literal "Players", "Hidden" and "Mixed" (`VisibilityChip.tsx:43-64`), although
+  `common.visibility.dmOnly` exists. The Host dialog is hand-built with no focus trap or focus
+  return. Route every string through `t()`, and build the Host dialog on the DS Dialog.
+  Acceptance: an e2e in `es` on both profiles opens the Join and Host dialogs and reads no English
+  chrome; the chip reads the catalog value; Tab stays inside the Host dialog and Escape returns
+  focus to Host.
+- **RC-ENG-12.2 — Core-authored labels reach the UI as message keys.** `L` · P4 · Deps: none ·
+  Owns: `packages/core/src/queries/command-actions.ts`, `packages/core/src/queries/command-center-live.ts`,
+  `packages/core/src/queries/prep-recap-digest.ts`, `packages/core/src/queries/preview-mode.ts`,
+  `packages/core/src/state/widget-package-state.ts`, `packages/core/src/state/command-center-state.ts`,
+  `apps/gm-react/src/app/CommandPalette.tsx`, `apps/gm-react/src/screens/session/PrepRecap.tsx`.
+  Findings G7, R1-5 and the Session limit: palette actions ("Add Audio", "Start session"),
+  provisioned widget and screen names ("DM screen", "Command Center", which become the `<h1>`),
+  continuity prompts (`prep-recap-digest.ts:398`) and the preview actor "Player (preview)" are
+  English strings authored in core. Core should emit a key and parameters, and the app translates
+  them at render. A screen the GM renamed keeps its stored name. Acceptance: core tests assert
+  keys, not English; an `es` e2e on `/board`, the palette and Session prep reads no English chrome.
+- **RC-ENG-12.3 — App-side English literals go through the catalog.** `M` · P4 · Deps: 11.8 ·
+  Owns: `apps/gm-react/src/app/board-helpers.ts`, `apps/gm-react/src/screens/settings/Sync.tsx`,
+  `apps/gm-react/src/app/charImport/ddbJson.ts`, `apps/gm-react/src/screens/settings/Subscription.tsx`,
+  `apps/gm-react/src/ai/localLlmGuidance.ts`, `apps/gm-react/src/platform/backup.ts` (messages only,
+  after 11.8). Findings R2-7 and R1-5, and the Board, Characters and Settings limits: tile status
+  notes and tier labels (`board-helpers.ts:130,156`), `humanizeOp` (`Sync.tsx:22`), DDB import
+  diagnostics (`ddbJson.ts:44`), the Settings plan cards that skip `usePlanCards` (G20,
+  `Subscription.tsx:30`), Ollama guidance and restore errors. Acceptance: the four FEATURE-GAPS
+  English-residue limits these close are removed, and an `es` unit or e2e check covers each site.
+- **RC-ENG-12.4 — The design system's built-in copy is translated.** `M` · P4 · Deps: none · Owns:
+  `apps/gm-react/src/ds/copy.ts`, `apps/gm-react/src/ds/components/navigation/BottomTabBar.tsx`,
+  `apps/gm-react/src/ds/components/forms/Slider.tsx`. Finding G8: `ds/copy.ts` holds 127 English
+  defaults ("Close", "Dismiss", the phone tab bar's "Primary", the slider's "Decrease/Increase").
+  It cites DEBT-2026-002, which tracks something else, so this English has no tracker. Feed the
+  defaults from the app catalog through the existing label props, keeping English as the fallback
+  in isolation. Acceptance: an `es` check over a Dialog, a Sheet, a Toast, the tab bar and a Slider
+  reads no English.
+- **RC-ENG-12.5 — Unavailable features say "not in this edition".** `S` · P4 · Deps: 11.7 · Owns:
+  `apps/gm-react/src/platform/capabilities.ts`, `apps/gm-react/src/app/widgets/resolveRenderer.ts`,
+  `apps/gm-react/src/app/widgets/WorkerHost.ts` (copy only),
+  `apps/gm-react/src/screens/settings/Notifications.tsx`, `apps/gm-react/src/screens/settings/AiStatus.tsx`.
+  Findings R2-11, G9 and G10: §2.1.2 asks for "not in this edition" wording, yet copy for features
+  this edition lacks promises a future: `en.ts:159` ("when it arrives"), `:1492`, `:1494`, `:3594`,
+  `:4469`, `:5349` ("yet"), `:6455` ("will arrive in a future release"), `:2328` ("when search by
+  meaning becomes available") and `:5570`, plus hard-coded "do not run on this build yet"
+  (`WorkerHost.ts:94`, `resolveRenderer.ts:75-76`) and `capabilities.ts:167`. The push preview
+  switch opts into a feature with no transport. Acceptance: no unavailable-state copy says "yet",
+  "soon" or "future" (a lint or catalog test enforces it); the push switch is hidden without a
+  transport.
+- **RC-ENG-12.6 — Plan previews never promise what the edition lacks.** `M` · P4 · Deps: none ·
+  Owns: `apps/gm-react/src/screens/Upgrade.tsx`, `apps/gm-react/src/cloud/entitlements.ts`,
+  `apps/gm-react/src/screens/upgrade/PlanCards.tsx`, `apps/gm-react/src/screens/upgrade/PlanDialogs.tsx`.
+  Finding F3: in the local edition "Try Lantern preview" ends in "Now on Lantern on this device"
+  and lists off-device backup, internet play and a Co-DM seat. Settings, Account and Community say
+  the build has none of them, and "Switch to Hearth" warns that it "turns off hosted features" that
+  were never on. The unavailable branch needs `ent.serverBacked` (`Upgrade.tsx:69-72`). Show
+  previews only where the features exist, or mark each feature unavailable in this edition.
+  Acceptance: an e2e on both profiles in the local build finds no plan card, toast or dialog
+  claiming a feature the build lacks.
+- **RC-ENG-12.7 — Status shows only what was checked.** `S` · P4 · Deps: none · Owns:
+  `apps/gm-react/src/i18n/index.tsx`, `apps/gm-react/src/i18n/messages/fr.ts`,
+  `apps/gm-react/src/screens/settings/Language.tsx`, `apps/gm-react/src/screens/settings/About.tsx`,
+  `apps/gm-react/src/ai/providerConfig.ts`, `apps/gm-react/src/screens/settings/AiStatus.tsx`.
+  Findings G3, G19 and G11: Français shows "100% translated" while `fr.ts` spreads `...en`
+  (`fr.ts:4-5`, `i18n/index.tsx:99-104` counts keys present, not translated), and French plural
+  rules then apply to English ("0 quest"). About shows "Last sync" from the last local edit
+  (`About.tsx:101-109`). The local runner shows a green "Ready" without ever contacting it
+  (`providerConfig.ts:684-690`). Acceptance: unit tests for coverage counting translated keys; the
+  French entry is hidden or labelled partial; "Last sync" reads "Never" without a sync source; the
+  runner reads "Configured" until a probe succeeds.
+- **RC-ENG-12.8 — The invite path has no dead ends.** `S` · P4 · Deps: none · Owns:
+  `apps/gm-react/src/screens/Join.tsx`, `apps/gm-react/src/screens/settings/Players.tsx`,
+  `apps/gm-react/src/screens/WikiReader.tsx`. Findings G2, G4 and G16: on `/join` "Go to the app"
+  sends a player with no vault to `/` and DM onboarding (`Join.tsx:232-236`), against the page's
+  own contract (`:13-15`). Settings › Players' primary "Invite player" only toasts "unavailable
+  here" (`Players.tsx:182`). `/join` and `/wiki` offer "Try again" for "not available in this
+  edition". Acceptance: an e2e on both profiles: a fresh profile on a dead invite reaches `/play`;
+  Invite player opens the live-table code flow or shows its reason inline; no retry is offered when
+  the service is not configured.
+- **RC-ENG-12.9 — A production build cannot ship legal placeholders.** `S` · P4 · Deps: none ·
+  Owns: `apps/gm-react/src/screens/legal/legalContent.ts`, `scripts/release-verify.ts`. Finding
+  R2-16: `PROD_IDENTITY = DEV_IDENTITY` (`legalContent.ts:41-54`), so a production build would
+  publish "[LEGAL ENTITY NAME]" and the other placeholders, and no build or release check refuses
+  it. Acceptance: `release:verify` (or the production build) fails while any bracketed placeholder
+  remains in the production identity; a test covers it. Filling the values is the owner's part of
+  RC-CLD-2.6.
+
+### Epic ENG-13 — RC-1 exit audit: surfaces and contracts (P4)
+
+The review's remaining high findings, the §2.1.3 contract clauses the audit found unbuilt, and the
+owner rulings the audit cannot make.
+
+- **RC-ENG-13.1 — DM-only scene cards stay off the table display.** `S` · P4 · Deps: none · Owns:
+  `apps/gm-react/src/app/SceneDisplayOverlay.tsx`, `apps/gm-react/src/screens/SceneDisplay.tsx`.
+  Finding E1: both display paths project for `runtime.defaultActorId`, the DM
+  (`SceneDisplay.tsx:129-135`, `SceneDisplayOverlay.tsx:39-43`), so a card left at its default
+  "DM only" is shown on the screen whose footer addresses the players. `scene-cards.spec.ts:20`
+  says that never happens. If the owner rules the display DM-private, change its copy and the spec
+  header instead. Acceptance: an e2e on both profiles: Show on a DM-only card leaves `/display`
+  empty (or asks first), and Show reports that the card is on display rather than "saved".
+- **RC-ENG-13.2 — The graph opens a faction or quest in Story.** `S` · P4 · Deps: none · Owns:
+  `apps/gm-react/src/screens/graph/presentation.ts`, `apps/gm-react/src/screens/Campaign.tsx`.
+  Finding E2: "Open in Story" calls `navigate('/campaign')` with no state (`presentation.ts:336`),
+  and Story handles only `createFaction` and `openQuestId` (`Campaign.tsx:87-109`), so a faction
+  opens the Quests tab, which in the seed reads "No quests yet". Acceptance: an e2e on both
+  profiles opens a faction and a quest from `/graph` and lands focused on that card.
+- **RC-ENG-13.3 — Package cards fit the phone.** `S` · P4 · Deps: none · Owns:
+  `apps/gm-react/src/screens/extensions/PluginPackageCard.tsx`. Finding F1: after any non-built-in
+  install the card's action column is `flex: '0 0 auto'` (`:193-201`), `#main-content` grows to
+  421px in a 390px viewport, and Enable and Remove are cut off. Acceptance: an e2e at 390×844
+  installs a starter and finds no horizontal overflow, with both controls inside the viewport.
+- **RC-ENG-13.4 — The compendium preview names only what is not imported.** `S` · P4 · Deps: none ·
+  Owns: `apps/gm-react/src/app/compendium/import.ts`,
+  `apps/gm-react/src/screens/extensions/CompendiumEntry.tsx`. Finding F2: under D&D 5e the preview
+  says ability scores, actions, skills, traits, senses, languages and hit dice are "Not imported",
+  because `unmapped` compares against the package's creature schema (`import.ts:357-361`) rather
+  than what the importer writes; the import stores them all. Acceptance: a unit test on the SRD
+  Goblin under 5e and Generic lists only fields the import drops.
+- **RC-ENG-13.5 — "System" means one thing on the System tab.** `S` · P4 · Deps: none · Owns:
+  `apps/gm-react/src/screens/extensions/SystemWidgetSwitch.tsx`,
+  `apps/gm-react/src/screens/extensions/System.tsx`. Finding F4: below the rules picker ("Active
+  package D&D 5e") a raised "Campaign system" panel switches widget packages and toasts "Active
+  system switched to Command Center Parts" (`SystemWidgetSwitch.tsx:243`). Rename or move the
+  widget-package switch so a GM cannot read it as the rules system. Acceptance: an e2e on both
+  profiles; the System tab names one active system.
+- **RC-ENG-13.6 — Area templates reach players and read-only views.** `M` · P4 · Deps: none · Owns:
+  `packages/core/src/queries/map-query.ts`, `apps/gm-react/src/app/map/canvas/CombatOverlay.tsx`,
+  `docs/architecture/COMBAT_ON_MAP.md`. Finding R1-11: ADR-030 §2 broadcasts area templates to live
+  collaborators, but `MapView` has no `combatTemplates` (`COMBAT_ON_MAP.md:56`), so players and the
+  session and map tiles never see one. Acceptance: core test that a player's actor read carries the
+  templates on a visible map; an e2e on both profiles in which a joined player sees a template.
+- **RC-ENG-13.7 — The legacy per-map token array is retired.** `M` · P4 · Deps: 11.8, 13.6 · Owns:
+  `packages/core/src/state/map-state.ts`, `packages/core/src/commands/map-annotations.ts`,
+  `packages/core/src/migration`, `apps/gm-react/src/runtime/demo-seed.ts` (after 11.8). Finding
+  R1-11: ADR-030 removes `MapState.tokens` through a schema bump, but the field is live
+  (`map-state.ts:256`), with writers at `map-annotations.ts:536-635`. Migrate the tokens into
+  session combat tokens, and note the cloud-backup restore effect of the bump (§0.3 rule 4).
+  Acceptance: migration and rollback tests; the Maps limit in FEATURE-GAPS is removed.
+- **RC-ENG-13.8 — Data-only widgets run isolated, or the contract says they do not.** `M` · P4 · Deps: 11.7 · Owns: `apps/gm-react/src/app/widgets/WorkerHost.ts`,
+  `apps/gm-react/electron/main.cjs`, `docs/architecture/WIDGETS.md`. Findings R2-5 and R1-10: the
+  host always uses `refuseUnisolatedWorker` (`WorkerHost.ts:664-675`, `:712-716`), so worker
+  packages run on no build. WIDGETS.md still says only the Electron CSP blocks them. That leaves
+  the sandbox clause of §2.1.3 unmet for data-only widgets. Build a storage-less opaque-origin
+  worker host that reaches the app only through the bridge, with `/security-review`, or record a
+  deferral by ADR for the owner to accept under RC-ENG-13.9. Acceptance: either a worker widget
+  runs on web and desktop with security tests that it cannot open IndexedDB, or an accepted ADR and
+  matching WIDGETS.md text.
+- **RC-ENG-13.9 — The owner rules on every open limit outside the §2.1 four.** `S` · P4 · Deps:
+  none · **Operator action.** Owns: `docs/planning/RC_ROADMAP.md` (§2.1),
+  `docs/requirements/FEATURE-GAPS.md`. §2.1.2 allows only payment, signing certificates, curation
+  and Cloud-Enhanced phase 2, but the audit classifies most open limits as something else
+  (RC_CHECKLIST.md, exit audit §3, "Limits against the §2.1 four"): edition configuration (account, wiki, marketplace and invite
+  services), operator steps the §24 ledger already holds (SES, TURN, Firebase push, Google Play,
+  legal identity), deliberate bounds (history caps, label placement, a broadcast fallback) and
+  product gaps (live presence, companion equipment and level-up, scene installer, saved-search
+  kinds, desktop remote streams, guided-PC DM notes, desktop Google Docs, worker widgets, no way to
+  delete a character). For each, decide whether to build it before RC-1, accept it as a bound or
+  scope decision (amend §2.1.2 or record an ADR), or file it. Also rule on: whether §2.1.1's
+  "every P2 merged" includes operator stories (RC-CLD-1.1); whether §2.3's 800-line bar counts
+  catalogs, snapshots and tests; whether English-only user guides meet §2.3; RC-ENG-8.15's unmet
+  acceptance (17 controls recorded in `tile-overflow-controls.spec.ts`); and the §20.2 prototype
+  comparison waived on 20 surfaces. Acceptance: every limit in the audit's §3 table carries a
+  ruling; §2.1 says which categories RC-1 admits.
+
+### Epic ENG-14 — RC-1 exit audit: the medium findings (P4)
+
+The first audit left its medium findings for the operator to file, as the M2.5 audit did. Review
+of that audit asked for them to be stories so that finishing ENG-11 to ENG-13 cannot leave them
+untracked. Each story names its audit ids. The evidence column of the audit record
+([`RC_CHECKLIST.md`](../development/RC_CHECKLIST.md#rc-eng-73-exit-audit) §4) has the reproduction
+and the file and line. RC-ENG-14.9 handles the low findings.
+
+- **RC-ENG-14.1 — Focus stays on the task after an action.** `M` · P4 · Deps: 13.4, 13.5 · Owns:
+  `apps/gm-react/src/screens/campaign/Relationships.tsx`,
+  `apps/gm-react/src/screens/campaign/Calendar.tsx`,
+  `apps/gm-react/src/screens/audio/panels/PlaybackLeft.tsx`,
+  `apps/gm-react/src/screens/graph/Repair.tsx`, `apps/gm-react/src/screens/extensions/Plugins.tsx`,
+  `apps/gm-react/src/screens/extensions/CustomTypes.tsx`,
+  `apps/gm-react/src/screens/extensions/System.tsx`,
+  `apps/gm-react/src/screens/extensions/CompendiumEntry.tsx`,
+  `apps/gm-react/src/screens/community/Export.tsx`,
+  `apps/gm-react/src/screens/community/ModuleFile.tsx`. Findings E3 and F5 (WCAG 2.4.3): when an
+  action removes or disables its own control, focus falls to `<body>` and the next Tab starts at the
+  top of the page. The cases are Relationships › Add and a card tray's Add relationship
+  (`Relationships.tsx:272-276,629-630`), Calendar › New calendar (`Calendar.tsx:168-170`), Audio ›
+  Add starter pack and Add track (`PlaybackLeft.tsx:105,368`), and Graph repair › Fix
+  (`Repair.tsx:104-108`). The rest are Install a starter, where a badge replaces the button
+  (`Plugins.tsx:218-236`), Yes remove, Define type and a refused delete (`CustomTypes.tsx:125`),
+  selecting a system card and installing a sample system (`System.tsx:141-151,174`), compendium
+  Import (`CompendiumEntry.tsx:110-125`), Export & download, and installing a `.dndmodule`. Closing
+  the system builder lands on `<main>`. Move focus to the new form's first field, the new row or
+  the status line, as Story's `restoreLauncher` effect does (`Campaign.tsx:78-86`). Acceptance: an
+  e2e on both profiles does each action from the keyboard and asserts that `document.activeElement`
+  is not `<body>` or `<main>` and lies inside the surface that was acted on.
+- **RC-ENG-14.2 — A destructive choice is never the default or a dead end.** `S` · P4 · Deps: 13.3,
+  14.1 · Owns: `apps/gm-react/src/app/widgetBuilder/BuilderPanes.tsx`,
+  `apps/gm-react/src/screens/extensions/CustomTypeRow.tsx`,
+  `apps/gm-react/src/screens/extensions/PluginPackageCard.tsx`. Findings F17, F9 and F12. "Resume
+  your draft?" puts initial focus on Start over, so Enter discards the draft the GM just kept
+  (`BuilderPanes.tsx:157-166`). Deleting a custom type that still has objects offers a red confirm
+  that the core always refuses, then toasts the engine id in English (`CustomTypeRow.tsx:141-144`).
+  Turning off a built-in package takes one tap with no confirmation or undo
+  (`PluginPackageCard.tsx:217-226`). Acceptance: on both profiles, Enter in the resume dialog keeps
+  the draft; a type that still has objects offers no delete confirm and says how many objects to
+  remove first; turning off a built-in package asks first or offers Undo.
+- **RC-ENG-14.3 — Touch targets reach 44px and segment labels fit.** `M` · P4 · Deps: none · Owns:
+  `apps/gm-react/src/app/screen-kit.tsx`, `apps/gm-react/src/ds/components/forms/SegmentedControl.tsx`,
+  `apps/gm-react/src/screens/extensions/Compendium.tsx`,
+  `apps/gm-react/src/screens/extensions/ThemeStudio.tsx`. Findings E14, F6, G15 and F7. On rail and
+  phone the breadcrumb back button is 70×24 (`screen-kit.tsx:722-736`) and the `/upgrade` back
+  link 88×24. Every Settings `Seg` radio is 29px tall (`:681-691`). The compendium Monsters/Spells
+  radios are 26px and the theme presets 27px. Theme preset names clip to "Parchmen" and "igh
+  contra", so the accessibility theme cannot be read by name. NAVIGATION §7 and §20.3 set the floor
+  at 44px. Acceptance: an e2e at 834 and 390 wide measures every control named here at 44px or
+  more and finds no clipped segment label on `/extensions` or Settings › Appearance.
+- **RC-ENG-14.4 — The gates check what the audit checked by hand.** `M` · P4 · Deps: none · Owns:
+  `apps/gm-react/tests/e2e/settings-account-a11y.spec.ts` (new), `scripts/validate/feature-audit.ts`,
+  `tests/unit/feature-audit.test.ts`, `docs/requirements/FEATURE-GAPS.md`. Findings R1-9 and R2-12.
+  The signed-in dialogs (delete account, forget device, sign out everywhere, invite create and
+  revoke, recovery key), the Community Publish and Wiki server dialogs and the Join sign-in modal
+  have never been axe-scanned, although `tests/e2e/_accountFixture.ts` can mount them. The feature
+  audit asserts a literal for limit references but only a line range for behavior references, so
+  three behavior anchors drifted unnoticed. Acceptance: the new spec opens each dialog over the
+  fixture on both profiles with no critical or serious axe violation; `pnpm feature-audit` fails
+  on a behavior reference whose line no longer holds its anchor, with a unit test for that case.
+- **RC-ENG-14.5 — Audio says what it does.** `S` · P4 · Deps: 14.1 · Owns:
+  `apps/gm-react/src/screens/audio/panels/PlaybackRight.tsx`, `apps/gm-react/src/screens/audio/index.tsx`,
+  `apps/gm-react/src/screens/audio/SfxEventsPanel.tsx`, `apps/gm-react/src/screens/audio/AudioPanel.tsx`.
+  Findings E5 to E8 and the audio part of E11. The player preview names an ambience layer by its
+  raw source id (`PlaybackRight.tsx:99-100`). Scene Link binds the first web stream with no choice,
+  and local files can never be linked (`index.tsx:200-214`). Automation says "no audio comes
+  bundled" beside Add starter pack (`SfxEventsPanel.tsx:167`). Every DM panel heading carries a
+  lock icon named "Ask your DM to configure audio." (`AudioPanel.tsx:22`). Master volume, Add layer
+  and Link are disabled with no reason. Acceptance: an e2e on both profiles finds no source id in
+  the player preview, picks the linked source from a list, reads no lock name on DM headings, and
+  finds a stated reason on each disabled control.
+- **RC-ENG-14.6 — Story and the graph always offer a next step.** `M` · P4 · Deps: 13.2, 14.1 ·
+  Owns: `apps/gm-react/src/screens/Campaign.tsx`, `apps/gm-react/src/screens/campaign/Cards.tsx`,
+  `apps/gm-react/src/screens/campaign/Relationships.tsx`,
+  `apps/gm-react/src/screens/campaign/CalendarPreview.tsx`, `apps/gm-react/src/screens/Graph.tsx`,
+  `apps/gm-react/src/screens/graph/Search.tsx`. Findings E9, E10, E11 (Relationships and Graph),
+  E12 and E15. Once a campaign date exists, nothing on Story leads to the calendar editor
+  (`Campaign.tsx:536-555`). Quest and NPC cards show visibility as an icon whose words are only in
+  `title` (`Cards.tsx:118`). Relationships › Add, Focus neighborhood and Refine in Notes are
+  disabled with no reason. Relationships on an empty vault offers no next step
+  (`Relationships.tsx:400-475`). Date a note asks for a frontmatter key, `occurredOn`
+  (`CalendarPreview.tsx:176`). Acceptance: an e2e on both profiles reaches the calendar editor from
+  a dated Timeline, reads each card's visibility as text, finds a reason on each disabled control,
+  and on a fresh vault follows the empty Relationships state to a way of adding an entity.
+- **RC-ENG-14.7 — Extensions use the GM's words.** `M` · P4 · Deps: 13.5, 14.1, 14.2 · Owns:
+  `apps/gm-react/src/screens/extensions/CustomTypes.tsx`,
+  `apps/gm-react/src/screens/extensions/ObjectTypes.tsx`,
+  `apps/gm-react/src/screens/extensions/CustomObjectInstanceDialog.tsx`,
+  `apps/gm-react/src/screens/extensions/TrustReviewSheet.tsx`,
+  `apps/gm-react/src/screens/extensions/SystemDialogs.tsx`,
+  `apps/gm-react/src/screens/extensions/SystemWidgetSwitch.tsx`. Findings F8, F11 and F13. Object types
+  show subtype ids, custom types show `custom:tavern`, the instance dialog labels a field
+  "proprietor · string required" (`CustomTypes.tsx:246-255`), and system cards print
+  `system.home-widgets` (`SystemWidgetSwitch.tsx:315`). The trust review tells a package that is already on "Nothing is allowed
+  until you say so." The system dry run pads "Drops 61" with 43 rows no character uses and calls
+  them dropped while saying they stay saved (`SystemDialogs.tsx:105-118`). Acceptance: an e2e on
+  both profiles reads no engine id on Object types, custom types, the instance dialog or System; the
+  review of an enabled package states what it already may use; the dry run lists only rows a
+  character uses.
+- **RC-ENG-14.8 — Settings, the shell and the wiki tell the truth.** `M` · P4 · Deps: 12.7, 12.8,
+  14.3 · Owns: `apps/gm-react/src/app/shell/TopBar.tsx`, `apps/gm-react/src/styles/scene-display.css`,
+  `apps/gm-react/src/screens/settings/Ai.tsx`, `apps/gm-react/src/screens/settings/Permissions.tsx`,
+  `apps/gm-react/src/screens/settings/Appearance.tsx`, `apps/gm-react/src/screens/WikiReader.tsx`,
+  `apps/gm-react/src/screens/settings/SyncPrivacy.tsx`. Findings E13, E16, G12, G13, G14, G17, G18
+  and G21. The phone's Table controls reuse the Session glyph (`TopBar.tsx:188-189`). On the phone
+  the display's help strip covers the end of long flavor text. "Choose which tools" shows 31 static
+  raw tool ids (`Ai.tsx:429-436`). At rail the Permissions grants table puts Revoke past the scroll
+  port. Density reverts to comfortable below 1200px without saying so (`public/prepaint.js:64-68`).
+  The wiki's title stays "Command Center" until it is ready (`WikiReader.tsx:143-146`). The
+  recovery key says "Sign in" in an edition without sign-in (`SyncPrivacy.tsx:234`). One invite
+  credential goes by five names (`en.ts:1128,1751,5689,5707`). Acceptance: an e2e on both profiles
+  covers each: distinct glyphs, the last flavor line visible at 390×844, tool names a GM can read,
+  Revoke in view at 834 wide, a density lock that says why, a wiki title for every state, recovery
+  copy that matches the edition, and one glossary term for the invite credential in `en` and `es`.
+- **RC-ENG-14.9 — Every low finding is fixed, filed or waived.** `S` · P4 · Deps: none · Owns:
+  `docs/development/RC_CHECKLIST.md`, `docs/planning/RC_ROADMAP.md`. The **Low** list in the
+  audit record's §4 holds 51 findings. Five are marked fixed, and the other 46 have no owner. For each, record in the audit record whether it is fixed (commit), filed (story id), or
+  waived (a reason that names the §20 item it falls under). Acceptance: no low id in
+  `RC_CHECKLIST.md` §4 is without one of the three.
+
 ### Epic ENG-15 — IA-1 six-section navigation (P3, release precondition)
 
 The owner accepted IA-1 on 2026-10-24 ([IA_REVIEW](IA_REVIEW.md), ADR-013 amended) and chose that
@@ -3740,6 +4137,68 @@ Each story's detail is the matching section of IA_REVIEW (route table, vocabular
   (find an NPC, open a pinned screen on phone, return from player preview, find billing) and the
   exact-candidate gates, and attach them to ENG-7.3. Acceptance: the RC_CHECKLIST IA box names the
   accepted decision, decider, date, merged commit and the four story IDs with their evidence.
+
+### Epic ENG-16 — RC-1 exit audit, second run (P4)
+
+The second RC-ENG-7.3 run (2026-10-25, `c97e5da65`, application tree `loop/rc` `aa300d6d5`) found
+these on the delta since the first run. Record:
+[`RC_CHECKLIST.md`](../development/RC_CHECKLIST.md#rc-eng-73-exit-audit) §4.
+
+- **RC-ENG-16.1 — Supply Chain is green on `loop/rc` again.** `S` · P4 · Deps: none · Owns:
+  `.github/workflows/deploy.yml`, `.github/workflows/promote-production.yml`. The Supply Chain
+  workflow has failed on the last three `loop/rc` runs, from `2d8d5e632` to `09524f2e6` (runs
+  40175726450, 40177998203, 40178768941). Its "Enforce GitHub Actions security policy" step reports
+  zizmor `ref-version-mismatch` on the `aws-actions/setup-sam` pin `89ddb14d…` `# v3`: the `v3`
+  tag now points to `341eee193f45`, and the pinned hash is no tag (`deploy.yml:158`,
+  `promote-production.yml:124`). Re-pin both to the tagged commit with a matching comment. Acceptance: Supply Chain passes on the `loop/rc` head, and the
+  RC checklist's Release item is not blocked by it.
+- **RC-ENG-16.2 — The palette finds Tools, billing and the old section names.** `S` · P4 · Deps:
+  none · Owns: `apps/gm-react/src/app/CommandPalette.tsx`, `apps/gm-react/src/app/nav.ts`,
+  `apps/gm-react/src/screens/settings/Subscription.tsx`, `apps/gm-react/src/i18n/messages/en.ts`,
+  `apps/gm-react/src/i18n/messages/es.ts`. IA_REVIEW's billing task and R3-5: Go to lists Run,
+  Library, Platform, Player and Settings (`CommandPalette.tsx:298-313`), so the new Tools section
+  has no palette destination. A section matches only by its label and subtitle, so `billing`,
+  `subscription`, Atlas, Campaign and Knowledge return No matches while `plans` works. The
+  Subscription notice names Plans & cloud in plain text. Acceptance: in English and Spanish, Tools
+  is a Go to destination; billing or subscription lists Plans & cloud; the pre-IA-1 names find
+  Maps, Story and Notes; the notice links to `/upgrade`; a test covers each.
+- **RC-ENG-16.3 — The labelled top bar keeps the page title readable.** `S` · P4 · Deps: none ·
+  Owns: `apps/gm-react/src/app/shell/TopBar.tsx`, `apps/gm-react/tests/e2e/table-controls.spec.ts`.
+  U3-M1: from 1440px the labelled row switches on at a fixed width (`TopBar.tsx:29`), and the title
+  block absorbs all the shrink. At 1440px English titles clip ("Command Cen…", "Audio &
+  atmosphe…"), and every Spanish section title shows about four letters ("Herr…" for
+  Herramientas). That is the squeeze the 1440 threshold was chosen to prevent (`:25-27`), and the
+  spec checks fit only on `/screens` in English (`table-controls.spec.ts:46-48`). Acceptance: at
+  1440px and 1600px no section title is truncated in English or Spanish, either by falling back to
+  the sheet when the title overflows or by giving the title a floor; a test covers every section
+  in both locales.
+- **RC-ENG-16.4 — Opening a sheet or a settings link lands focus on the task.** `S` · P4 · Deps:
+  none · Owns: `apps/gm-react/src/ds/components/overlay/Sheet.tsx`,
+  `apps/gm-react/src/app/shell/MoreSheet.tsx`, `apps/gm-react/src/screens/Tools.tsx`,
+  `apps/gm-react/src/screens/settings/Experience.tsx`. U3-M2: on the phone, opening All sections
+  focuses New screen, a content action ADR-013 keeps out of navigation, because the sheet focuses
+  its first tabbable element (`Sheet.tsx:87-89`) and the pin group comes first (`MoreSheet.tsx:70`).
+  U3-M3: Tools' Change experience level opens Settings at the top (`Tools.tsx:80`). On the phone
+  the control is below the fold (y=1030 of 844), focus is on `<body>`, and the panel is titled
+  "Experience complexity". Acceptance: All sections opens on its first navigation row; the Tools
+  action scrolls the Experience panel into view and focuses it; the action and the panel use one
+  term; tests cover both on the phone profile.
+- **RC-ENG-16.5 — The player page is the Player sheet.** `S` · P4 · Deps: none · Owns:
+  `apps/gm-react/src/app/nav.ts`, `apps/gm-react/src/i18n/messages/en.ts`,
+  `apps/gm-react/src/i18n/messages/es.ts`. R3-4 and U3-L5: IA-1 renames `/player` in Characters'
+  local navigation to **Player sheet** (IA_REVIEW, the `/player` disposition; NAVIGATION calls it
+  the player sheet), but the label is still "{player} view" (`en.ts:234`; Spanish "Vista de
+  Jugador"), next to Preview as player. The Tools intro and gated note talk about bookmarks
+  (`en.ts:7591-7594`), not what a GM can do there. Acceptance: the local entry and the palette row
+  read Player sheet in both GM vocabularies and in Spanish; the Tools copy says what the page is
+  for; the qps-ploc catalogue is regenerated; a test asserts the label.
+- **RC-ENG-16.6 — Every second-run low finding is fixed, filed or waived.** `S` · P4 · Deps: none ·
+  Owns: `docs/development/RC_CHECKLIST.md`, `docs/planning/RC_ROADMAP.md`. The second run's low
+  list (audit record §4) holds eleven findings: U3-L1 to L4, L6 and L7, R3-6 to R3-8, the preview
+  race during a pending route transition (`ViewAsControl.tsx:167-169`, and
+  `HubIntent.tsx:45-47` likewise), and route-compat's history coverage stopping short of the rail
+  tier. Acceptance: each low id in the record names a fixing commit, a story, or a waiver with a
+  reason.
 
 ---
 
@@ -4114,7 +4573,7 @@ story; most stalls of the last week were roadmap data, not code.
 
 ## 23. Story index
 
-_396 stories. By size: L=42 · M=214 · S=140. By phase: P0=20 · P1=28 · P2=193 · P3=135 · P4=19 · rolling=1. Status (from the dispatcher store): blocked 13 · done 287 · in progress 2 · open 86 · operator 7 · skipped 1. Rendered by `tools/roadmap/sync-status.py`; the store, not this column, is the record._
+_432 stories. By size: L=45 · M=230 · S=157. By phase: P0=20 · P1=28 · P2=193 · P3=135 · P4=55 · rolling=1. Status (from the dispatcher store): blocked 13 · done 287 · in progress 2 · open 121 · operator 8 · skipped 1. Rendered by `tools/roadmap/sync-status.py`; the store, not this column, is the record._
 
 | Id          | Lane        | Story                                                                                                                                                                                                                                                                                                      | Size | Phase   | Deps                                                                                                                                                                                                   | Status               |
 | ----------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------- |
@@ -4514,23 +4973,73 @@ _396 stories. By size: L=42 · M=214 · S=140. By phase: P0=20 · P1=28 · P2=19
 | RC-ENG-10.3 | Engineering | Android system backup excludes the vault                                                                                                                                                                                                                                                                   | S    | P2      | none                                                                                                                                                                                                   |                      |
 | RC-ENG-10.4 | Engineering | Cancelling the assistant keeps the transcript valid                                                                                                                                                                                                                                                        | S    | P3      | none                                                                                                                                                                                                   |                      |
 | RC-ENG-10.5 | Engineering | Cancelling a release stops the signed package job                                                                                                                                                                                                                                                          | S    | P3      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-11.1 | Engineering | A new GM can back up at every experience level                                                                                                                                                                                                                                                             | S    | P4      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-11.2 | Engineering | The assistant can read cluster momentum                                                                                                                                                                                                                                                                    | S    | P4      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-11.3 | Engineering | Large-vault budgets are measured and within target                                                                                                                                                                                                                                                         | M    | P4      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-11.4 | Engineering | Five consecutive scheduled perf runs exist                                                                                                                                                                                                                                                                 | S    | P4      | 11.3                                                                                                                                                                                                   |                      |
+| RC-ENG-11.5 | Engineering | Nightly whole-app validation and Android acceptance are green                                                                                                                                                                                                                                              | M    | P4      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-11.6 | Engineering | The file-size gate counts `.ts` files                                                                                                                                                                                                                                                                      | S    | P4      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-11.7 | Engineering | Split the widget-platform files over 800 lines                                                                                                                                                                                                                                                             | L    | P4      | 11.6                                                                                                                                                                                                   |                      |
+| RC-ENG-11.8 | Engineering | Split the storage and runtime files over 800 lines                                                                                                                                                                                                                                                         | L    | P4      | 11.6                                                                                                                                                                                                   |                      |
+| RC-ENG-11.9 | Engineering | The golden routes cover five themes                                                                                                                                                                                                                                                                        | M    | P4      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-12.1 | Engineering | Live-table hosting and joining speak the player's language                                                                                                                                                                                                                                                 | M    | P4      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-12.2 | Engineering | Core-authored labels reach the UI as message keys                                                                                                                                                                                                                                                          | L    | P4      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-12.3 | Engineering | App-side English literals go through the catalog                                                                                                                                                                                                                                                           | M    | P4      | 11.8                                                                                                                                                                                                   |                      |
+| RC-ENG-12.4 | Engineering | The design system's built-in copy is translated                                                                                                                                                                                                                                                            | M    | P4      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-12.5 | Engineering | Unavailable features say "not in this edition"                                                                                                                                                                                                                                                             | S    | P4      | 11.7                                                                                                                                                                                                   |                      |
+| RC-ENG-12.6 | Engineering | Plan previews never promise what the edition lacks                                                                                                                                                                                                                                                         | M    | P4      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-12.7 | Engineering | Status shows only what was checked                                                                                                                                                                                                                                                                         | S    | P4      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-12.8 | Engineering | The invite path has no dead ends                                                                                                                                                                                                                                                                           | S    | P4      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-12.9 | Engineering | A production build cannot ship legal placeholders                                                                                                                                                                                                                                                          | S    | P4      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-13.1 | Engineering | DM-only scene cards stay off the table display                                                                                                                                                                                                                                                             | S    | P4      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-13.2 | Engineering | The graph opens a faction or quest in Story                                                                                                                                                                                                                                                                | S    | P4      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-13.3 | Engineering | Package cards fit the phone                                                                                                                                                                                                                                                                                | S    | P4      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-13.4 | Engineering | The compendium preview names only what is not imported                                                                                                                                                                                                                                                     | S    | P4      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-13.5 | Engineering | "System" means one thing on the System tab                                                                                                                                                                                                                                                                 | S    | P4      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-13.6 | Engineering | Area templates reach players and read-only views                                                                                                                                                                                                                                                           | M    | P4      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-13.7 | Engineering | The legacy per-map token array is retired                                                                                                                                                                                                                                                                  | M    | P4      | 11.8, 13.6                                                                                                                                                                                             |                      |
+| RC-ENG-13.8 | Engineering | Data-only widgets run isolated, or the contract says they do not                                                                                                                                                                                                                                           | M    | P4      | 11.7                                                                                                                                                                                                   |                      |
+| RC-ENG-13.9 | Engineering | The owner rules on every open limit outside the §2.1 four                                                                                                                                                                                                                                                  | S    | P4      | none                                                                                                                                                                                                   | operator             |
+| RC-ENG-14.1 | Engineering | Focus stays on the task after an action                                                                                                                                                                                                                                                                    | M    | P4      | 13.4, 13.5                                                                                                                                                                                             |                      |
+| RC-ENG-14.2 | Engineering | A destructive choice is never the default or a dead end                                                                                                                                                                                                                                                    | S    | P4      | 13.3, 14.1                                                                                                                                                                                             |                      |
+| RC-ENG-14.3 | Engineering | Touch targets reach 44px and segment labels fit                                                                                                                                                                                                                                                            | M    | P4      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-14.4 | Engineering | The gates check what the audit checked by hand                                                                                                                                                                                                                                                             | M    | P4      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-14.5 | Engineering | Audio says what it does                                                                                                                                                                                                                                                                                    | S    | P4      | 14.1                                                                                                                                                                                                   |                      |
+| RC-ENG-14.6 | Engineering | Story and the graph always offer a next step                                                                                                                                                                                                                                                               | M    | P4      | 13.2, 14.1                                                                                                                                                                                             |                      |
+| RC-ENG-14.7 | Engineering | Extensions use the GM's words                                                                                                                                                                                                                                                                              | M    | P4      | 13.5, 14.1, 14.2                                                                                                                                                                                       |                      |
+| RC-ENG-14.8 | Engineering | Settings, the shell and the wiki tell the truth                                                                                                                                                                                                                                                            | M    | P4      | 12.7, 12.8, 14.3                                                                                                                                                                                       |                      |
+| RC-ENG-14.9 | Engineering | Every low finding is fixed, filed or waived                                                                                                                                                                                                                                                                | S    | P4      | none                                                                                                                                                                                                   |                      |
 | RC-ENG-15.1 | Engineering | Primary grouping and phone Screens access                                                                                                                                                                                                                                                                  | L    | P3      | none                                                                                                                                                                                                   |                      |
 | RC-ENG-15.2 | Engineering | Vocabulary and table controls                                                                                                                                                                                                                                                                              | M    | P3      | 15.1                                                                                                                                                                                                   |                      |
 | RC-ENG-15.3 | Engineering | Bookmark compatibility                                                                                                                                                                                                                                                                                     | M    | P3      | 15.1                                                                                                                                                                                                   |                      |
 | RC-ENG-15.4 | Engineering | Decision and release evidence                                                                                                                                                                                                                                                                              | S    | P3      | 15.1–15.3                                                                                                                                                                                              |                      |
+| RC-ENG-16.1 | Engineering | Supply Chain is green on `loop/rc` again                                                                                                                                                                                                                                                                   | S    | P4      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-16.2 | Engineering | The palette finds Tools, billing and the old section names                                                                                                                                                                                                                                                 | S    | P4      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-16.3 | Engineering | The labelled top bar keeps the page title readable                                                                                                                                                                                                                                                         | S    | P4      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-16.4 | Engineering | Opening a sheet or a settings link lands focus on the task                                                                                                                                                                                                                                                 | S    | P4      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-16.5 | Engineering | The player page is the Player sheet                                                                                                                                                                                                                                                                        | S    | P4      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-16.6 | Engineering | Every second-run low finding is fixed, filed or waived                                                                                                                                                                                                                                                     | S    | P4      | none                                                                                                                                                                                                   |                      |
 
 ## 24. Operator ledger — steps only the owner can take
 
-Each row is a story the dispatcher holds as `proposed` (it never blocks the phase gate). The app ships
-honest "not in this edition" copy for every one. Commands assume the profiles in `infra/README.md`.
+Each story row is one the dispatcher holds as `proposed` (it never blocks the phase gate), except
+RC-UX-5.5 and RC-ENG-7.1. Those stories are done, and the row is the owner's step they left. Rows in
+parentheses belong to no story. The app is meant to show "not in this edition" copy for each missing
+capability; RC-ENG-12.5 fixes the copy that still says "yet". Commands assume the profiles in
+`infra/README.md`.
 
-| Story      | What only the owner can do                                                                                                                                                     | Exact step                                                                                                                                                             |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| RC-CLD-1.1 | Get SES out of the sandbox so public sign-up mail sends.                                                                                                                       | Reply to Support case `178562576600649` with the draft in `docs/runbooks/ses-production-access.md`; when `ProductionAccessEnabled` flips, run `pnpm validate:live`.    |
-| RC-CLD-1.5 | Prod cost hygiene: orphan KMS key, TURN TLS cutover, budget subscriber.                                                                                                        | See the story; three commands, recorded in `docs/runbooks/cloud-cost.md`.                                                                                              |
-| RC-CLD-2.3 | Firebase project and `google-services.json` for push.                                                                                                                          | After RC-CLD-2.7 lands: create the project, place the file, store the server key in the named stage secret, redeploy the app API.                                      |
-| RC-CLD-2.6 | Stripe production: tax decision, legal identity, live keys.                                                                                                                    | `pnpm billing:bootstrap --stage prod` · `pnpm billing:verify --stage prod` · flip `simulated: false`.                                                                  |
-| RC-PLT-1.1 | Code-signing certificates (Windows Authenticode, Apple Developer ID) and notarization credentials.                                                                             | Buy/enrol, add the secrets `release.yml` names, re-run the release job on the RC tag.                                                                                  |
-| RC-PLT-2.3 | Google Play console: internal track, listing assets.                                                                                                                           | Upload the AAB from `release.yml`; complete the listing with the RC-DSN-3.3 kit.                                                                                       |
-| RC-ENG-7.2 | The RC tag and the production promotion.                                                                                                                                       | `git tag v0.4.0 && git push origin v0.4.0`; run `promote-production.yml` from the tag.                                                                                 |
-| (plan)     | Two dispatcher settings the classifier would not let a session change: `phase_gated: false` and `max_per_lane: 2` in `~/Programming/agent-dispatcher/manifests/dndtools.json`. | Edit the two values (no restart needed; the engine reloads the manifest per run). Without them the P3 stories wait for the CAN chain and one CAN story runs at a time. |
+| Story       | What only the owner can do                                                                                                                                                     | Exact step                                                                                                                                                             |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| RC-CLD-1.1  | Get SES out of the sandbox so public sign-up mail sends.                                                                                                                       | Reply to Support case `178562576600649` with the draft in `docs/runbooks/ses-production-access.md`; when `ProductionAccessEnabled` flips, run `pnpm validate:live`.    |
+| RC-CLD-1.5  | Prod cost hygiene: orphan KMS key, TURN TLS cutover, budget subscriber.                                                                                                        | See the story; three commands, recorded in `docs/runbooks/cloud-cost.md`.                                                                                              |
+| RC-CLD-2.3  | Firebase project and `google-services.json` for push.                                                                                                                          | After RC-CLD-2.7 lands: create the project, place the file, store the server key in the named stage secret, redeploy the app API.                                      |
+| RC-CLD-2.6  | Stripe production: tax decision, legal identity, live keys.                                                                                                                    | `pnpm billing:bootstrap --stage prod` · `pnpm billing:verify --stage prod` · flip `simulated: false`.                                                                  |
+| RC-PLT-1.1  | Code-signing certificates (Windows Authenticode, Apple Developer ID) and notarization credentials.                                                                             | Buy/enrol, add the secrets `release.yml` names, re-run the release job on the RC tag.                                                                                  |
+| RC-PLT-2.3  | Google Play console: internal track, listing assets.                                                                                                                           | Upload the AAB from `release.yml`; complete the listing with the RC-DSN-3.3 kit.                                                                                       |
+| RC-ENG-7.2  | The RC tag and the production promotion.                                                                                                                                       | `git tag v<x.y.z> && git push origin v<x.y.z>` with an unused plain semver tag (v0.4.0 to v0.4.4 exist); run `promote-production.yml` from the tag.                    |
+| RC-ENG-13.9 | Rule on every open limit outside the §2.1 four and on the five questions the RC-ENG-7.3 audit left open.                                                                       | Work through the limits table in `docs/development/RC_CHECKLIST.md` (RC-ENG-7.3 exit audit); record each ruling in §2.1 or an ADR.                                     |
+| RC-UX-5.5   | Done 2026-10-24: IA-1 accepted, ADR-013 amended (`43e0ffaa5`). RC-ENG-7.3 verified RC-ENG-15.1 to 15.4 on `c97e5da65`.                                                         | None left. Re-run the IA-1 specs and the four IA_REVIEW tasks on the tagged RC commit.                                                                                 |
+| (release)   | The manual screen-reader run. Its E3 no-leak check blocks the release.                                                                                                         | Run `docs/development/ACCESSIBILITY.md` §4 on the RC candidate with NVDA, VoiceOver and TalkBack; add the row to its log and the release notes.                        |
+| RC-ENG-7.1  | Turn on GitHub Discussions with a `beta-feedback` category, the target of Help › Send feedback.                                                                                | Repository settings › Features › Discussions; create the `beta-feedback` category from `.github/DISCUSSION_TEMPLATE/beta-feedback.yml`; open the link once.            |
+| (store)     | Reconcile the dispatcher store with the roadmap.                                                                                                                               | RC-ENG-11.1 to 14.9 and 16.1 to 16.6 are roadmap-only: register them. 8.15 waits on 13.9; RC-AI-1.3 on 11.2.                                                           |
+| (plan)      | Two dispatcher settings the classifier would not let a session change: `phase_gated: false` and `max_per_lane: 2` in `~/Programming/agent-dispatcher/manifests/dndtools.json`. | Edit the two values (no restart needed; the engine reloads the manifest per run). Without them the P3 stories wait for the CAN chain and one CAN story runs at a time. |

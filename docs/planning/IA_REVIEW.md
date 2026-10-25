@@ -2,7 +2,12 @@
 
 Status: **Accepted 2026-10-24 (decider: owner, Engineering; UX and Accessibility consulted through this review); implementation follow-ups RC-ENG-15.1–15.4 gate RC-ENG-7.3.**
 As of 2026-10-25, 15.1–15.3 are integrated on `loop/rc` and 15.4's evidence is
-[below](#task-based-checks-and-exact-candidate-gates-rc-eng-154). One task-based check still fails.
+[below](#task-based-checks-and-exact-candidate-gates-rc-eng-154). The RC-ENG-7.3 audit re-ran the
+specs and the four task checks on `c97e5da65` (application tree `aa300d6d5`), and all passed.
+Hosted `ci-gate` is red on that tree, because the Electron smoke still looks for Start session in
+the top bar below 1440px (RC_CHECKLIST exit audit, R3-1). The audit's third run verified the
+pending fix (dispatcher task `ci-recovery-2c97e96f8c25`) locally in the CI image; hosted `ci-gate`
+is still red until it lands.
 Reviewed 2026-10-12 against repository commit `020cc6a07f3a2296d8cd032344010f37873782e4`. This is
 the decision proposal required by [RC_ROADMAP](RC_ROADMAP.md), §1.6 D6 and UX-5.5, following
 CAN-7.9. It does not authorize a navigation change. [NAVIGATION](../architecture/NAVIGATION.md) remains the implemented contract;
@@ -170,7 +175,7 @@ decider, consultation with UX/Accessibility, date, and this review's merged comm
 | Review merged                                                        | Merged on `loop/rc` in `3d8d8e96a` (proposal) with `2a9c1a81b` and `74efcfe28`.                     |
 | ADR-013 amendment adopted                                            | Adopted 2026-10-24 (owner-authorized edit); see ADR-013 Decision.                                   |
 | ENG-7.3 explicitly lists accepted decision as a release precondition | Applied in RC_ROADMAP ENG-7.3 (text below); checklist box recorded by RC-ENG-15.4.                  |
-| Implementation stories filed after acceptance                        | 15.1 `f79675059`, 15.2 `2c97e96f8`, 15.3 `f168547c4` on `loop/rc`; RC-commit check is ENG-7.3's.    |
+| Implementation stories filed after acceptance                        | 15.1 `f79675059`, 15.2 `2c97e96f8`, 15.3 `f168547c4`; ci-gate red since 15.2 (ENG-7.3, R3-1).       |
 
 [RC_ROADMAP](RC_ROADMAP.md) RC-ENG-7.3 now carries this release precondition, added by this task
 after independent review cited the gap (claim widened to the ENG-7.3 bullet only):
@@ -184,9 +189,12 @@ after independent review cited the gap (claim widened to the ENG-7.3 bullet only
 
 ENG-7.3's acceptance line now opens with "the RC-UX-5.5 precondition is met". The
 [RC_CHECKLIST](../development/RC_CHECKLIST.md) IA box records the decision, decider, date, commits
-and the four story IDs with their evidence (RC-ENG-15.4). It stays unchecked. Listing the evidence
-does not meet the precondition: ENG-7.3 must verify the follow-ups on the release-candidate commit,
-and the preview-return failure below has to be fixed first.
+and the four story IDs with their evidence (RC-ENG-15.4). Listing the evidence did not meet the
+precondition. ENG-7.3 verified the follow-ups' own acceptance on the candidate (2026-10-25,
+`c97e5da65`), but RC-ENG-15.2 left the hosted `ci-gate` red there (R3-1), so the precondition is
+not met until that gate is green. The third run verified the pending smoke-script fix locally; it
+has no product change, and the hosted gate waits for it to land. The template box stays unchecked until the same checks re-run
+on the tagged RC commit.
 
 The decision is accepted; these bounded stories are filed as RC-ENG-15.1 (grouping), 15.2 (vocabulary), 15.3 (bookmarks) and 15.4 (evidence) through the roadmap owner with actual IDs and
 explicit Owns/Deps; all depend on the accepted decision, not just this document's existence:
@@ -223,19 +231,23 @@ committed. This is scripted task coverage, not a usability study with people.
 
 Findings:
 
-- **Preview return at the wide tier (blocks the IA box).** With the inline Preview as player control
-  (1440px and wider), Exit preview goes back to the route where the shell first loaded, not to the
-  route the GM left. In a separate probe on both profiles, the `/play` history state carried
-  `previewFrom: "/"` after a click from `/` to `/characters` at 1440px and 1600px, but
-  `"/characters"` after a cold load of `/characters` or at 1280px (sheet control). The value is set
-  in `ViewAsControl.tsx` (`previewFrom`) and read by `PreviewExitBanner` in `screens/play/Frame.tsx`.
-  The cause is not established. `table-controls.spec.ts` misses this because it starts each preview
-  from a cold `/screens`. A fix and a regression test need an owning story, which this docs story
-  cannot file in RC_ROADMAP.
+- **Preview return at the wide tier (recorded by RC-ENG-15.4; re-diagnosed by RC-ENG-7.3, no fix
+  needed).** RC-ENG-15.4 saw Exit preview land on `#/` after a click from `/` to Characters at 1440px
+  and 1600px, with `previewFrom: "/"` in the `/play` history state. RC-ENG-7.3 reproduced it on
+  `c97e5da65` and found the cause in the probe's timing, not the shell. The scratch check clicked
+  Preview as soon as the URL read `#/characters`, while React Router's transition to the lazy
+  Characters route was still pending. At that moment the top bar's heading still read "Command
+  Center" (three runs at 1440px), so the inline control, which renders with the committed location,
+  recorded the page on screen. When the check waits for the Characters heading first, `previewFrom`
+  is `"/characters"` and Exit preview returns there (two runs each at 1440px and 1600px). The
+  1280px sheet passed only because opening it gave the transition time to commit, so the race is
+  not width-specific. A GM who previews from the page they can see returns to it. The URL already
+  holds the new route at that moment, so a cheap fix exists; RC-ENG-16.6 records it as low.
 - **"billing" finds nothing in the palette.** `plans` finds Plans & cloud, but `billing` returns
   No matches in the local build. The Subscription notice also names Plans & cloud in bold text,
   not as a link, so Full comparison is the only way through. The live Billing panel (Manage billing)
-  appears only with a configured cloud account, and these checks did not exercise it.
+  appears only with a configured cloud account, and these checks did not exercise it. Filed by
+  RC-ENG-7.3 as RC-ENG-16.2.
 
 Exact-candidate gates on the same commit: `primary-sections.spec.ts`, `table-controls.spec.ts` and
 `route-compat.spec.ts`, both profiles (`DNDTOOLS_E2E_PORT=<free port> pnpm exec playwright test
@@ -244,6 +256,17 @@ visual and unit results are in their run journals (`state/RC-ENG-15.1.journal.md
 `state/RC-ENG-15.2.journal.md`) and commits. None of these results stands in for the RC commit:
 ENG-7.3 re-runs the three specs and the four tasks on the tagged commit with the RC checklist
 gates, and attaches them to its exit audit.
+
+RC-ENG-7.3 re-ran both on 2026-10-25 against `c97e5da65`, whose application tree is `loop/rc`
+`aa300d6d5` (15.1–15.4 integrated). The three specs passed again (78 tests, both profiles), and
+`nav.test.ts`, `TableControls.test.tsx`, `sections.test.ts` and `section-vocabulary.test.ts`
+passed (19 tests). An uncommitted scratch spec ran the four tasks with visible labels only, on
+the desktop profile at 1600, 1440 and 1280px and on the Pixel 5 profile, and all passed. On
+the phone, billing is More › Settings › the Settings section picker › Subscription › Full
+comparison, four actions. Each preview check waited for the Characters heading before choosing
+Preview as player. The record is in the
+[RC_CHECKLIST exit audit](../development/RC_CHECKLIST.md#rc-eng-73-exit-audit). The tagged RC
+commit repeats these checks under the checklist's IA box.
 
 ## Validation plan and review limits
 

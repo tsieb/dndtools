@@ -34,10 +34,14 @@ try {
 	host.on('pageerror', (e) => console.log('  [host pageerror]', e.message));
 	await host.goto(URL, { waitUntil: 'networkidle' });
 
-	// Shell host control: its accessible name is the aria-label "Host a live table" (idle) or
-	// "Hosting N players" (already live) — NOT the compact-hidden visible "Host" text.
+	// Below 1440px (Playwright's default 1280px viewport included) the shell collects the host
+	// control in the Table controls sheet (RC-ENG-15.2); the wide top bar shows it inline.
+	const tableControls = host.getByRole('button', { name: 'Table controls', exact: true });
+	if (await tableControls.isVisible()) await tableControls.click();
+	// Shell host control: its accessible name is "Host table" (idle) or "Host table — …" (hosting or
+	// players waiting), from shell.host.label / hostingName / waitingName.
 	await host
-		.getByRole('button', { name: /^Host a live table$|^Hosting \d/ })
+		.getByRole('button', { name: /^Host table($| — )/ })
 		.first()
 		.click();
 	// The LAN-start button is labelled "Host on local network" (was "Start hosting" before the
