@@ -23,6 +23,7 @@ top-bar view-as", Maps/Story/Notes, `{gm} screen`), RC_ROADMAP Epic ENG-15.
 - New keys appended at the end of en.ts (past every FEATURE-GAPS line anchor, max 5606).
 
 ## Log
+
 - 2026-10-24: implemented. `TopBar.tsx` tiers (wide = `!compact && (min-width: 1440px)`), `layout`
   prop (`inline` | `row` | `icon`, `tableControlBox` in `SessionPanel.tsx`) on Host / ViewAs /
   Projection / Account; Account menu (DS `Menu`, portaled outside dialogs like ViewAsControl);
@@ -76,6 +77,6 @@ top-bar view-as", Maps/Story/Notes, `{gm} screen`), RC_ROADMAP Epic ENG-15.
   175 goldens (90 desktop, 82 rail, 3 phone Settings for "Manage in Notes"); budget 43,516 KiB →
   zopfli (`zopfli.png.optimize`, filters `0me`, 5 iterations, lossless) with pngjs RGBA equality
   asserted for all 175 → 34,944.8 / 37,888 KiB (−6,606.5 KiB). Strict `--update-snapshots=none
-  --workers=2`: 588 passed (12.0m).
+--workers=2`: 588 passed (12.0m).
 - Not covered by e2e by design: Account (the e2e server is never cloud-configured); held by
   `TableControls.test.tsx`.
