@@ -19,7 +19,7 @@ Spec: `docs/planning/IA_REVIEW.md` IA-1 and its route table; ADR-013 amendment t
 ## Log
 
 - 2026-10-24: implemented nav/shell/Tools; `tsc --noEmit` clean, `vitest src/app/nav.test.ts
-  src/app/shell` 15 passed, `pnpm lint` 0 errors (after tokenising three zero spacings in Tools).
+src/app/shell` 15 passed, `pnpm lint` 0 errors (after tokenising three zero spacings in Tools).
 - Batch 1 (15 nav-touching specs, both profiles, `DNDTOOLS_E2E_PORT=5391 --workers=3`): 144 passed,
   22 failed — all expected IA fallout: rail vault launcher no longer inside the Primary landmark
   (shell-polish ×2, demo-vault, shell-pin-bounds), pins moved to the `Pinned screens` landmark and
@@ -42,3 +42,20 @@ Spec: `docs/planning/IA_REVIEW.md` IA-1 and its route table; ADR-013 amendment t
   budget went to 42,573 KiB (fresh Chromium PNGs) → zopfli refilter (lossless, pixels asserted
   equal) → 35,196.1 / 37,888 KiB. Gate command `--update-snapshots=none --workers=2`: 588 passed
   (11.9m).
+- Feature audit failed on 8 en.ts line-pinned anchors my inserted keys shifted → moved the new keys
+  beside the existing `nav.screens` block (past every anchor, max 5606); `pnpm feature-audit` 0
+  stale; qps-ploc regenerated.
+- `pnpm gates`, `format:check:changed --base loop/rc`, `pnpm typecheck`, `pnpm lint` (0 errors),
+  `pnpm build`, `check:bundle-budget` (775.5 KiB, pass): all passed.
+- Full e2e, 8 shards (`--workers=3 --retries=1`, both profiles, 2394 tests): 2338 passed, 1 flaky.
+  Real failures: friction-budgets Help inventory (needs `/tools` in its route list → added),
+  responsive 640/641 tier check (rail Primary no longer full height; desktop "Run the table" is in
+  Screen shortcuts → test reads the `nav-rail` column and the shortcuts landmark). Shard 1's
+  campaign-relationships ×3 hit `useI18n must be used inside I18nProvider` at 17:57:28, the moment I
+  edited en.ts under the live dev server (HMR split modules) — re-run clean.
+- Re-run (campaign-relationships, friction-budgets, primary-sections, pinned-screens,
+  widget-full-disclosure): 118 passed, 1 failed = widget-full-disclosure:21 mobile builder footer
+  color-contrast; A/B with `git checkout e3d90eee3 -- apps/gm-react/src`: base fails 3/3 the same
+  way (`--repeat-each=3`) → base issue, not this change.
+- `responsive.spec.ts` both profiles: 164 passed. `pnpm a11y:axe` (incl. new `/tools`): 63 passed;
+  `pnpm a11y:report`: PASS.
