@@ -260,3 +260,22 @@ test('section vocabulary: Story names its own local navigation', async ({ page }
 	await expect(page.getByRole('tablist', { name: 'Story sections' })).toBeVisible();
 	await expect(page.getByRole('tablist', { name: 'Campaign sections' })).toHaveCount(0);
 });
+
+test.describe('section vocabulary: Settings › Vault points at Notes → Sources', () => {
+	for (const [locale, title, sources, stale] of [
+		['en', 'No sources connected', 'Notes → Sources', 'Knowledge'],
+		['es', 'No hay fuentes conectadas', 'Notas → Fuentes', 'Conocimiento'],
+	] as const) {
+		test(locale, async ({ page }) => {
+			if (locale === 'es') {
+				await page.addInitScript(() => localStorage.setItem('dndtools:locale', 'es'));
+			}
+			await at(page, 1600, '/settings?tab=vault');
+			await expect(page.locator('html')).toHaveAttribute('lang', locale);
+			const main = page.locator('#main-content');
+			await expect(main.getByText(sources)).toBeVisible({ timeout: 20_000 });
+			await expect(main.getByText(title, { exact: true })).toBeVisible();
+			await expect(main.getByText(stale)).toHaveCount(0);
+		});
+	}
+});

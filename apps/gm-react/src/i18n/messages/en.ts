@@ -35,7 +35,7 @@ export const en = {
 	'importHub.characters.description':
 		'Character JSON, including D&D Beyond exports. Preview mapped fields before adding a new character; existing characters stay unchanged.',
 	'importHub.maps.description':
-		'PNG, JPEG, WebP, GIF or SVG into the selected Atlas map. Preview before adding a layer and applying grid or scale changes. External map formats use the existing format review; JSON file parsing is not available here. With no maps, create a destination first.',
+		'PNG, JPEG, WebP, GIF or SVG into the selected map in Maps. Preview before adding a layer and applying grid or scale changes. External map formats use the existing format review; JSON file parsing is not available here. With no maps, create a destination first.',
 	'importHub.audio.description':
 		'Supported audio files. Adds a local audio asset; identical file contents reuse the existing asset.',
 	'importHub.backup.description':
@@ -1433,7 +1433,7 @@ export const en = {
 	'play.tier.codm': 'Co-{gm}',
 	'play.tier.codmRole': 'Elevated table tools',
 	'play.tier.codmBlurb':
-		'Granted {gm} tools — the revealed Atlas, the bestiary, and live combat assist.',
+		'Granted {gm} tools — revealed Maps, the bestiary, and live combat assist.',
 	'play.locked.note':
 		'{what} is a {coDm} tool. Your seat is not a Co-{gm} seat — ask your {gm} to promote you to Co-{gm} (a plan with Co-{gm} seats is required) to unlock it.',
 	'play.locked.coDm': 'Co-{gm}',
@@ -1856,17 +1856,17 @@ export const en = {
 	'settings.vault.tryAgain': 'Try again',
 	'settings.vault.emptyTitle': 'No sources connected',
 	'settings.vault.emptyBody':
-		'Use the Import hub to bring in a Markdown folder or ZIP. Manage connected sources in Knowledge → Sources.',
+		'Use the Import hub to bring in a Markdown folder or ZIP. Manage connected sources in Notes → Sources.',
 	'settings.vault.emptyBodyWithDocs':
-		'Use the Import hub to bring in files. Manage connected folders and Google Docs in Knowledge → Sources.',
+		'Use the Import hub to bring in files. Manage connected folders and Google Docs in Notes → Sources.',
 	'settings.vault.openSources': 'Import hub',
 	'settings.vault.disconnectTitle': 'Disconnect this folder?',
 	'settings.vault.disconnectDescription':
 		'The folder and everything already imported stay untouched.',
 	'settings.vault.disconnectBody':
-		'Disconnecting {name} drops this app’s permission to the folder. Nothing on disk or in your vault is deleted — but reconnecting means picking the folder again in Knowledge → Sources.',
+		'Disconnecting {name} drops this app’s permission to the folder. Nothing on disk or in your vault is deleted — but reconnecting means picking the folder again in Notes → Sources.',
 	'settings.vault.folderDisconnected':
-		'“{name}” disconnected — reconnect it any time from Knowledge → Sources.',
+		'“{name}” disconnected — reconnect it any time from Notes → Sources.',
 	'settings.vault.disconnectFailed': 'Could not disconnect that folder. Try again.',
 	'settings.vault.docDisconnected': '“{name}” disconnected.',
 	'settings.vault.docReconnected': '“{name}” reconnected.',
@@ -3297,7 +3297,7 @@ export const en = {
 		'Showing the first {shown} of {total} matches — refine the search to narrow it down.',
 	'extensions.compendium.entryDetails': 'Entry details',
 	'extensions.compendium.selectPrompt':
-		'Select an entry to review its stats before importing. Monsters become {gm}-only characters in your roster, ready for the encounter builder. Imported spells appear in Knowledge and are {gm} only.',
+		'Select an entry to review its stats before importing. Monsters become {gm}-only characters in your roster, ready for the encounter builder. Imported spells appear in Notes and are {gm} only.',
 	'extensions.compendium.import': 'Import',
 	'extensions.compendium.importLabel': 'Import {name}',
 	'extensions.compendium.importing': 'Importing…',
@@ -3502,7 +3502,7 @@ export const en = {
 	'community.export.doneMiddle': '— {count, plural, one {# item} other {# items}} in',
 	'community.export.doneAfter': 'mode · {omitted} omitted for visibility.',
 	'community.export.hint':
-		'One note exports as markdown; more become a JSON bundle you can re-import in Knowledge.',
+		'One note exports as markdown; more become a JSON bundle you can re-import in Notes.',
 
 	'community.scenePackage.title': 'Scene packages',
 	'community.scenePackage.hint':
@@ -3762,7 +3762,7 @@ export const en = {
 		'A campaign wiki · {count, plural, one {# page} other {# pages}}',
 	'community.wiki.previewPages': 'Player-visible pages',
 	'community.wiki.previewEmpty':
-		'No player-visible notes yet — mark notes player-visible in Knowledge to include them.',
+		'No player-visible notes yet — mark notes player-visible in Notes to include them.',
 	'community.wiki.previewMore': '… and {count} more',
 	'community.wiki.previewNote':
 		'Only player-visible notes appear. {gm}-only blocks are stripped from the published page.',
@@ -3771,7 +3771,7 @@ export const en = {
 	'community.wiki.noPublicUrl': 'Public wiki links are not configured for this desktop build.',
 	'community.wiki.needsBeacon': 'Updating a hosted wiki is included in the Beacon preview.',
 	'community.wiki.needsPages':
-		'Mark at least one note player-visible in Knowledge before publishing.',
+		'Mark at least one note as player-visible in Notes before publishing the wiki.',
 	'community.wiki.needsTitle': 'Give the wiki a title.',
 	'community.wiki.needsPassword': 'Enter at least 6 characters for the wiki password.',
 	'community.wiki.updated': 'Wiki updated — the public link is unchanged.',

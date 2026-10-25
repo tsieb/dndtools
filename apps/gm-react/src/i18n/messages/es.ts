@@ -30,7 +30,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'importHub.characters.description':
 		'JSON de personajes, incluidas exportaciones de D&D Beyond. Revisa los campos antes de añadir un personaje nuevo; los existentes no cambian.',
 	'importHub.maps.description':
-		'PNG, JPEG, WebP, GIF o SVG en el mapa seleccionado del Atlas. Revisa antes de añadir una capa y aplicar cambios de cuadrícula o escala. Los formatos externos usan la revisión existente; aquí no se procesan archivos JSON de mapas. Si no hay mapas, crea primero un destino.',
+		'PNG, JPEG, WebP, GIF o SVG en el mapa seleccionado de Mapas. Revisa antes de añadir una capa y aplicar cambios de cuadrícula o escala. Los formatos externos usan la revisión existente; aquí no se procesan archivos JSON de mapas. Si no hay mapas, crea primero un destino.',
 	'importHub.audio.description':
 		'Archivos de audio compatibles. Añade un recurso local; los archivos de contenido idéntico reutilizan el recurso existente.',
 	'importHub.backup.description':
@@ -1467,7 +1467,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'play.tier.codm': 'Co-{gm}',
 	'play.tier.codmRole': 'Herramientas elevadas de mesa',
 	'play.tier.codmBlurb':
-		'Herramientas de {gm} concedidas — el Atlas revelado, el bestiario y el asistente de combate en vivo.',
+		'Herramientas de {gm} concedidas — los Mapas revelados, el bestiario y el asistente de combate en vivo.',
 	'play.locked.note':
 		'{what} es una herramienta de {coDm}. Tu plaza no es de Co-{gm} — pide a tu {gm} que te ascienda a Co-{gm} (hace falta un plan con plazas de Co-{gm}) para desbloquearla.',
 	'play.locked.coDm': 'Co-{gm}',
@@ -1906,16 +1906,16 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.vault.tryAgain': 'Reintentar',
 	'settings.vault.emptyTitle': 'No hay fuentes conectadas',
 	'settings.vault.emptyBody':
-		'Usa el Centro de importación para traer una carpeta Markdown o un ZIP. Gestiona las fuentes conectadas en Conocimiento → Fuentes.',
+		'Usa el Centro de importación para traer una carpeta Markdown o un ZIP. Gestiona las fuentes conectadas en Notas → Fuentes.',
 	'settings.vault.emptyBodyWithDocs':
-		'Usa el Centro de importación para traer archivos. Gestiona carpetas conectadas y Google Docs en Conocimiento → Fuentes.',
+		'Usa el Centro de importación para traer archivos. Gestiona carpetas conectadas y Google Docs en Notas → Fuentes.',
 	'settings.vault.openSources': 'Centro de importación',
 	'settings.vault.disconnectTitle': '¿Desconectar esta carpeta?',
 	'settings.vault.disconnectDescription': 'La carpeta y todo lo ya importado quedan intactos.',
 	'settings.vault.disconnectBody':
-		'Al desconectar {name} esta aplicación pierde el permiso sobre la carpeta. No se borra nada del disco ni de tu bóveda, pero volver a conectarla significa elegir la carpeta otra vez en Conocimiento → Fuentes.',
+		'Al desconectar {name} esta aplicación pierde el permiso sobre la carpeta. No se borra nada del disco ni de tu bóveda, pero volver a conectarla significa elegir la carpeta otra vez en Notas → Fuentes.',
 	'settings.vault.folderDisconnected':
-		'«{name}» desconectada: vuelve a conectarla cuando quieras desde Conocimiento → Fuentes.',
+		'«{name}» desconectada: vuelve a conectarla cuando quieras desde Notas → Fuentes.',
 	'settings.vault.disconnectFailed': 'No se pudo desconectar esa carpeta. Inténtalo de nuevo.',
 	'settings.vault.docDisconnected': '«{name}» desconectado.',
 	'settings.vault.docReconnected': '«{name}» reconectado.',
@@ -3378,7 +3378,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Mostrando las primeras {shown} de {total} coincidencias — afina la búsqueda para reducirlas.',
 	'extensions.compendium.entryDetails': 'Detalles de la entrada',
 	'extensions.compendium.selectPrompt':
-		'Selecciona una entrada para revisar sus estadísticas antes de importarla. Los monstruos se añaden a tu lista como personajes solo para {gm}, listos para el constructor de encuentros. Las entradas importadas de conjuros aparecen en Conocimiento y son solo para {gm}.',
+		'Selecciona una entrada para revisar sus estadísticas antes de importarla. Los monstruos se añaden a tu lista como personajes solo para {gm}, listos para el constructor de encuentros. Las entradas importadas de conjuros aparecen en Notas y son solo para {gm}.',
 	'extensions.compendium.import': 'Importar',
 	'extensions.compendium.importLabel': 'Importar {name}',
 	'extensions.compendium.importing': 'Importando…',
@@ -3587,7 +3587,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'community.export.doneMiddle': '— {count, plural, one {# elemento} other {# elementos}} en modo',
 	'community.export.doneAfter': '· {omitted} omitidos por visibilidad.',
 	'community.export.hint':
-		'Una sola nota se exporta como markdown; varias se convierten en un paquete JSON que puedes volver a importar en Conocimiento.',
+		'Una sola nota se exporta como markdown; varias se convierten en un paquete JSON que puedes volver a importar en Notas.',
 
 	'community.scenePackage.title': 'Paquetes de escena',
 	'community.scenePackage.hint':
@@ -3849,7 +3849,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Un wiki de campaña · {count, plural, one {# página} other {# páginas}}',
 	'community.wiki.previewPages': 'Páginas visibles para jugadores',
 	'community.wiki.previewEmpty':
-		'Todavía no hay notas visibles para jugadores — marca notas como visibles para jugadores en Conocimiento para incluirlas.',
+		'Todavía no hay notas visibles para jugadores — marca notas como visibles para jugadores en Notas para incluirlas.',
 	'community.wiki.previewMore': '… y {count} más',
 	'community.wiki.previewNote':
 		'Solo aparecen las notas visibles para jugadores. Los bloques solo del {gm} se quitan de la página publicada.',
@@ -3859,7 +3859,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Los enlaces públicos del wiki no están configurados para esta compilación de escritorio.',
 	'community.wiki.needsBeacon': 'Actualizar un wiki alojado está incluido en Beacon.',
 	'community.wiki.needsPages':
-		'Marca al menos una nota como visible para jugadores en Conocimiento antes de publicar.',
+		'Marca al menos una nota como visible para jugadores en Notas antes de publicar.',
 	'community.wiki.needsTitle': 'Ponle un título al wiki.',
 	'community.wiki.needsPassword': 'Escribe al menos 6 caracteres para la contraseña de la wiki.',
 	'community.wiki.updated': 'Wiki actualizado — el enlace público no cambia.',
