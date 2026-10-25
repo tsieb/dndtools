@@ -11,7 +11,16 @@ import {
 // HashRouter (not BrowserRouter): the static build is served by Electron's `dndtools://app` protocol
 // as well as CloudFront/Vite. Hash routing keeps deep links inside that single static entry document
 // in every runtime; the only web-visible difference is a cosmetic `#` in the URL.
-import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import {
+	HashRouter,
+	Navigate,
+	Route,
+	Routes,
+	parsePath,
+	useLocation,
+	useNavigate,
+} from 'react-router-dom';
+import { isLiveScene } from '@dndtools/core';
 import { RuntimeProvider, useRuntime } from './runtime/RuntimeContext';
 import { useProductAnalytics } from './cloud/useAnalytics';
 import type { SceneRuntime } from './runtime/SceneRuntime';
@@ -34,6 +43,7 @@ import { CommandCenter } from './screens/CommandCenter';
 import { SceneDisplay } from './screens/SceneDisplay';
 import { PlatformLifecycle } from './platform/PlatformLifecycle';
 import { ScreenRouteAliases } from './screens/screen/routeAliases';
+import { screenPath } from './screens/screen/screenModel';
 import { registerBackHandler } from './platform/backNavigation';
 import { followCampaignIdentity } from './platform/storage/coreStore';
 
@@ -456,11 +466,51 @@ function SectionDocumentTitle() {
 	return null;
 }
 
+/**
+ * RC-ENG-15.3 — a `/board` bookmark keeps its query (`?edit=1`, or any other parameter) on its way to
+ * the home screen, as `/scenes` and `/scene/:id` already do. It is mounted just BEFORE
+ * `ScreenRouteAliases`, so its effect runs first in the same commit; once it has replaced the entry
+ * the browser is off `/board`, and that alias, which only redirects while the browser's URL is still
+ * on it, stands down. One replace either way. Like `ScreenRouteAliases` it runs after every commit and
+ * re-renders on `popstate`, so a `/board` re-entered mid-transition is not missed. A `/board` with no
+ * query is left to `ScreenRouteAliases` unchanged.
+ */
+function BoardQueryAlias() {
+	const location = useLocation();
+	const navigate = useNavigate();
+	const runtime = useRuntime();
+	const [, setPopCount] = useState(0);
+	useEffect(() => {
+		const onPop = () => setPopCount((count) => count + 1);
+		window.addEventListener('popstate', onPop);
+		return () => window.removeEventListener('popstate', onPop);
+	}, []);
+	const homeSceneId = runtime.state.commandCenter.homeSceneId;
+	const home = homeSceneId ? runtime.state.scenes.scenes[homeSceneId] : undefined;
+	const isDm = runtime.state.permissions.actors[runtime.defaultActorId]?.role === 'dm';
+	// The same durable-home test as `ScreenRouteAliases`: a non-GM or a rolled-back write stays put.
+	const target =
+		runtime.loaded && isDm && homeSceneId && home && isLiveScene(home)
+			? screenPath(homeSceneId)
+			: null;
+	useEffect(() => {
+		if (location.pathname !== '/board' || !location.search || !target) return;
+		if ((parsePath(window.location.hash.slice(1)).pathname || '/') !== '/board') return;
+		navigate(
+			{ pathname: target, search: location.search },
+			{ replace: true, state: location.state },
+		);
+	});
+	return null;
+}
+
 function ShelledRoutes() {
 	return (
 		<AppShell>
 			<SectionDocumentTitle />
 			<OnboardingGate />
+			{/* Before `ScreenRouteAliases`: its effect must run first (see BoardQueryAlias). */}
+			<BoardQueryAlias />
 			<ScreenRouteAliases />
 			<Suspense fallback={<Boot />}>
 				<Routes>
