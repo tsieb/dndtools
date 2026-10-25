@@ -34,6 +34,7 @@ const ROUTES: ReadonlyArray<{ path: string; slug: string }> = [
 	{ path: '/audio', slug: 'audio' },
 	{ path: '/extensions', slug: 'extensions' },
 	{ path: '/community', slug: 'community' },
+	{ path: '/tools', slug: 'tools' },
 	{ path: '/upgrade', slug: 'upgrade' },
 	{ path: '/player', slug: 'player' },
 	{ path: '/settings', slug: 'settings' },

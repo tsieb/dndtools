@@ -140,6 +140,7 @@ export function SideRow({
 	label,
 	sub,
 	active,
+	current = 'page',
 	badge,
 	onClick,
 	color,
@@ -149,6 +150,9 @@ export function SideRow({
 	label: ReactNode;
 	sub?: ReactNode;
 	active?: boolean;
+	/** The `aria-current` an active row carries: `true` marks a section whose more specific page
+	 * (a shortcut, a pin, a local page) is the one marked `page` (IA-1). */
+	current?: 'page' | 'true';
 	badge?: ReactNode;
 	onClick: () => void;
 	color?: string;
@@ -161,7 +165,7 @@ export function SideRow({
 			onClick={onClick}
 			onMouseEnter={() => setHov(true)}
 			onMouseLeave={() => setHov(false)}
-			aria-current={active ? 'page' : undefined}
+			aria-current={active ? current : undefined}
 			style={{
 				display: 'flex',
 				alignItems: 'center',
@@ -307,9 +311,12 @@ export function PinnedScreenRows({ onOpen }: { onOpen?: () => void }) {
 		if (error) Toaster.error(error);
 		else setMenu(null);
 	}
+	// IA-1 — pins are user content beside Primary, never a section: a player with nothing pinned
+	// gets no group at all, and an empty GM group carries only its hint and the New screen action.
+	if (!pins.length && !isDm) return null;
 	return (
 		<SideGroup
-			label={t('screens.title')}
+			label={t('shell.navPinnedScreens')}
 			action={
 				isDm ? (
 					<IconButton
@@ -323,135 +330,144 @@ export function PinnedScreenRows({ onOpen }: { onOpen?: () => void }) {
 				) : undefined
 			}
 		>
-			<div data-testid="pinned-screens" role="list" aria-label={t('screens.pinned')}>
-				{pins.map((entry, index) => {
-					const name = nameOf(entry);
-					const live = entry.isLive && posture.live;
-					return (
-						<div
-							key={entry.id}
-							role="listitem"
-							data-screen-pin={entry.id}
-							aria-keyshortcuts={isDm ? 'Alt+ArrowUp Alt+ArrowDown' : undefined}
-							draggable={isDm}
-							onDragStart={(event) => {
-								dragged.current = entry.id;
-								event.dataTransfer.setData('text/plain', entry.id);
-								event.dataTransfer.effectAllowed = 'move';
-							}}
-							onDragEnd={() => {
-								dragged.current = null;
-							}}
-							onDragOver={(event) => {
-								if (isDm && dragged.current) event.preventDefault();
-							}}
-							onDrop={(event) => {
-								event.preventDefault();
-								const id = dragged.current;
-								dragged.current = null;
-								if (id) void reorder(id, entry.id);
-							}}
-							onKeyDown={(event) => {
-								if (!isDm || !event.altKey || !['ArrowUp', 'ArrowDown'].includes(event.key)) return;
-								event.preventDefault();
-								const target = pins[index + (event.key === 'ArrowUp' ? -1 : 1)];
-								if (target) void reorder(entry.id, target.id);
-							}}
-						>
-							<div
-								className={live ? 'session-live-ring' : undefined}
-								style={{ display: 'flex', alignItems: 'center', minHeight: 44 }}
-							>
-								<SideRow
-									icon={entry.layoutPolicy === 'flow' ? 'layout-list' : 'widget'}
-									label={name}
-									sub={
-										live
-											? [t('screens.live'), posture.elapsed].filter(Boolean).join(' · ')
-											: t(visibilityLabelKey(entry.visibility))
-									}
-									active={location.pathname === screenPath(entry.id)}
-									onClick={() => open(screenPath(entry.id))}
-								/>
-								{isDm && (
-									<IconButton
-										icon="more"
-										label={t('shell.pinActions', { name })}
-										title={t('shell.pinKeys')}
-										aria-haspopup="menu"
-										aria-expanded={menu === entry.id}
-										variant="ghost"
-										style={{ minWidth: 44, minHeight: 44 }}
-										onClick={(event) => {
-											triggerRef.current = event.currentTarget;
-											setMenu(menu === entry.id ? null : entry.id);
-										}}
-									/>
-								)}
-							</div>
-							{menu === entry.id && (
-								<Menu
-									title={t('shell.pinActions', { name })}
-									width={220}
-									triggerRef={triggerRef}
-									onClose={() => setMenu(null)}
+			{!pins.length && (
+				<span
+					style={{
+						display: 'block',
+						padding: 'var(--space-1) var(--space-2)',
+						font: `11.5px ${T.sans}`,
+						color: T.sub,
+					}}
+				>
+					{t('shell.pinnedEmpty')}
+				</span>
+			)}
+			{pins.length > 0 && (
+				<nav aria-label={t('shell.navPinnedScreens')}>
+					<div data-testid="pinned-screens" role="list" aria-label={t('screens.pinned')}>
+						{pins.map((entry, index) => {
+							const name = nameOf(entry);
+							const live = entry.isLive && posture.live;
+							return (
+								<div
+									key={entry.id}
+									role="listitem"
+									data-screen-pin={entry.id}
+									aria-keyshortcuts={isDm ? 'Alt+ArrowUp Alt+ArrowDown' : undefined}
+									draggable={isDm}
+									onDragStart={(event) => {
+										dragged.current = entry.id;
+										event.dataTransfer.setData('text/plain', entry.id);
+										event.dataTransfer.effectAllowed = 'move';
+									}}
+									onDragEnd={() => {
+										dragged.current = null;
+									}}
+									onDragOver={(event) => {
+										if (isDm && dragged.current) event.preventDefault();
+									}}
+									onDrop={(event) => {
+										event.preventDefault();
+										const id = dragged.current;
+										dragged.current = null;
+										if (id) void reorder(id, entry.id);
+									}}
+									onKeyDown={(event) => {
+										if (!isDm || !event.altKey || !['ArrowUp', 'ArrowDown'].includes(event.key))
+											return;
+										event.preventDefault();
+										const target = pins[index + (event.key === 'ArrowUp' ? -1 : 1)];
+										if (target) void reorder(entry.id, target.id);
+									}}
 								>
-									{[
-										{
-											label: t('shell.pinUp'),
-											disabled: index === 0,
-											run: () => reorder(entry.id, pins[index - 1]!.id),
-										},
-										{
-											label: t('shell.pinDown'),
-											disabled: index === pins.length - 1,
-											run: () => reorder(entry.id, pins[index + 1]!.id),
-										},
-										{
-											label: t('screens.unpinNamed', { name }),
-											disabled: false,
-											run: () => unpin(entry.id),
-										},
-									].map((action) => (
-										<button
-											key={action.label}
-											type="button"
-											role="menuitem"
-											disabled={action.disabled}
-											onClick={() => {
-												void action.run();
-											}}
-											style={{
-												display: 'block',
-												width: '100%',
-												minHeight: 44,
-												color: T.ink,
-												background: T.surf,
-												border: 0,
-												textAlign: 'left',
-												padding: T.space.two,
-											}}
+									<div
+										className={live ? 'session-live-ring' : undefined}
+										style={{ display: 'flex', alignItems: 'center', minHeight: 44 }}
+									>
+										<SideRow
+											icon={entry.layoutPolicy === 'flow' ? 'layout-list' : 'widget'}
+											label={name}
+											sub={
+												live
+													? [t('screens.live'), posture.elapsed].filter(Boolean).join(' · ')
+													: t(visibilityLabelKey(entry.visibility))
+											}
+											active={location.pathname === screenPath(entry.id)}
+											onClick={() => open(screenPath(entry.id))}
+										/>
+										{isDm && (
+											<IconButton
+												icon="more"
+												label={t('shell.pinActions', { name })}
+												title={t('shell.pinKeys')}
+												aria-haspopup="menu"
+												aria-expanded={menu === entry.id}
+												variant="ghost"
+												style={{ minWidth: 44, minHeight: 44 }}
+												onClick={(event) => {
+													triggerRef.current = event.currentTarget;
+													setMenu(menu === entry.id ? null : entry.id);
+												}}
+											/>
+										)}
+									</div>
+									{menu === entry.id && (
+										<Menu
+											title={t('shell.pinActions', { name })}
+											width={220}
+											triggerRef={triggerRef}
+											onClose={() => setMenu(null)}
 										>
-											{action.label}
-										</button>
-									))}
-								</Menu>
-							)}
-						</div>
-					);
-				})}
-			</div>
+											{[
+												{
+													label: t('shell.pinUp'),
+													disabled: index === 0,
+													run: () => reorder(entry.id, pins[index - 1]!.id),
+												},
+												{
+													label: t('shell.pinDown'),
+													disabled: index === pins.length - 1,
+													run: () => reorder(entry.id, pins[index + 1]!.id),
+												},
+												{
+													label: t('screens.unpinNamed', { name }),
+													disabled: false,
+													run: () => unpin(entry.id),
+												},
+											].map((action) => (
+												<button
+													key={action.label}
+													type="button"
+													role="menuitem"
+													disabled={action.disabled}
+													onClick={() => {
+														void action.run();
+													}}
+													style={{
+														display: 'block',
+														width: '100%',
+														minHeight: 44,
+														color: T.ink,
+														background: T.surf,
+														border: 0,
+														textAlign: 'left',
+														padding: T.space.two,
+													}}
+												>
+													{action.label}
+												</button>
+											))}
+										</Menu>
+									)}
+								</div>
+							);
+						})}
+					</div>
+				</nav>
+			)}
 			<span role="status" style={srOnly}>
 				{notice}
 			</span>
-			<div style={{ display: 'flex', minHeight: onOpen ? 44 : undefined }}>
-				<SideRow
-					icon="layout-list"
-					label={t('screens.all')}
-					active={location.pathname === SCREENS_PATH}
-					onClick={() => open(SCREENS_PATH)}
-				/>
-			</div>
 		</SideGroup>
 	);
 }

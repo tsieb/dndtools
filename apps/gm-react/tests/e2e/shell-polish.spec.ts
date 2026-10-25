@@ -112,9 +112,9 @@ test('vault catalog failure is actionable, announced and axe clean', async ({ pa
 
 test('rail vault target stays reachable at tablet width', async ({ page }) => {
 	await page.setViewportSize({ width: 834, height: 1112 });
-	const trigger = page
-		.getByRole('navigation', { name: 'Primary', exact: true })
-		.getByRole('button', { name: 'Local vaults', exact: true });
+	// IA-1 — the vault launcher heads the rail but is not a primary section, so it sits outside
+	// the Primary landmark.
+	const trigger = page.getByRole('button', { name: 'Local vaults', exact: true });
 	await expect(trigger).toBeVisible();
 	const box = await trigger.boundingBox();
 	expect(box?.width).toBeGreaterThanOrEqual(44);
@@ -285,9 +285,9 @@ test('vault loading hands focus back to the rail launcher after the ready dialog
 	page,
 }) => {
 	await page.setViewportSize({ width: 834, height: 1112 });
-	const trigger = page
-		.getByRole('navigation', { name: 'Primary', exact: true })
-		.getByRole('button', { name: 'Local vaults', exact: true });
+	// IA-1 — the vault launcher heads the rail but is not a primary section, so it sits outside
+	// the Primary landmark.
+	const trigger = page.getByRole('button', { name: 'Local vaults', exact: true });
 	await expect(trigger).toBeVisible();
 	let release!: () => void;
 	const held = new Promise<void>((resolve) => {

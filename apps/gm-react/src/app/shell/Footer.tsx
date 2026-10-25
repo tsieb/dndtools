@@ -3,22 +3,24 @@ import { useState, type CSSProperties } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { BottomTabBar } from '../../ds';
 import { useI18n } from '../../i18n';
-import { activeSectionId } from '../nav';
+import { routeOwner } from '../nav';
 import { T } from '../screen-kit';
 import { HelpTrigger } from '../help/HelpMenu';
 import { PHONE_TABS, sectionPath } from './sections';
 import { MoreSheet } from './MoreSheet';
+import { ScreensSheet } from './ScreensSheet';
 import { useSessionPosture } from './session-posture';
 
-/** Phone (≤640px): the 4 hot destinations + "More". Extracted from AppShell.tsx's PhoneNav
- * unchanged (RC-STB-2.6). */
+/** Phone (≤640px, IA-1): Screens, Characters, Maps + "More". Screens and More each open a sheet;
+ * Characters and Maps navigate. */
 export function Footer() {
 	const runtime = useRuntime();
 	const { t } = useI18n();
 	const navigate = useNavigate();
 	const location = useLocation();
 	const [moreOpen, setMoreOpen] = useState(false);
-	const active = activeSectionId(location.pathname);
+	const [screensOpen, setScreensOpen] = useState(false);
+	const owner = routeOwner(location.pathname);
 	const hotIds = new Set(PHONE_TABS.map((s) => s.id));
 	// RC-SES-1.1 — the phone's posture: a 16px accent strip directly above the tab bar carrying the
 	// elapsed time. The phone has no room for a top-bar chip and no right rail, so this strip is the
@@ -72,8 +74,11 @@ export function Footer() {
 					...PHONE_TABS.map((s) => ({
 						key: s.id,
 						icon: s.icon,
-						label: s.id === 'home' ? t('nav.home') : t(s.labelKey),
+						label: t(s.labelKey),
 						badge: s.liveBadge === true && posture.live ? '•' : undefined,
+						...(s.id === 'screens'
+							? { 'aria-haspopup': 'dialog' as const, 'aria-expanded': screensOpen }
+							: {}),
 					})),
 					{
 						key: 'more',
@@ -83,15 +88,20 @@ export function Footer() {
 						'aria-expanded': moreOpen,
 					},
 				]}
-				active={hotIds.has(active) ? active : 'more'}
+				active={owner && hotIds.has(owner) ? owner : 'more'}
 				onSelect={(id: string) => {
 					if (id === 'more') {
 						setMoreOpen(true);
 						return;
 					}
+					if (id === 'screens') {
+						setScreensOpen(true);
+						return;
+					}
 					navigate(sectionPath(id, runtime.state, runtime.defaultActorId));
 				}}
 			/>
+			<ScreensSheet open={screensOpen} onClose={() => setScreensOpen(false)} />
 			<MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} />
 		</>
 	);

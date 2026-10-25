@@ -91,6 +91,7 @@ const Extensions = lazy(() =>
 	import('./screens/extensions').then((m) => ({ default: m.Extensions })),
 );
 const Community = lazy(() => import('./screens/community').then((m) => ({ default: m.Community })));
+const Tools = lazy(() => import('./screens/Tools').then((m) => ({ default: m.Tools })));
 const Player = lazy(() => import('./screens/player').then((m) => ({ default: m.Player })));
 const Upgrade = lazy(() => import('./screens/Upgrade').then((m) => ({ default: m.Upgrade })));
 const PlayerView = lazy(() => import('./screens/play').then((m) => ({ default: m.PlayerView })));
@@ -485,6 +486,8 @@ function ShelledRoutes() {
 					<Route path="/knowledge/:id?" element={<Knowledge />} />
 					<Route path="/graph" element={<Graph />} />
 					<Route path="/graph/repair" element={<GraphRepair />} />
+					{/* RC-ENG-15.1 — IA-1's Tools landing; the three routes below keep their bookmarks. */}
+					<Route path="/tools" element={<Tools />} />
 					<Route path="/audio" element={<Audio />} />
 					<Route path="/extensions" element={<Extensions />} />
 					<Route path="/community" element={<Community />} />

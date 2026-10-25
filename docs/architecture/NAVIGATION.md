@@ -1,7 +1,8 @@
 # Navigation, Layout, and the App Shell
 
-The proposed [pre-release navigation review](../planning/IA_REVIEW.md) records RC-UX-5.5's
-recommendation and pending acceptance; the implemented contract below remains in force.
+The [pre-release navigation review](../planning/IA_REVIEW.md) records decision IA-1 (accepted
+2026-10-24, ADR-013 amended). RC-ENG-15.1 implements its grouping and phone Screens access; this
+page is the implemented contract.
 
 The single source of navigation truth is `apps/gm-react/src/app/nav.ts`. `apps/gm-react/src/app/AppShell.tsx`
 is the only renderer of primary destinations: a sidebar on desktop, `NavRail` on tablet, and
@@ -12,22 +13,28 @@ is the only renderer of primary destinations: a sidebar on desktop, `NavRail` on
 Routes are `react-router-dom` v6 HashRouter paths. Every screen lives under
 `apps/gm-react/src/screens/`.
 
-| Group    | Destination    | Route         | Owns                                                    |
-| -------- | -------------- | ------------- | ------------------------------------------------------- |
-| Run      | Command Center | `/`           | The home screen: resume the live scene, jump anywhere   |
-| Run      | GM Screen      | `/board`      | The GM screen; resolves to its `/screen/:id`            |
-| Run      | Session        | `/session`    | The Session screen: combat, dice, handouts, projection  |
-| Library  | Characters     | `/characters` | PCs, NPCs, bestiary, sheets and builders                |
-| Library  | Maps           | `/atlas`      | Maps, fog, layers, points of interest, the map editor   |
-| Library  | Story          | `/campaign`   | Quests, factions, NPCs, calendar, timeline              |
-| Library  | Notes          | `/knowledge`  | Notes, handouts, wiki, backlinks                        |
-| Platform | Graph & Search | `/graph`      | Relationship graph and faceted search (actor-filtered)  |
-| Platform | Audio          | `/audio`      | Soundboard, ambience, scene packages                    |
-| Platform | Extensions     | `/extensions` | Widget packages, system packages, custom types, themes  |
-| Platform | Community      | `/community`  | Module publish and import, wiki publishing              |
-| Platform | Plans & cloud  | `/upgrade`    | Plan comparison and billing                             |
-| Footer   | Player view    | `/player`     | The DM shell's entry to a PC's sheet, with picker/party |
-| Footer   | Settings       | `/settings`   | Vault, sync and privacy, players, AI, appearance, about |
+Six primary sections, in this order (`PRIMARY` in `nav.ts`). Every shelled route has exactly one
+owner (`ROUTE_OWNERS`, resolved by `routeOwner(pathname)`); `src/app/nav.test.ts` holds that table
+equal to App.tsx's `<Route path>` list, so a new route cannot ship without an owner.
+
+| Section    | Landing       | Also owns                                                                         |
+| ---------- | ------------- | --------------------------------------------------------------------------------- |
+| Screens    | `/screens`    | `/`, `/board`, `/session`, `/screen/:id`, `/scenes`, `/scene/:id`, `/scene-cards` |
+| Characters | `/characters` | `/characters/:id`, `/player` (local page: the player sheet)                       |
+| Maps       | `/atlas`      | Maps, fog, layers, points of interest, the map editor                             |
+| Story      | `/campaign`   | `/campaign/calendar`, `/campaign/relationships`                                   |
+| Notes      | `/knowledge`  | `/knowledge/:id`, `/graph`, `/graph/repair` (local page: Graph & search)          |
+| Tools      | `/tools`      | `/audio`, `/extensions`, `/community`                                             |
+
+`/tools` is an additive landing (`screens/Tools.tsx`) that links to Audio, Extensions and Community;
+those keep their own routes and bookmarks, and the experience tier still hides a gated link
+(RC-UX-6.4) while its route stays open. Settings is the secondary utility and owns `/settings` and
+`/upgrade` (Plans & cloud, reached from Settings › Subscription); neither is a primary section.
+
+The default run screens (Command Center, the GM screen, Session) are **Screen shortcuts** and the
+user's pins are **Pinned screens**: workspace shortcuts in their own labelled regions, not sections.
+A section's local pages (`LOCAL_ENTRIES`: the player sheet under Characters, Graph under Notes)
+appear in a landmark named for the section while that section is current. Legacy routes are kept.
 
 Chrome-less routes sit outside the shell: `/play` (player companion), `/join` (invite redeem),
 `/wiki` (published wiki reader), `/display` (second-screen scene display), and `/legal/*`. The
@@ -48,7 +55,8 @@ write control.
 Rules:
 
 1. A destination is added in `nav.ts` with an `icon` semantic name and a route, never ad hoc in a
-   component. Every destination has exactly one home in exactly one group.
+   component. Every route has exactly one owning section in `ROUTE_OWNERS`; the primary list stays
+   at six.
 2. Cross-group references are contextual links, not duplicate destinations.
 3. Every user-visible word in `nav.ts` is a message key rendered with `t()`. Keys carrying a `{gm}`
    placeholder follow the active System Package's vocabulary.
@@ -85,8 +93,8 @@ view-mode tiles (`FlowViewTile`), so either reads the same at its `/screen/:id`.
 page behind it: a GM is provisioned and redirected (`BoardAlias`), a player gets the GM-only
 notice, and a failed provisioning write gets a Retry, never a board outside a screen. The board
 engine (`screens/Board.tsx`) only renders a screen `/screen/:id` hands it; handed none, it draws
-those two states (`GmScreenUnavailable`). The Run the table entries in
-the sidebar, rail and More sheet open the Command Center and Session screens' `/screen/:id` once
+those two states (`GmScreenUnavailable`). The Screen shortcuts (Run the table) in
+the sidebar, rail and phone Screens chooser open the Command Center and Session screens' `/screen/:id` once
 they exist (`sectionPath`, CAN-7.4); the GM Screen entry opens `/board`, which resolves as above.
 
 RC-CAN-8.4 consolidates screen editing at `/screen/:id?edit=1`. The board keeps one toolbar and
@@ -112,8 +120,12 @@ scrolling.
 
 Navigation elements are exactly one of:
 
-- **Global**: the grouped destinations above. Stable across routes, no content actions, rendered
-  only by `AppShell`. Landmark `<nav aria-label="Primary">`.
+- **Global**: the six sections above. Stable across routes, no content actions, rendered only by
+  `AppShell`. Landmark `<nav aria-label="Primary">`; the current section is `aria-current="page"`.
+- **Workspace shortcuts**: `<nav aria-label="Screen shortcuts">` (the default run screens) and
+  `<nav aria-label="Pinned screens">` (the pins, actor-filtered, in the GM's order, Alt+Arrow to
+  reorder). New screen is a content action beside the pins, outside both and outside Primary. Being
+  on a pinned screen marks the pin and the Screens section, each in its own landmark.
 - **Local**: browse within the active section (scene list, recent scenes). Must not duplicate
   global switching and swaps out when the section changes. Landmark labelled by section.
 - **Contextual**: links between related content (backlinks, breadcrumbs). The `BackBar` in
@@ -127,15 +139,23 @@ section, longest matching path wins. One user action produces exactly one histor
 `useViewport()` (`apps/gm-react/src/app/useViewport.ts`) computes one `Viewport` value from
 `window.matchMedia`; the breakpoints are literal in `computeViewport`, not tokens.
 
-| Tier      | Width      | Shell                                                                   |
-| --------- | ---------- | ----------------------------------------------------------------------- |
-| `phone`   | ≤ 640px    | `BottomTabBar` (Command Center, Session, Characters, Maps) + More sheet |
-| `rail`    | 641–1024px | Icon-only `NavRail` (64px); labels move to the accessible name          |
-| `desktop` | > 1024px   | Full `Sidebar` (264px) with grouped nav, recent scenes, and the footer  |
+| Tier      | Width      | Shell                                                                 |
+| --------- | ---------- | --------------------------------------------------------------------- |
+| `phone`   | ≤ 640px    | `BottomTabBar` (Screens, Characters, Maps, More) + two sheets         |
+| `rail`    | 641–1024px | Icon-only `NavRail`s (64px); labels move to the accessible name       |
+| `desktop` | > 1024px   | Full `Sidebar` (264px): Primary, local pages, shortcuts, pins, recent |
 
-While `session.workflow` is `active`, the desktop tier opens a right `SessionRail` (272px, collapsible);
-the rail tier shows a dot on the Session entry and the phone tier a 16px accent status strip above
-the tab bar. `useSessionPosture()` (`app/shell/session-posture.ts`) is the only source of "live", so
+Phone: the Screens tab opens its chooser (`ScreensSheet`, "Open a screen"): the live screen first
+while a session is live, then Command Center, the GM screen, Session and All screens, then the pins.
+So every run screen and pin is one tap after Screens, with no pins or a long list alike, and
+starting a session never navigates. More ("All sections") lists the pins first (ADR-041), then
+Story, Notes and Tools, the current section's local pages, the vault switcher and Settings. The rail
+stacks one `NavRail` per region (Primary, local pages, Screen shortcuts, Pinned screens) between the
+vault launcher and Search, which sit outside every landmark.
+
+While `session.workflow` is `active`, the desktop tier opens a right `SessionRail` (272px, collapsible)
+and marks Screens and the Session shortcut LIVE; the rail tier shows a dot on both; the phone tier
+shows a dot on the Screens tab and a 16px accent status strip above the tab bar. `useSessionPosture()` (`app/shell/session-posture.ts`) is the only source of "live", so
 the three navigations cannot disagree.
 
 Structural layout branches on the tier from `AppShell`, never on ad hoc `window.innerWidth` reads.
@@ -228,7 +248,7 @@ reached only by a card or a link is where a second primary action tends to hide:
    `aria-expanded`) and works from the keyboard. The sheet is a bounded `Sheet` whose body is the one
    scroll owner, and every control in it can be reached. Its rows are at least 44px, the current
    screen's row carries `aria-current="page"`, and Escape closes the sheet and returns focus to the
-   trigger. This applies to the Table controls sheet and the All sections sheet.
+   trigger. This applies to the Table controls sheet, the All sections sheet and the Screens chooser.
 4. **Keyboard-safe confirmations.** Both answers of a confirmation stay fully on screen with 360px of
    available viewport height (a reduced-height keyboard/landscape fixture) and above the Android
    bottom inset. Both answers can be activated with the keyboard; cancelling preserves the live
@@ -248,7 +268,7 @@ recorded in the spec and may only come down.
 | `/session` | Start session and Build encounter both fill the first phone screenful (ceiling 2). | RC-POL-1.4 |
 
 RC-POL-1.23 closes the two shell entries from the September 12 audit: `/scenes` now
-aliases `/screens`, whose All screens entry is available in sidebar, rail and phone More;
-`pinned-screens.spec.ts` checks all three. Phone More now supplies `aria-haspopup="dialog"`
+aliases `/screens`, which is the Screens section on desktop and rail and the chooser's All screens
+row on phone (RC-ENG-15.1); `pinned-screens.spec.ts` and `primary-sections.spec.ts` check them. Phone More now supplies `aria-haspopup="dialog"`
 and its live `aria-expanded` state through BottomTabBar's optional per-entry disclosure
 attributes. `shell-polish.spec.ts` checks keyboard opening, closing and focus restoration.

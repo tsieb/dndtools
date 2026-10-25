@@ -14,6 +14,8 @@ const ROUTES = [
 	'/audio',
 	'/extensions',
 	'/community',
+	// RC-ENG-15.1 — IA-1's Tools landing.
+	'/tools',
 	'/upgrade',
 	'/player',
 	'/settings',
@@ -1868,14 +1870,13 @@ const SHELL_SCREENS = [
 	'/graph/repair',
 ];
 
-/** Screens whose section is a row in the phone "All sections" sheet (not one of the four tabs). The
- * sheet marks the active SECTION, so a sub-route marks its parent's row. Graph is usage-gated
+/** Screens whose page is marked `aria-current="page"` in the phone "All sections" sheet (IA-1,
+ * RC-ENG-15.1): Story, Notes and Tools and their sub-routes, the Settings utility, and the local
+ * pages (the player sheet; Graph, whose Notes row then carries `true`). Graph is usage-gated
  * (RC-UX-3.5), and the seeded vault already holds the linked notes that reveal it. */
-// `/board` is not listed: it settles on the GM screen's `/screen/:id` (RC-CAN-7.3), and a screen is
-// user content rather than a section, and the seeded GM screen is not pinned. CAN-7.4 adds
-// the All screens library row and user-pinned screens to the sheet.
+// Screens, Characters and Maps are tabs, so their routes mark nothing in the sheet; the seeded GM
+// screen is not pinned.
 const MORE_SHEET_ROUTES = new Set([
-	'/screens',
 	'/campaign',
 	'/campaign/calendar',
 	'/campaign/relationships',
@@ -1885,6 +1886,7 @@ const MORE_SHEET_ROUTES = new Set([
 	'/audio',
 	'/extensions',
 	'/community',
+	'/tools',
 	'/upgrade',
 	'/player',
 	'/settings',

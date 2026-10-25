@@ -39,7 +39,7 @@ test.describe('UX audit harness: populated and keyboard states', () => {
 		await page.setViewportSize({ width: 375, height: 667 });
 		const navigation = page.getByRole('navigation', { name: 'Primary' });
 		await expect(navigation).toBeVisible();
-		for (const name of ['Home', 'More']) {
+		for (const name of ['Screens', 'More']) {
 			await expectTouchTarget(
 				navigation.getByRole('button', { name }).first(),
 				`primary navigation ${name}`,
@@ -59,13 +59,11 @@ test.describe('UX audit harness: populated and keyboard states', () => {
 	});
 });
 
-// The sidebar's "More · audio, graph & extensions" disclosure computed
-// `moreExpanded = moreOpen || platformActive`, so on any of the five routes it contains (/graph,
-// /audio, /extensions, /community, /upgrade) it was a DEAD control: clicking it flipped a boolean
-// that the OR already overrode, nothing moved, and `aria-expanded` was pinned to `true` for ever.
-// Arriving at a platform route still OPENS the group — but it is a real disclosure again.
-test.describe('shell: the sidebar More disclosure is a real toggle', () => {
-	test('it opens on arrival at a platform route and can still be collapsed there', async ({
+// IA-1 (RC-ENG-15.1) retired the sidebar's "More · audio, graph & extensions" disclosure (whose
+// dead-toggle bug this block used to guard). Graph is now a local page of Notes: landing on /graph
+// marks Notes current in Primary and lists Graph in a Notes landmark of its own, never in Primary.
+test.describe('shell: Graph is a local page of Notes', () => {
+	test('arriving at /graph selects Notes and shows Graph beside, not inside, Primary', async ({
 		page,
 	}) => {
 		// A width the full sidebar owns (the rail and phone profiles render different nav).
@@ -76,21 +74,19 @@ test.describe('shell: the sidebar More disclosure is a real toggle', () => {
 		await page.goto('/#/graph', { waitUntil: 'domcontentloaded' });
 		await page.locator('#main-content').waitFor({ state: 'attached' });
 
-		const toggle = page.getByRole('button', { name: /^More · audio/ });
-		await expect(toggle).toBeVisible();
-		// Never hide the row you are ON: landing on /graph opens the group.
-		await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-		const nav = page.getByRole('navigation', { name: 'Primary' });
-		const graphRow = nav.getByText('Graph & search', { exact: true });
-		await expect(graphRow).toBeVisible();
-
-		// …and pressing it actually collapses the group, which is the part that was dead.
-		await toggle.click();
-		await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-		await expect(graphRow).toHaveCount(0);
-
-		await toggle.click();
-		await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-		await expect(graphRow).toBeVisible();
+		const primary = page.getByRole('navigation', { name: 'Primary' });
+		// Notes is the current SECTION (`true`); Graph is the current PAGE.
+		await expect(primary.getByRole('button', { name: /^Notes/ })).toHaveAttribute(
+			'aria-current',
+			'true',
+		);
+		await expect(primary.getByText('Graph & search', { exact: true })).toHaveCount(0);
+		const local = page.getByRole('navigation', { name: 'Notes', exact: true });
+		const graphRow = local.getByRole('button', { name: /^Graph & search/ });
+		await expect(graphRow).toHaveAttribute('aria-current', 'page');
+		// Leaving Notes swaps the local pages out (ADR-013 local navigation).
+		await primary.getByRole('button', { name: /^Maps/ }).click();
+		await page.waitForURL(/#\/atlas/);
+		await expect(local).toHaveCount(0);
 	});
 });

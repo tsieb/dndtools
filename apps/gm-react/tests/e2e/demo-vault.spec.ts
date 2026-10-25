@@ -276,9 +276,8 @@ test('from the demo, Start my own campaign opens a fresh vault on its first-sess
 	if (!isPhone(page)) {
 		const viewport = page.viewportSize()!;
 		await page.setViewportSize({ width: 834, height: 1112 });
-		const rail = page
-			.getByRole('navigation', { name: 'Primary', exact: true })
-			.getByRole('button', { name: 'Local vaults · Demo', exact: true });
+		// IA-1 — the rail's vault launcher sits above, not inside, the Primary landmark.
+		const rail = page.getByRole('button', { name: 'Local vaults · Demo', exact: true });
 		await expect(rail).toBeVisible();
 		await expect(rail.getByText('Demo', { exact: true })).toBeVisible();
 		await page.setViewportSize(viewport);

@@ -23,21 +23,28 @@ async function openEmptyFreshVault(page: Page): Promise<void> {
 	await seedFresh(page);
 }
 
-/** The nav surface that lists platform sections beyond the hot destinations: the desktop sidebar's
- * disclosed "More" group, or the phone's "More" sheet. Returns the container to search rows in. */
+/** IA-1 (RC-ENG-15.1) — Graph is a local page of Notes: the desktop sidebar lists it under Notes
+ * while Notes is the current section, and the phone More sheet does the same. Opens Notes and
+ * returns the container to search rows in. */
 async function openMoreSurface(page: Page, isMobile: boolean) {
+	if (!(await page.evaluate(() => window.location.hash.startsWith('#/knowledge')))) {
+		await page.evaluate(() => {
+			window.location.hash = '#/knowledge';
+		});
+		await page.waitForURL(/#\/knowledge/);
+	}
 	if (isMobile) {
 		await page.getByRole('button', { name: 'More' }).click();
 		const sheet = page.getByRole('dialog', { name: 'All sections' });
 		await expect(sheet).toBeVisible();
 		return sheet;
 	}
-	const toggle = page.getByRole('button', { name: /More/ });
-	if ((await toggle.getAttribute('aria-expanded')) !== 'true') {
-		await toggle.click();
-	}
-	await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-	return page.locator('#nav-more-panel');
+	const aside = page.locator('aside');
+	await expect(aside.getByRole('button', { name: /^Notes/ })).toHaveAttribute(
+		'aria-current',
+		'page',
+	);
+	return aside;
 }
 
 test.describe('maturity-signal disclosure: Graph at 3 links', () => {
@@ -51,8 +58,8 @@ test.describe('maturity-signal disclosure: Graph at 3 links', () => {
 		const isMobile = testInfo.project.name === 'mobile-chromium';
 		const more = await openMoreSurface(page, isMobile);
 		await expect(more.getByRole('button', { name: /Graph/ })).toHaveCount(0);
-		// A platform surface with no maturity signal stays visible.
-		await expect(more.getByRole('button', { name: /Audio/ })).not.toHaveCount(0);
+		// A section with no maturity signal stays visible on the same surface.
+		await expect(more.getByRole('button', { name: /^Notes/ })).not.toHaveCount(0);
 		if (isMobile) await page.keyboard.press('Escape'); // close the sheet before the palette opens
 
 		await page.keyboard.press('Meta+k');

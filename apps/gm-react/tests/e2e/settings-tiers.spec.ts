@@ -91,27 +91,19 @@ test('section deep link unlocks directly and an open page follows tier changes i
 	await picker.close();
 });
 
-/** Count the Extensions entries in the desktop More group or the phone More sheet. */
-async function extensionsEntries(page: Page, isMobile: boolean): Promise<number> {
-	const entry = { name: /^Extensions\b(?! &)/ };
-	if (isMobile) {
-		await page.getByRole('button', { name: 'More', exact: true }).click();
-		const sheet = page.getByRole('dialog', { name: 'All sections' });
-		await expect(sheet.getByRole('button', { name: /^Settings/ })).toBeVisible();
-		const count = await sheet.getByRole('button', entry).count();
-		await page.keyboard.press('Escape');
-		await expect(sheet).toBeHidden();
-		return count;
-	}
-	const toggle = page.locator('aside').getByRole('button', { name: /^More ·/ });
-	if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
-	await expect(page.locator('#nav-more-panel')).toBeVisible();
-	return page.locator('#nav-more-panel').getByRole('button', entry).count();
+/** Count the Extensions links on the Tools landing (IA-1, RC-ENG-15.1), reached by a same-document
+ * hash change so the no-reload marker survives. Audio is never tier-gated, so it proves the page
+ * rendered before the count is read. */
+async function extensionsEntries(page: Page): Promise<number> {
+	await page.evaluate(() => {
+		window.location.hash = '#/tools';
+	});
+	await expect(page.getByRole('button', { name: 'Open Audio', exact: true })).toBeVisible();
+	return page.getByRole('button', { name: 'Open Extensions', exact: true }).count();
 }
 
 test('RC-UX-6.4: a Beginner sees no New widget, Extensions or Permissions; Expert shows all three without a reload', async ({
 	page,
-	isMobile,
 }) => {
 	// The beforeEach chose Beginner. Every later move is a same-document hash change, and this
 	// marker would not survive a reload.
@@ -130,7 +122,7 @@ test('RC-UX-6.4: a Beginner sees no New widget, Extensions or Permissions; Exper
 	await expect(page.getByRole('button', { name: /^New character/ })).toBeVisible();
 	await expect(newWidget).toHaveCount(0);
 	await expect(permissions).toHaveCount(0);
-	expect(await extensionsEntries(page, isMobile)).toBe(0);
+	expect(await extensionsEntries(page)).toBe(0);
 
 	await go('/settings?tab=appearance');
 	const picker = page.getByRole('radiogroup', { name: 'Experience complexity' });
@@ -147,7 +139,7 @@ test('RC-UX-6.4: a Beginner sees no New widget, Extensions or Permissions; Exper
 	await go('/');
 	await expect(newWidget).toBeVisible();
 	await expect(permissions).toBeVisible();
-	expect(await extensionsEntries(page, isMobile)).toBe(1);
+	expect(await extensionsEntries(page)).toBe(1);
 	expect(
 		await page.evaluate(() => (window as unknown as { tierNoReload?: boolean }).tierNoReload),
 	).toBe(true);

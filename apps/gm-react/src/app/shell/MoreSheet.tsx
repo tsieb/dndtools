@@ -5,8 +5,8 @@ import { Badge, Sheet } from '../../ds';
 import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useSettingsTier } from '../../screens/settings/Experience';
-import { activeSectionId } from '../nav';
-import { ALL_SECTIONS, isSectionShown, PHONE_TABS, sectionPath } from './sections';
+import { activeSectionId, routeOwner, SETTINGS_SECTION, type NavSection } from '../nav';
+import { localEntriesFor, MORE_SECTIONS, sectionPath } from './sections';
 import { PinnedScreenRows, SideRow } from './rows';
 import { listLocalVaults } from '../../platform/storage/coreStore';
 
@@ -22,8 +22,8 @@ function currentVault(vaultId: string) {
 	}
 }
 
-/** Phone: the bottom sheet listing every section that does not fit in the tab bar. Extracted from
- * AppShell.tsx's PhoneNav unchanged (RC-STB-2.6). */
+/** Phone (IA-1): the bottom sheet behind the More tab — the pinned screens first (ADR-041), then
+ * Story, Notes and Tools, the current section's own pages, and the vault and Settings utilities. */
 export function MoreSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
 	const { t } = useI18n();
 	const navigate = useNavigate();
@@ -33,12 +33,24 @@ export function MoreSheet({ open, onClose }: { open: boolean; onClose: () => voi
 	const active = activeSectionId(location.pathname);
 	const vault = open ? currentVault(runtime.vaultId) : undefined;
 	const tier = useSettingsTier();
-	const hotIds = new Set(PHONE_TABS.map((s) => s.id));
-	// RC-UX-3.5 — the phone sheet must not leak a usage-gated surface the desktop sidebar keeps
-	// hidden pending its signal (Graph before 3 links). RC-UX-6.4 — nor a tier-gated one
-	// (Extensions and Community below Standard); the section you're on always stays listed.
-	const rest = ALL_SECTIONS.filter(
-		(s) => !hotIds.has(s.id) && (s.id === active || isSectionShown(s.id, runtime.state, tier)),
+	const owner = routeOwner(location.pathname);
+	// RC-UX-3.5 / RC-UX-6.4 — a local page behind a usage or tier gate (Graph before 3 links) stays
+	// out until earned, unless it is the page you're on.
+	const local = localEntriesFor(owner, active, runtime.state, tier);
+	const localCurrent = local.some((s) => s.id === active);
+	const sectionRow = (s: NavSection, isActive: boolean, current: 'page' | 'true' = 'page') => (
+		<SideRow
+			key={s.id}
+			icon={s.icon}
+			label={t(s.labelKey)}
+			sub={s.subKey ? t(s.subKey) : undefined}
+			active={isActive}
+			current={current}
+			onClick={() => {
+				onClose();
+				navigate(sectionPath(s.id, runtime.state, runtime.defaultActorId));
+			}}
+		/>
 	);
 	return (
 		<>
@@ -56,6 +68,8 @@ export function MoreSheet({ open, onClose }: { open: boolean; onClose: () => voi
 					}}
 				>
 					<PinnedScreenRows onOpen={onClose} />
+					{MORE_SECTIONS.map((s) => sectionRow(s, owner === s.id, localCurrent ? 'true' : 'page'))}
+					{local.map((s) => sectionRow(s, active === s.id))}
 					{/* RC-UX-5.4 — the phone form of the sidebar's campaign chip. */}
 					<SideRow
 						icon="campaign-scroll"
@@ -72,19 +86,7 @@ export function MoreSheet({ open, onClose }: { open: boolean; onClose: () => voi
 							setVaultsOpen(true);
 						}}
 					/>
-					{rest.map((s) => (
-						<SideRow
-							key={s.id}
-							icon={s.icon}
-							label={t(s.labelKey)}
-							sub={s.subKey ? t(s.subKey) : undefined}
-							active={active === s.id}
-							onClick={() => {
-								onClose();
-								navigate(sectionPath(s.id, runtime.state, runtime.defaultActorId));
-							}}
-						/>
-					))}
+					{sectionRow(SETTINGS_SECTION, owner === 'settings')}
 				</div>
 			</Sheet>
 			{vaultsOpen && (

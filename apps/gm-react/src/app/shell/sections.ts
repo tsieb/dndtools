@@ -9,11 +9,16 @@ import { screenPath } from '../../screens/screen/screenModel';
 import {
 	isNavSectionVisible,
 	LIBRARY,
+	LOCAL_ENTRIES,
 	PLATFORM,
 	PLAYER_SECTION,
+	PRIMARY,
 	RUN,
+	SCREENS_SECTION,
 	SETTINGS_SECTION,
+	TOOLS_SECTION,
 	type NavSection,
+	type PrimarySectionId,
 } from '../nav';
 
 export const SECTION_PATH: Record<string, string> = {
@@ -24,6 +29,8 @@ export const SECTION_PATH: Record<string, string> = {
 	atlas: '/atlas',
 	campaign: '/campaign',
 	knowledge: '/knowledge',
+	screens: '/screens',
+	tools: '/tools',
 	graph: '/graph',
 	audio: '/audio',
 	extensibility: '/extensions',
@@ -33,11 +40,13 @@ export const SECTION_PATH: Record<string, string> = {
 	settings: '/settings',
 };
 
-/** All sections in rail order — the same IA as the sidebar, flattened (a presentation change,
- * never an IA change). */
+/** Every shell destination: the six primary sections, the Run shortcuts, the platform tools, the
+ * player sheet and Settings. Presentation decides where each appears; nothing here adds a section. */
 export const ALL_SECTIONS: NavSection[] = [
+	SCREENS_SECTION,
 	...RUN,
 	...LIBRARY,
+	TOOLS_SECTION,
 	...PLATFORM,
 	PLAYER_SECTION,
 	SETTINGS_SECTION,
@@ -59,8 +68,23 @@ export function isSectionShown(id: string, state: CoreStateSlice, tier: FeatureT
 	);
 }
 
-/** Phone: the 4 hot destinations + "More" (a bottom sheet listing the rest of the IA). */
-export const PHONE_TABS: NavSection[] = [RUN[0], RUN[2], LIBRARY[0], LIBRARY[1]];
+/** Phone (IA-1): Screens, Characters and Maps as tabs, then More, which lists the other three
+ * primary sections. Screens opens its chooser, so every run screen and pin is one more tap away. */
+export const PHONE_TABS: NavSection[] = PRIMARY.slice(0, 3);
+
+/** The primary sections the phone More sheet lists, in order. */
+export const MORE_SECTIONS: NavSection[] = PRIMARY.slice(3);
+
+/** A section's local pages that this tier shows (the page you're on always stays listed). */
+export function localEntriesFor(
+	owner: string | null,
+	activeId: string,
+	state: CoreStateSlice,
+	tier: FeatureTier,
+): NavSection[] {
+	const entries = owner ? (LOCAL_ENTRIES[owner as PrimarySectionId] ?? []) : [];
+	return entries.filter((s) => s.id === activeId || isSectionShown(s.id, state, tier));
+}
 
 /** Resolve Run shortcuts without replacing their global IA entries. Until provisioning supplies
  * default origins, existing aliases remain responsible for their established surfaces. */

@@ -50,7 +50,13 @@ for (const [tier, width] of [
 		await test.info().attach(`pins-${tier}`, { path: capture, contentType: 'image/png' });
 		const pins = page.getByTestId('pinned-screens');
 		if (tier === 'rail') {
-			const nav = page.getByRole('navigation', { name: 'Primary' });
+			// IA-1 — pins are their own labelled landmark beside Primary, never inside it.
+			await expect(
+				page
+					.getByRole('navigation', { name: 'Primary' })
+					.getByRole('button', { name: /^(First|Second) pin$/ }),
+			).toHaveCount(0);
+			const nav = page.getByRole('navigation', { name: 'Pinned screens' });
 			await expect(nav.getByRole('button', { name: 'First pin', exact: true })).toBeVisible();
 			expect(
 				await nav
@@ -67,7 +73,7 @@ for (const [tier, width] of [
 			if (tier === 'phone') {
 				const dialog = page.getByRole('dialog');
 				const vaults = dialog.getByRole('button', { name: /Local vaults/ });
-				for (const name of ['New screen', 'All screens', 'Actions for First pin']) {
+				for (const name of ['New screen', 'Actions for First pin']) {
 					expect(
 						(await dialog.getByRole('button', { name, exact: true }).boundingBox())!.height,
 					).toBeGreaterThanOrEqual(44);
@@ -111,7 +117,7 @@ for (const [tier, width] of [
 		if (tier === 'rail')
 			await expect(
 				page
-					.getByRole('navigation', { name: 'Primary' })
+					.getByRole('navigation', { name: 'Pinned screens' })
 					.getByRole('button', { name: 'Second pin · Live' }),
 			).toBeVisible();
 		else {
@@ -151,10 +157,11 @@ test('sidebar create intent opens the template dialog; header pin and library un
 	await page.setViewportSize({ width: 1440, height: 1000 });
 	await markOnboarded(page);
 	await gotoRoute(page, '/screens');
-	await page
-		.getByRole('navigation', { name: 'Primary' })
-		.getByRole('button', { name: 'New screen' })
-		.click();
+	// IA-1 — New screen is a content action beside the pins, outside the Primary landmark.
+	await expect(
+		page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name: 'New screen' }),
+	).toHaveCount(0);
+	await page.getByRole('button', { name: 'New screen', exact: true }).first().click();
 	await expect(page.getByRole('dialog', { name: 'New screen' })).toBeVisible();
 	await page.keyboard.press('Escape');
 	const [first] = await seedPins(page);
@@ -165,7 +172,7 @@ test('sidebar create intent opens the template dialog; header pin and library un
 	await expect(page.locator(`[data-screen-pin="${first}"]`)).toHaveCount(1);
 	await page
 		.getByRole('navigation', { name: 'Primary' })
-		.getByRole('button', { name: 'All screens' })
+		.getByRole('button', { name: /^Screens/ })
 		.click();
 	await page
 		.getByTestId(`screen-card-${first}`)

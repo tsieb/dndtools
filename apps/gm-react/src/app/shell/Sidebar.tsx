@@ -17,26 +17,28 @@ import { Avatar, Badge, BrandLockup, Icon, IconButton, StatusDot } from '../../d
 import { useI18n } from '../../i18n';
 import { isPlaceholderActorName, useRuntime } from '../../runtime/RuntimeContext';
 import {
-	LIBRARY,
-	PLATFORM,
-	PLAYER_SECTION,
+	PRIMARY,
 	RUN,
 	SETTINGS_SECTION,
 	activeSectionId,
+	routeOwner,
 	type NavSection,
 } from '../nav';
 import { T } from '../screen-kit';
-import { isSectionShown, sectionPath } from './sections';
+import { localEntriesFor, sectionPath } from './sections';
 import { PinnedScreenRows, SideGroup, SideRow } from './rows';
 import { useSessionPosture } from './session-posture';
+import { useScreens } from '../../screens/screen/useScreens';
+import { screenPath } from '../../screens/screen/screenModel';
 import { LOCAL_VAULT_RENAMED_EVENT, listLocalVaults } from '../../platform/storage/coreStore';
 const VaultSwitcher = lazy(() =>
 	import('./VaultSwitcher').then((module) => ({ default: module.VaultSwitcher })),
 );
 
-/* Desktop (≥1025px): the 264px sidebar — brand · campaign chip · Run the table / Screens / Library /
- * Platform / Recent · player + settings + DM account. Extracted from AppShell.tsx unchanged
- * (RC-STB-2.6). */
+/* Desktop (≥1025px): the 264px sidebar — brand · campaign chip · the six Primary sections (IA-1,
+ * RC-ENG-15.1) · the current section's local pages · Screen shortcuts · Pinned screens · Recent ·
+ * settings + DM account. Each group below Primary is its own labelled landmark, so the section you
+ * are in and the screen you are on are told apart (ADR-013). */
 
 export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 	const navigate = useNavigate();
@@ -58,6 +60,7 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 		return () => window.removeEventListener(LOCAL_VAULT_RENAMED_EVENT, refresh);
 	}, [readVault]);
 	const active = activeSectionId(location.pathname);
+	const owner = routeOwner(location.pathname);
 	const go = (id: string) => navigate(sectionPath(id, runtime.state, actorId));
 
 	const activeSceneId = runtime.state.session.activeSceneId;
@@ -133,18 +136,40 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 		};
 	}, [runtime.state, actorId, activeSceneId, t]);
 
-	const row = (s: NavSection, badge?: ReactNode) => {
+	const liveBadge = (s: NavSection) =>
+		s.liveBadge === true && posture.live ? (
+			<span
+				style={{
+					font: `700 9px ${T.sans}`,
+					letterSpacing: '.08em',
+					color: T.ok,
+					background: 'var(--color-status-success-subtle)',
+					padding: 'var(--space-0-5) var(--space-1-5)',
+					borderRadius: 'var(--radius-full)',
+				}}
+			>
+				{t('shell.live')}
+			</span>
+		) : null;
+	const row = (
+		s: NavSection,
+		isActive: boolean,
+		badge?: ReactNode,
+		ring = false,
+		current: 'page' | 'true' = 'page',
+	) => {
 		// RC-SES-1.1 — a live entry is wrapped, not restyled: the ring is a decorative box-shadow on
 		// the wrapper (reduced motion pins it to its static resting frame), while the state itself is
 		// carried by the text badge and the row's own accessible name.
-		const ringed = s.liveBadge === true && posture.live;
+		const ringed = ring && s.liveBadge === true && posture.live;
 		const rendered = (
 			<SideRow
 				key={s.id}
 				icon={s.icon}
 				label={t(s.labelKey)}
 				sub={counts[s.id] ?? (s.subKey ? t(s.subKey) : undefined)}
-				active={active === s.id}
+				active={isActive}
+				current={current}
 				onClick={() => go(s.id)}
 				badge={badge}
 			/>
@@ -157,22 +182,21 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 		);
 	};
 
-	// RC-UX-3.5 — a section named by a declared maturity signal (currently only Graph) stays out of
-	// the More group until the DM's own usage earns it (e.g. three linked notes). RC-UX-6.4 — a
-	// tier-gated section (Extensions, Community) stays out below its tier, unless you're on it.
-	const visiblePlatform = useMemo(
-		() => PLATFORM.filter((s) => s.id === active || isSectionShown(s.id, runtime.state, tier)),
-		[runtime.state, tier, active],
-	);
-	const [moreOpen, setMoreOpen] = useState(false);
-	// Never hide the row you're ON: arriving at a platform section OPENS the group. It stays a real
-	// disclosure though — OR-ing `platformActive` into the expanded flag made the toggle a no-op on
-	// every platform route and pinned aria-expanded to true.
-	const platformActive = visiblePlatform.some((s) => s.id === active);
-	useEffect(() => {
-		if (platformActive) setMoreOpen(true);
-	}, [platformActive]);
-	const moreExpanded = moreOpen;
+	// IA-1 — the current section's own pages (the player sheet under Characters, Graph & search
+	// under Notes). RC-UX-3.5/6.4 gates still apply, except to the page you're on.
+	const ownerSection = PRIMARY.find((s) => s.id === owner);
+	const local = localEntriesFor(owner, active, runtime.state, tier);
+	// A shortcut is current when its own route is, or the screen it resolves to.
+	const shortcutActive = (id: string) =>
+		active === id || location.pathname === sectionPath(id, runtime.state, actorId);
+	const { entries } = useScreens();
+	// The section is `page` on its own landing and `true` while a shortcut, pin or local page under
+	// it is the page — two landmarks, one `page` each (ADR-013 as amended).
+	const subCurrent =
+		local.some((s) => s.id === active) ||
+		(owner === 'screens' &&
+			(RUN.some((s) => shortcutActive(s.id)) ||
+				entries.some((entry) => entry.pinned && location.pathname === screenPath(entry.id))));
 	// Keep the existing recent-scene shortcuts for larger scene collections.
 	const showRecent = recent.length > 0 && scenes.length > 5;
 
@@ -281,83 +305,45 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 				}}
 			>
 				<nav role="navigation" aria-label={t('shell.navPrimary')}>
-					<SideGroup label={t('shell.groupRunTable')}>
-						{RUN.map((s) =>
-							row(
-								s,
-								s.liveBadge === true && posture.live ? (
-									<span
-										style={{
-											font: `700 9px ${T.sans}`,
-											letterSpacing: '.08em',
-											color: T.ok,
-											background: 'var(--color-status-success-subtle)',
-											padding: 'var(--space-0-5) var(--space-1-5)',
-											borderRadius: 'var(--radius-full)',
-										}}
-									>
-										{t('shell.live')}
-									</span>
-								) : null,
-							),
-						)}
-					</SideGroup>
-
-					<PinnedScreenRows />
-
-					<SideGroup label={t('shell.groupLibrary')}>{LIBRARY.map((s) => row(s))}</SideGroup>
-
-					{/* The whole header is the toggle — a label-plus-tiny-chevron where only the chevron
-					    worked made the group look empty and unclickable. */}
-					<div style={{ marginTop: 'var(--space-3)' }}>
-						<button
-							type="button"
-							aria-expanded={moreExpanded}
-							aria-controls={moreExpanded ? 'nav-more-panel' : undefined}
-							onClick={() => setMoreOpen((v) => !v)}
-							style={{
-								display: 'flex',
-								alignItems: 'center',
-								justifyContent: 'space-between',
-								width: '100%',
-								padding: 'var(--space-1) var(--space-2) var(--space-1-5)',
-								border: 'none',
-								background: 'transparent',
-								cursor: 'pointer',
-								borderRadius: 'var(--radius-md)',
-							}}
-						>
-							<span
-								style={{
-									font: `600 11px ${T.sans}`,
-									letterSpacing: '.09em',
-									textTransform: 'uppercase',
-									color: T.sub,
-								}}
-							>
-								{t('shell.groupMore')}
-							</span>
-							<Icon name={moreExpanded ? 'chevron-up' : 'chevron-down'} size={14} color={T.ter} />
-						</button>
-						{moreExpanded && (
-							<div
-								id="nav-more-panel"
-								style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-0-5)' }}
-							>
-								{visiblePlatform.map((s) =>
-									row(
-										s,
-										// RC-UX-3.5 — Graph just earned its spot via usage, not a manual tier
-										// switch: flag it so the DM notices the newly-revealed surface.
-										s.id === 'graph' ? (
-											<Badge status="accent">{t('shell.navSurfaceNew')}</Badge>
-										) : undefined,
-									),
-								)}
-							</div>
+					<div
+						style={{
+							display: 'flex',
+							flexDirection: 'column',
+							gap: 'var(--space-0-5)',
+							marginTop: 'var(--space-2)',
+						}}
+					>
+						{PRIMARY.map((s) =>
+							row(s, owner === s.id, liveBadge(s), false, subCurrent ? 'true' : 'page'),
 						)}
 					</div>
 				</nav>
+
+				{ownerSection && local.length > 0 && (
+					<nav aria-label={t(ownerSection.labelKey)}>
+						<SideGroup label={t(ownerSection.labelKey)}>
+							{local.map((s) =>
+								row(
+									s,
+									active === s.id,
+									// RC-UX-3.5 — Graph just earned its spot via usage, not a manual tier
+									// switch: flag it so the DM notices the newly-revealed surface.
+									s.id === 'graph' ? (
+										<Badge status="accent">{t('shell.navSurfaceNew')}</Badge>
+									) : undefined,
+								),
+							)}
+						</SideGroup>
+					</nav>
+				)}
+
+				<nav aria-label={t('shell.navScreenShortcuts')}>
+					<SideGroup label={t('shell.groupRunTable')}>
+						{RUN.map((s) => row(s, shortcutActive(s.id), liveBadge(s), true))}
+					</SideGroup>
+				</nav>
+
+				<PinnedScreenRows />
 
 				{showRecent && (
 					<nav aria-label={t('shell.navShortcuts')}>
@@ -375,20 +361,13 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 				)}
 			</div>
 
-			{/* footer: player view + settings + account */}
+			{/* footer: the Settings utility (it owns Plans & cloud) + account */}
 			<div style={{ borderTop: `1px solid ${T.bd}`, padding: 'var(--space-2) var(--space-3)' }}>
 				<nav aria-label={t('shell.navSettings')}>
 					<SideRow
-						icon={PLAYER_SECTION.icon}
-						label={t(PLAYER_SECTION.labelKey)}
-						sub={PLAYER_SECTION.subKey ? t(PLAYER_SECTION.subKey) : undefined}
-						active={active === 'player'}
-						onClick={() => go('player')}
-					/>
-					<SideRow
 						icon={SETTINGS_SECTION.icon}
 						label={t(SETTINGS_SECTION.labelKey)}
-						active={active === 'settings'}
+						active={owner === 'settings'}
 						onClick={() => go('settings')}
 					/>
 				</nav>

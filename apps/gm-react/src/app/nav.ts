@@ -1,5 +1,9 @@
-// The single navigation source of truth for the React app — the prototype's grouped IA
-// (Run the table / Library / Platform + Player view + Settings), mapped to real react-router routes.
+// The single navigation source of truth for the React app, mapped to real react-router routes.
+// RC-ENG-15.1 implements IA-1 (docs/planning/IA_REVIEW.md, ADR-013 as amended): six primary
+// sections — Screens, Characters, Maps, Story, Notes, Tools — with the default run screens and the
+// user's pins as workspace shortcuts beside them, and Settings as a secondary utility. The Run,
+// Library and Platform lists below survive as the shortcut, section and tool inventories that the
+// palette and the home widgets read; the shell renders `PRIMARY`.
 //
 // Every user-visible word here is a MESSAGE KEY, never English text (RC-UX-1.2): navigation is the
 // one place the whole app reads its own names from, so a literal here would leak untranslated into
@@ -8,6 +12,7 @@
 // vocabulary (RC-SYS-2.6) — the board section is the "DM screen" under 5e and the "GM screen" under
 // Generic without this file knowing either word.
 
+import { matchPath } from 'react-router-dom';
 import { isMaturitySignalReached, MATURITY_SIGNALS, type CoreStateSlice } from '@dndtools/core';
 import type { MessageKey } from '../i18n';
 
@@ -27,7 +32,8 @@ export interface NavSection {
 	liveBadge?: boolean;
 }
 
-/** Run the table — the live-play destinations. */
+/** Run the table — the default run screens. Under IA-1 these are Screens shortcuts, not primary
+ * sections: the sidebar, rail and phone Screens chooser list them beside the user's pins. */
 export const RUN: NavSection[] = [
 	{
 		id: 'home',
@@ -125,6 +131,45 @@ export const PLATFORM: NavSection[] = [
 	},
 ];
 
+/** IA-1 — the Screens section: the library at `/screens` and every screen under it. It carries the
+ * live posture on every tier, since the phone no longer has a Session tab of its own. */
+export const SCREENS_SECTION: NavSection = {
+	id: 'screens',
+	labelKey: 'nav.screens',
+	icon: 'scene',
+	path: '/screens',
+	subKey: 'nav.sub.screens',
+	liveBadge: true,
+};
+
+/** IA-1 — the Tools landing (`/tools`), additive: Audio, Extensions and Community keep their routes. */
+export const TOOLS_SECTION: NavSection = {
+	id: 'tools',
+	labelKey: 'nav.tools',
+	icon: 'toolbox',
+	path: '/tools',
+	subKey: 'nav.sub.tools',
+};
+
+/** The six primary sections, in order. Every tier renders exactly these; phone More changes the
+ * presentation of the last three, never their membership. */
+export const PRIMARY: NavSection[] = [SCREENS_SECTION, ...LIBRARY, TOOLS_SECTION];
+
+export type PrimarySectionId =
+	| 'screens'
+	| 'characters'
+	| 'atlas'
+	| 'campaign'
+	| 'knowledge'
+	| 'tools';
+
+/** The tools the `/tools` landing links to, in its order. Tier gates still apply (sections.ts). */
+export const TOOLS: NavSection[] = PLATFORM.filter((s) =>
+	['audio', 'extensibility', 'community'].includes(s.id),
+);
+
+export const GRAPH_SECTION: NavSection = PLATFORM.find((s) => s.id === 'graph')!;
+
 export const PLAYER_SECTION: NavSection = {
 	id: 'player',
 	labelKey: 'nav.playerView',
@@ -140,7 +185,54 @@ export const SETTINGS_SECTION: NavSection = {
 	path: '/settings',
 };
 
-const ALL = [...RUN, ...LIBRARY, ...PLATFORM, PLAYER_SECTION, SETTINGS_SECTION];
+/** Local entries the shell lists under their owning section while it is current (IA-1): the
+ * player sheet belongs to Characters, Graph & search to Notes. */
+export const LOCAL_ENTRIES: Partial<Record<PrimarySectionId, NavSection[]>> = {
+	characters: [PLAYER_SECTION],
+	knowledge: [GRAPH_SECTION],
+};
+
+/**
+ * IA-1 — every shelled content route and its ONE owning section. The patterns are the exact
+ * `<Route path>` strings in App.tsx's shell (nav.test.ts holds the two lists equal), so a new route
+ * cannot ship without an owner. `settings` is the secondary utility, not a primary section.
+ * Chrome-less routes (`/play`, `/join`, `/wiki`, `/display`, `/legal/*`) have no shell and no owner.
+ */
+export const ROUTE_OWNERS: ReadonlyArray<readonly [string, PrimarySectionId | 'settings']> = [
+	['/', 'screens'],
+	['/screens', 'screens'],
+	['/scenes', 'screens'],
+	['/scene-cards', 'screens'],
+	['/screen/:id', 'screens'],
+	['/scene/:id', 'screens'],
+	['/session', 'screens'],
+	['/board', 'screens'],
+	['/characters/:id?', 'characters'],
+	['/player', 'characters'],
+	['/atlas', 'atlas'],
+	['/campaign', 'campaign'],
+	['/campaign/calendar', 'campaign'],
+	['/campaign/relationships', 'campaign'],
+	['/knowledge/:id?', 'knowledge'],
+	['/graph', 'knowledge'],
+	['/graph/repair', 'knowledge'],
+	['/tools', 'tools'],
+	['/audio', 'tools'],
+	['/extensions', 'tools'],
+	['/community', 'tools'],
+	['/upgrade', 'settings'],
+	['/settings', 'settings'],
+];
+
+/** The section that owns a pathname: one of the six, `settings`, or null for no shelled route. */
+export function routeOwner(pathname: string): PrimarySectionId | 'settings' | null {
+	for (const [path, owner] of ROUTE_OWNERS) {
+		if (matchPath({ path, end: true }, pathname)) return owner;
+	}
+	return null;
+}
+
+const ALL = [...RUN, ...LIBRARY, ...PLATFORM, TOOLS_SECTION, PLAYER_SECTION, SETTINGS_SECTION];
 
 /** RC-CAN-8.7 — the scene cards' own page, linked from the Screens library's player section. */
 export const SCENE_CARDS_PATH = '/scene-cards';
@@ -163,6 +255,7 @@ export const SECTION_TITLES: Record<string, [MessageKey, MessageKey]> = {
 	audio: ['section.audio', 'section.sub.audio'],
 	extensibility: ['section.extensibility', 'section.sub.extensibility'],
 	community: ['nav.community', 'section.sub.community'],
+	tools: ['nav.tools', 'section.sub.tools'],
 	pricing: ['nav.pricing', 'section.sub.pricing'],
 	player: ['section.player', 'section.sub.player'],
 	settings: ['nav.settings', 'section.sub.settings'],

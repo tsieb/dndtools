@@ -53,13 +53,14 @@ for (const [tier, width] of [
 			tier === 'phone'
 				? page.getByRole('dialog', { name: 'All sections' })
 				: tier === 'rail'
-					? page.getByRole('navigation', { name: 'Primary' })
+					? page.getByRole('navigation', { name: 'Pinned screens' })
 					: page.locator('aside');
 		const pin = scope
 			.getByRole('button', { name: tier === 'rail' ? name : new RegExp(name) })
 			.first();
 		await expect(pin).toBeVisible();
-		const chip = scope.getByRole('button', { name: /^Local vaults/ });
+		// IA-1 — the rail's vault launcher heads the column, outside the pins' landmark.
+		const chip = (tier === 'rail' ? page : scope).getByRole('button', { name: /^Local vaults/ });
 		await expect(chip.getByText('Demo', { exact: true })).toBeVisible();
 		const controls = [pin, chip];
 		if (tier !== 'rail')
