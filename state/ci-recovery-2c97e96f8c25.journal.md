@@ -38,3 +38,11 @@ No push, promotion, loop launch, or dispatcher control-state edit. Central gates
 - Retain `state/ci-recovery-2c97e96f8c25.journal.md`: the task explicitly requires a current run journal containing diagnosis and verification evidence.
 - The ownership gate has not approved these paths. Per the retry instruction, the follow-up commit records why each is necessary so the operator can decide whether to widen the claim. No claim or dispatcher state was changed.
 - Re-read the original local failure and final passing smoke logs. Test code is unchanged from the verified candidate; this follow-up changes documentation only. Formatting and whitespace checks passed.
+
+## Self-heal round 1: integration-candidate re-check
+
+- Claim widened to include `apps/gm-react/electron/smoke-parity.cjs` and this journal; both changes kept.
+- loop/rc is 4 commits ahead of the base (RC-ENG-15.3/15.4). Of these, only `apps/gm-react/src/App.tsx` reaches the bundle. Built with loop/rc's `App.tsx` and re-ran the desktop smoke: 1 of 3 runs failed in parity write at the New screen step (`smoke-parity.cjs:134`/`:135`, `/var/tmp/ci-2c97-rc-smoke.log`, `/var/tmp/ci-2c97-rc-smoke2.log`).
+- Cause, in this repair's own interaction: `Onboarding.finish(true)` (Skip setup) calls `navigate('/')` in the same update that closes the wizard. That races the earlier `location.hash = '#/scenes'`, so the library's `screens-new` control is sometimes unmounted. The earlier green final run was lucky; the base App.tsx has the same race.
+- Fix: once the wizard is gone, set `#/scenes` again, so the library is always entered after Skip setup's home navigation. No wait or assertion relaxed.
+- Verified: with loop/rc `App.tsx` the full desktop smoke passed 6/6 (`/var/tmp/ci-2c97-rc-fix{1..6}.log`). With the task base `App.tsx` restored and rebuilt, it passed 3/3 (`/var/tmp/ci-2c97-head-fix{1..3}.log`). Prettier and `node --check` passed. `App.tsx` is restored to the task base, so the diff covers only the two claimed paths.

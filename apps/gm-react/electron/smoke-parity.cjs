@@ -124,6 +124,9 @@ app.whenReady().then(async () => {
 				'!document.querySelector(\'[data-fullscreen-overlay="onboarding"]\')',
 			),
 		);
+		// Skip setup sends the GM home in the same update that closes the wizard, racing the library
+		// navigation above. Re-enter the library only once the wizard is gone.
+		await win.webContents.executeJavaScript("location.hash = '#/scenes'");
 		const clickEnabled = (selector) =>
 			win.webContents.executeJavaScript(`(() => {
 				const button = document.querySelector(${JSON.stringify(selector)});
