@@ -3322,7 +3322,7 @@ RC_CHECKLIST.md` (the §2 gates as a runnable list with commands), `release.yml`
   watch `release.yml` produce the six packages with SBOM and attestations; run
   `promote-production.yml` from the tag; probes green. Acceptance: the draft release carries the
   checklist output; prod serves the tag.
-- **RC-ENG-7.3 — RC-1 exit audit.** `M` · P4 · Deps: `POL-1.*`, ENG-5.1, DOC-1.1, 8.3, UX-5.5 · Owns:
+- **RC-ENG-7.3 — RC-1 exit audit.** `M` · P4 · Deps: `POL-1.*`, ENG-5.1, DOC-1.1, 8.3, UX-5.5, 15.4 · Owns:
   `docs/requirements/FEATURE-GAPS.md`, `docs/development/RC_CHECKLIST.md`. The `requirements-auditor`
   and `ux-ui-reviewer` passes over the whole app on one commit: every §2 gate, every inventory row,
   every §20 waiver re-read. Findings become stories; this audit is the gate for RC-ENG-7.2.
@@ -3333,7 +3333,9 @@ RC_CHECKLIST.md` (the §2 gates as a runnable list with commands), `release.yml`
   pending decision, an unmerged review or an unfinished required follow-up blocks RC-ENG-7.2; the
   UX-5.5 dependency alone is not acceptance evidence, and `RC_CHECKLIST.md` carries this as a check.
   Acceptance: the RC-UX-5.5 precondition is met; zero unverifiable claims; every open limit is one
-  of the §2.1 external four.
+  of the §2.1 external four, or is listed in `RC_CHECKLIST.md` §3 with an owning story and the owner's
+  RC-1 waiver (2026-10-24: limits already filed as follow-ups are waived for RC-1 and are not re-filed;
+  the WorkerHost security refusal stays until a storage-isolated host exists).
 
 ### Epic ENG-8 — Early access: primary paths before platform depth (P2→P3)
 
@@ -3703,6 +3705,41 @@ should land after them.
   build: `!cancelled()` in place of `always()` on every job that runs in a secret-bearing
   environment. Acceptance: the workflow-policy test (or a new one) fails on `always()` in a job with
   an `environment` and passes on the tree.
+
+### Epic ENG-15 — IA-1 six-section navigation (P3, release precondition)
+
+The owner accepted IA-1 on 2026-10-24 ([IA_REVIEW](IA_REVIEW.md), ADR-013 amended) and chose that
+the follow-ups gate RC-1: RC-ENG-7.3 cannot pass until they are verified on the release candidate.
+Each story's detail is the matching section of IA_REVIEW (route table, vocabulary, validation plan).
+
+- **RC-ENG-15.1 — Primary grouping and phone Screens access.** `L` · P3 · Owns:
+  `apps/gm-react/src/app/nav.ts`, `apps/gm-react/src/app/shell/sections.ts`,
+  `apps/gm-react/src/app/AppShell.tsx`, `apps/gm-react/src/app/shell`,
+  `apps/gm-react/src/screens/Tools.tsx` (new), `docs/architecture/NAVIGATION.md`. Six primary
+  sections (Screens, Characters, Maps, Story, Notes, Tools) with the additive `/tools` landing;
+  phone tabs Screens, Characters, Maps, More; pins stay a separate labelled region. Acceptance:
+  tests count exactly six configured sections and every content route has one owner; Screens is one
+  tap away with no pins, long pin lists and a live session; axe and responsive specs pass on both
+  Playwright profiles; the pinned visual gate is re-baselined for the new shell.
+- **RC-ENG-15.2 — Vocabulary and table controls.** `M` · P3 · Deps: 15.1 · Owns:
+  `apps/gm-react/src/app/shell/TopBar.tsx`, `apps/gm-react/src/net/SessionPanel.tsx`,
+  `apps/gm-react/src/app/ViewAsControl.tsx`, `apps/gm-react/src/app/ProjectionControl.tsx`,
+  `apps/gm-react/src/i18n/messages/en.ts`. Explicit Host table, Preview as player, Start/End
+  session and Account labels on wide layouts (the documented 1280px discrepancy fixed), a labelled
+  Table controls sheet when constrained, Maps/Story/Notes everywhere visible, `{gm} screen`
+  vocabulary with user screen names preserved. Acceptance: distinct visible labels per tier,
+  preview write rejection and focus return tested, EN/ES and both GM vocabularies pass, the
+  qps-ploc catalogue is regenerated.
+- **RC-ENG-15.3 — Bookmark compatibility.** `M` · P3 · Deps: 15.1 · Owns:
+  `apps/gm-react/src/App.tsx`, `apps/gm-react/tests/e2e/route-compat.spec.ts` (new). Every row of
+  IA_REVIEW's route table works on cold load and Back/Forward, aliases replace once without loops,
+  query and edit intent survive, `/play`, `/join` and companion joins are untouched. Acceptance:
+  the new spec covers each row including renamed, missing and private screens, on both profiles.
+- **RC-ENG-15.4 — Decision and release evidence.** `S` · P3 · Deps: 15.1–15.3 · Owns:
+  `docs/development/RC_CHECKLIST.md`, `docs/planning/IA_REVIEW.md`. Record the task-based checks
+  (find an NPC, open a pinned screen on phone, return from player preview, find billing) and the
+  exact-candidate gates, and attach them to ENG-7.3. Acceptance: the RC_CHECKLIST IA box names the
+  accepted decision, decider, date, merged commit and the four story IDs with their evidence.
 
 ---
 
@@ -4353,7 +4390,7 @@ _396 stories. By size: L=42 · M=214 · S=140. By phase: P0=20 · P1=28 · P2=19
 | RC-ENG-6.2  | Engineering | Data integrity: storage pressure, corrupt-document recovery, migration rollback                                                                                                                                                                                                                            | M    | P3      | 6.1                                                                                                                                                                                                    | done (dd7cd00)       |
 | RC-ENG-7.1  | Engineering | RC checklist and beta program                                                                                                                                                                                                                                                                              | M    | P4      | `POL-1.*`.                                                                                                                                                                                             |                      |
 | RC-ENG-7.2  | Engineering | RC-1 release rehearsal                                                                                                                                                                                                                                                                                     | S    | P4      | 7.1, 7.3, DOC-1.4                                                                                                                                                                                      | operator             |
-| RC-ENG-7.3  | Engineering | RC-1 exit audit                                                                                                                                                                                                                                                                                            | M    | P4      | `POL-1.*`, ENG-5.1, DOC-1.1, 8.3, UX-5.5                                                                                                                                                               |                      |
+| RC-ENG-7.3  | Engineering | RC-1 exit audit                                                                                                                                                                                                                                                                                            | M    | P4      | `POL-1.*`, ENG-5.1, DOC-1.1, 8.3, UX-5.5, 15.4                                                                                                                                                         |                      |
 | RC-DOC-1.1  | Docs        | Requirements corpus audit                                                                                                                                                                                                                                                                                  | M    | P4      | `POL-1.*`                                                                                                                                                                                              |                      |
 | RC-DOC-1.2  | Docs        | Architecture docs for the new subsystems                                                                                                                                                                                                                                                                   | M    | P2      | —                                                                                                                                                                                                      | done (cf4a26f)       |
 | RC-DOC-1.3  | Docs        | User-facing docs                                                                                                                                                                                                                                                                                           | M    | P3      | —                                                                                                                                                                                                      | done (9296a7a)       |
@@ -4477,6 +4514,10 @@ _396 stories. By size: L=42 · M=214 · S=140. By phase: P0=20 · P1=28 · P2=19
 | RC-ENG-10.3 | Engineering | Android system backup excludes the vault                                                                                                                                                                                                                                                                   | S    | P2      | none                                                                                                                                                                                                   |                      |
 | RC-ENG-10.4 | Engineering | Cancelling the assistant keeps the transcript valid                                                                                                                                                                                                                                                        | S    | P3      | none                                                                                                                                                                                                   |                      |
 | RC-ENG-10.5 | Engineering | Cancelling a release stops the signed package job                                                                                                                                                                                                                                                          | S    | P3      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-15.1 | Engineering | Primary grouping and phone Screens access                                                                                                                                                                                                                                                                  | L    | P3      | none                                                                                                                                                                                                   |                      |
+| RC-ENG-15.2 | Engineering | Vocabulary and table controls                                                                                                                                                                                                                                                                              | M    | P3      | 15.1                                                                                                                                                                                                   |                      |
+| RC-ENG-15.3 | Engineering | Bookmark compatibility                                                                                                                                                                                                                                                                                     | M    | P3      | 15.1                                                                                                                                                                                                   |                      |
+| RC-ENG-15.4 | Engineering | Decision and release evidence                                                                                                                                                                                                                                                                              | S    | P3      | 15.1–15.3                                                                                                                                                                                              |                      |
 
 ## 24. Operator ledger — steps only the owner can take
 
