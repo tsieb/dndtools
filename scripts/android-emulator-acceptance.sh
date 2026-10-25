@@ -497,7 +497,10 @@ wait_for_ui_text 'Open scene' || fail 'root destination did not render after fir
 step 'fresh vault scene'
 tap_ui_button_scrolling 'Open scene' || fail 'Open scene was not reachable on the fresh vault'
 wait_for_ui_text 'New screen' || fail 'Open scene did not open the Screens library'
-tap_ui_button 'New screen' || fail 'New screen was not reachable in the Screens library'
+# The library can open still scrolled from the home page, with its header button clipped above
+# the viewport, so scroll up to it.
+tap_ui_scrolling tap_ui_button 'New screen' up \
+	|| fail 'New screen was not reachable in the Screens library'
 wait_for_ui_text 'Create screen' || fail 'the New screen dialog did not open'
 tap_ui_button 'Create screen' || fail 'the New screen dialog could not be confirmed'
 wait_for_ui_text_absent 'Create screen' || fail 'the new screen was not created'
