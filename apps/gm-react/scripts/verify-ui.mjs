@@ -5,6 +5,7 @@
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { isAppConsoleError } from './host-console-noise.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(path.resolve(here, '../package.json'));
@@ -32,7 +33,7 @@ async function trial(name, route, interact) {
 	await markOnboarded(page);
 	const errs = [];
 	page.on('pageerror', (e) => errs.push(e.message));
-	page.on('console', (m) => m.type() === 'error' && errs.push(m.text()));
+	page.on('console', (m) => isAppConsoleError(m) && errs.push(m.text()));
 	try {
 		// HashRouter: navigate under the `#` fragment (`route` already starts with `/`).
 		await page.goto(`${BASE}/#${route}`, { waitUntil: 'networkidle', timeout: 20000 });
@@ -83,9 +84,8 @@ const fillFirst = (page, val) => page.getByRole('textbox').first().fill(val, { t
 }
 
 // Onboarding — the one case that runs WITHOUT the onboarded flag: a fresh device must get the
-// first-run overlay, walk all six steps (keeping the sample vault; deciding the ADR-026 forced
-// privacy step with its typed acknowledgment), land in the app with the flag recorded, and NOT
-// see the overlay again after reload.
+// first-run overlay, walk its three steps (RC-UX-3.6: campaign name, complexity, backup notice),
+// land in the app with the flag recorded, and NOT see the overlay again after reload.
 {
 	const page = await browser.newPage();
 	// Clear the flag ONCE (sessionStorage marker guards it) — the init script re-runs on the
@@ -103,28 +103,22 @@ const fillFirst = (page, val) => page.getByRole('textbox').first().fill(val, { t
 		await ready(page);
 		const overlay = page.getByRole('dialog', { name: /first-run setup/i });
 		await overlay.waitFor({ timeout: 5000 });
-		await page.getByRole('button', { name: /get started/i }).click({ timeout: 5000 });
-		await page.getByRole('button', { name: /continue/i }).click({ timeout: 5000 }); // vault
-		// ADR-026 forced privacy step: pick Private, type the acknowledgment, then continue.
-		await page.getByRole('radio', { name: /private vault/i }).click({ timeout: 5000 });
-		await page
-			.getByLabel(/type "i hold the keys" to confirm/i)
-			.fill('i hold the keys', { timeout: 5000 });
-		for (let s = 0; s < 4; s++)
-			await page.getByRole('button', { name: /continue/i }).click({ timeout: 5000 });
-		await page.getByRole('button', { name: /enter command center/i }).click({ timeout: 5000 });
+		await overlay.getByLabel('Campaign name').fill('UI Gate Campaign', { timeout: 5000 });
+		for (let s = 0; s < 2; s++)
+			await overlay.getByRole('button', { name: 'Continue', exact: true }).click({ timeout: 5000 });
+		await overlay.getByRole('button', { name: 'Open the Command Center' }).click({ timeout: 5000 });
 		await overlay.waitFor({ state: 'detached', timeout: 5000 });
 		const flag = await page.evaluate(() => window.localStorage.getItem('dndtools:react:onboarded'));
 		await page.reload({ waitUntil: 'networkidle' });
 		await ready(page);
 		const again = await page.getByRole('dialog', { name: /first-run setup/i }).count();
 		results.push({
-			name: 'Onboarding · 7-step first run',
+			name: 'Onboarding · 3-step first run',
 			ok: flag === 'done' && again === 0,
 			detail: `flag=${flag}, re-shown=${again}`,
 		});
 	} catch (e) {
-		results.push({ name: 'Onboarding · 7-step first run', ok: false, detail: `EX: ${e.message}` });
+		results.push({ name: 'Onboarding · 3-step first run', ok: false, detail: `EX: ${e.message}` });
 	}
 	await page.close();
 }
@@ -160,7 +154,7 @@ await trial('Characters · New character', '/characters', async (p) => {
 // then click the canvas → a real map.create-poi op at the clicked position (strict op-type assert —
 // opening the overlay and switching tools alone dispatches nothing).
 await trial('Atlas · builder POI place', '/atlas', async (p) => {
-	await click(p, /open in builder/i);
+	await click(p, /open in map editor/i);
 	await p.waitForTimeout(600);
 	// The rail is layer GROUPS that reveal a sub-tool flyout; open "Notes", then arm "Point of interest".
 	await p.getByRole('button', { name: 'Notes', exact: true }).click({ timeout: 5000 });
@@ -195,8 +189,10 @@ await trial('Session · Build encounter', '/session', async (p) => {
 	await click(p, /build encounter/i);
 	await p.waitForTimeout(400);
 	await p.locator('[role="dialog"] button[aria-pressed="false"]').first().click({ timeout: 5000 });
-	// The footer LAUNCH button exactly — the per-row d20 pre-fills are "Roll initiative for <name>".
-	await p.getByRole('button', { name: 'Roll initiative', exact: true }).click({ timeout: 5000 });
+	await p
+		.getByRole('dialog', { name: 'Build encounter' })
+		.getByRole('button', { name: 'Start combat', exact: true })
+		.click({ timeout: 5000 });
 	// Op-count growth alone would false-pass on the go-live op — require the real combat.start.
 	await p.waitForFunction(
 		() => window.__rt.state.sync.operations.some((o) => o.opType === 'combat.start'),
@@ -240,12 +236,21 @@ await trial('Session · Build encounter', '/session', async (p) => {
 	}
 	await page.close();
 }
-// Board — Edit layout captures a safe point (command-center.snapshot-auto-save), which reveals the
-// "Restore safe point" button (previously always rejected); clicking it round-trips restore-auto-save.
+// Board — Edit layout captures a safe point (command-center.snapshot-auto-save); the Layouts panel's
+// "Restore previous layout" round-trips it through command-center.restore-auto-save.
 await trial('Board · safe-point round-trip', '/board', async (p) => {
 	await click(p, /edit layout/i);
 	await p.waitForTimeout(500);
-	await click(p, /restore safe point/i);
+	await p.getByRole('button', { name: 'Layouts', exact: true }).click({ timeout: 5000 });
+	await click(p, /restore previous layout/i);
+	await p.waitForFunction(
+		() =>
+			window.__rt.state.sync.operations.some(
+				(o) => o.opType === 'command-center.restore-auto-save',
+			),
+		null,
+		{ timeout: 5000 },
+	);
 });
 
 for (const r of results) console.log(`${r.ok ? '✓' : '✗'} ${r.name.padEnd(28)} ${r.detail}`);

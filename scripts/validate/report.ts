@@ -40,9 +40,8 @@ export function buildMarkdown(report: RunReport): string {
 		| undefined;
 	if (fa) {
 		L.push('## Feature-gap ledger', '');
-		L.push('**Known remaining stubs (declared):**', '');
-		if (fa.knownStubs.length) fa.knownStubs.forEach((s) => L.push(`- ${s}`));
-		else L.push('_none declared_');
+		L.push(`**Declared limits:** ${fa.limitAnchors.length} (${fa.staleAnchors.length} stale)`, '');
+		fa.staleAnchors.forEach((a) => L.push(`- stale: \`${a.file}\` › ${a.anchor} (${a.reason})`));
 		L.push('', `**Stub markers in code:** ${fa.stubMarkerTotal}`, '');
 		if (fa.unwiredScreens.length) {
 			L.push('**Screens with no core-dispatch reference (verify):**', '');
@@ -83,8 +82,10 @@ export function buildHtml(report: RunReport): string {
 	const faHtml = fa
 		? `<section><h2>Feature-gap ledger</h2>
         <div class="grid">
-          <div class="card"><h3>Declared stubs (${fa.knownStubs.length})</h3><ul>${
-						fa.knownStubs.map((s) => `<li>${esc(s)}</li>`).join('') || '<li class="muted">none</li>'
+          <div class="card"><h3>Declared limits (${fa.limitAnchors.length}, ${fa.staleAnchors.length} stale)</h3><ul>${
+						fa.staleAnchors
+							.map((a) => `<li><code>${esc(a.file)}</code> › ${esc(a.anchor)}</li>`)
+							.join('') || '<li class="muted">every anchor still evidenced</li>'
 					}</ul></div>
           <div class="card"><h3>Screens needing wiring review (${fa.unwiredScreens.length}/${fa.screens.length})</h3><ul>${
 						fa.unwiredScreens.map((s) => `<li><code>${esc(s)}</code></li>`).join('') ||

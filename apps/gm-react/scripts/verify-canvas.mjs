@@ -4,6 +4,7 @@
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { isAppConsoleError } from './host-console-noise.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(path.resolve(here, '../package.json'));
@@ -26,7 +27,7 @@ await page.addInitScript(() => {
 });
 const errors = [];
 page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
-page.on('console', (m) => { if (m.type() === 'error') errors.push(`console.error: ${m.text()}`); });
+page.on('console', (m) => { if (isAppConsoleError(m)) errors.push(`console.error: ${m.text()}`); });
 const waitForRuntime = () =>
 	page.waitForFunction(() => window.__rt && window.__rt.loaded === true, null, { timeout: 15000 });
 

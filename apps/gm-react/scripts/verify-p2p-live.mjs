@@ -72,7 +72,7 @@ try {
 	await host.getByRole('button', { name: /Connect player/ }).click();
 
 	// The joiner should transition to Connected and receive the host's snapshot.
-	await joiner.getByText(/Connected as/i).waitFor({ state: 'visible', timeout: 20000 });
+	await joiner.getByText(/You are at the table as/i).waitFor({ state: 'visible', timeout: 20000 });
 	check('joiner connected to the host over WebRTC', true);
 
 	// The host should show a live connected peer.

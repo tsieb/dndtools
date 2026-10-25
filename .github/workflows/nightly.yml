@@ -150,8 +150,10 @@ jobs:
       # Browser-driven checks (e2e / axe / React verify) resolve Playwright from apps/gm-react.
       - name: Set up browser tests
         uses: ./.github/actions/setup-e2e
+      # ci-gate already runs the full e2e suite sharded on every push; one runner cannot finish
+      # all of it inside the harness's 25-minute e2e budget.
       - name: Run validation
-        run: pnpm validate
+        run: pnpm validate --skip=e2e
       - name: Upload validation report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

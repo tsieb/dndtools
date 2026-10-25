@@ -5,6 +5,7 @@
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { isAppConsoleError } from './host-console-noise.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(path.resolve(here, '../package.json'));
@@ -29,7 +30,7 @@ for (const route of routes) {
 	});
 	const errors = [];
 	page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
-	page.on('console', (m) => m.type() === 'error' && errors.push(`console.error: ${m.text()}`));
+	page.on('console', (m) => isAppConsoleError(m) && errors.push(`console.error: ${m.text()}`));
 	try {
 		// HashRouter: routes live under the `#` fragment (`/#/board`), so a path-style URL would just
 		// resolve to home and false-green the check. `route` already begins with `/`, so `/#${route}`.
