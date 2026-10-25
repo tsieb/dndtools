@@ -90,3 +90,12 @@ top-bar view-as", Maps/Story/Notes, `{gm} screen`), RC_ROADMAP Epic ENG-15.
   test or golden reads that line (the visual re-baseline rewrote no Help/palette golden while the
   edit was present, so no capture shows it). The remaining "Atlas import dialog" wording in that
   guide is left for whoever owns `docs/user`.
+
+## Attempt after gate feedback (tooling tests)
+
+- Gate: `Tooling tests` failed `tests/unit/feature-complexity.test.ts:205` — the generated
+  `docs/reference/FEATURE_COMPLEXITY.md` (a companion path) still listed `nav.atlas` "Atlas" and
+  `nav.knowledge` "Knowledge", which this story renamed to Maps / Notes. Regenerated with
+  `pnpm exec tsx scripts/feature-complexity.ts` (2-line diff, those two rows only).
+- `pnpm test:tooling` 33 files / 274 passed; `pnpm test:critical` 302 files / 5433 passed;
+  prettier clean on the regenerated doc.

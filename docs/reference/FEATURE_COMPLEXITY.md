@@ -189,9 +189,9 @@ Settings panels and individual settings rows, Extensions and Community areas, au
 | nav.scenes | Scenes | nav.scenes | core | /scenes | nav-scenes | Which widgets belong in a session scene. | Removing a widget can hide information needed at the table. |
 | nav.session | Session | nav.session | core | /session | nav-session | Turn order, dice and combat state. | Advancing the wrong turn can disrupt combat tracking. |
 | nav.characters | Characters | nav.characters | core | /characters | nav-characters | Character identity and the selected rules system. | Editing the wrong character can change play statistics. |
-| nav.atlas | Atlas | nav.atlas | core | /atlas | nav-atlas | Map and location navigation. | Selecting the wrong location can confuse session context. |
+| nav.atlas | Maps | nav.atlas | core | /atlas | nav-atlas | Map and location navigation. | Selecting the wrong location can confuse session context. |
 | nav.story | Story | nav.story | intermediate | /campaign | nav-story | Quest, faction and timeline relationships. | Incorrect links or visibility can reveal spoilers. |
-| nav.knowledge | Knowledge | nav.knowledge | core | /knowledge | nav-knowledge | Notes, links and shared handouts. | Sharing the wrong note can expose GM secrets. |
+| nav.knowledge | Notes | nav.knowledge | core | /knowledge | nav-knowledge | Notes, links and shared handouts. | Sharing the wrong note can expose GM secrets. |
 | nav.graph | Graph & search | nav.graph | intermediate | /graph | nav-graph | Relationships and search filters. | A filtered view can be mistaken for missing data. |
 | nav.audio | Audio | nav.audio | core | /audio | nav-audio | Soundboard playback and output volume. | Loud playback can interrupt the table. |
 | nav.playerView | {player} view | nav.playerView | intermediate | /player | nav-playerView | GM versus player projection. | Incorrect sharing can expose hidden information. |
