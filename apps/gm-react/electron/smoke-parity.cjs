@@ -115,6 +115,15 @@ app.whenReady().then(async () => {
 		// live on. The Command Center's own home board is a DM workspace that a start never picks
 		// (RC-ENG-8.6), so create a screen from the library's default template, as a DM would.
 		await win.webContents.executeJavaScript("location.hash = '#/scenes'");
+		// A disposable profile can show first-run setup. Dismiss it through its real control
+		// before driving the shell, rather than clicking controls behind the modal.
+		// Wait for the lazy wizard on the fresh write profile; verify reuses its saved dismissal.
+		if (!verify) await until(() => clickControl(win, 'Skip setup'));
+		await until(() =>
+			win.webContents.executeJavaScript(
+				'!document.querySelector(\'[data-fullscreen-overlay="onboarding"]\')',
+			),
+		);
 		const clickEnabled = (selector) =>
 			win.webContents.executeJavaScript(`(() => {
 				const button = document.querySelector(${JSON.stringify(selector)});
@@ -139,14 +148,25 @@ app.whenReady().then(async () => {
 		// the production Start session control in the real renderer and watch the OS chrome follow it. This
 		// is the end-to-end proof that `session.workflow` reaches the dock badge / tray icon.
 		assert.equal(shell.isLiveSessionBadgeShown(), false);
-		await until(() => clickControl(win, 'Start session'));
+		// Default and restored desktop windows use the compact shell. Reach session controls
+		// through its real sheet opener; the wide shell already exposes them in the header.
+		await until(async () => {
+			await clickControl(win, 'Table controls');
+			return clickControl(win, 'Start session');
+		});
 		await until(() => shell.isLiveSessionBadgeShown() === true);
-		await until(() => clickControl(win, 'End live session'));
+		await until(() => clickControl(win, 'End session (live)'));
 		await until(() =>
 			win.webContents.executeJavaScript('!!document.querySelector(\'[aria-modal="true"]\')'),
 		);
 		await until(() => clickControl(win, 'End session'));
 		await until(() => shell.isLiveSessionBadgeShown() === false);
+		// Dismiss the underlying controls sheet before checking that the menu opens the palette,
+		// so the sheet cannot satisfy the palette's modal assertion.
+		await until(async () => {
+			await clickControl(win, 'Close');
+			return win.webContents.executeJavaScript('!document.querySelector(\'[aria-modal="true"]\')');
+		});
 		Menu.getApplicationMenu().getMenuItemById('global.palette').click();
 		await until(() =>
 			win.webContents.executeJavaScript('!!document.querySelector(\'[aria-modal="true"]\')'),
