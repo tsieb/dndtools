@@ -252,7 +252,9 @@ export function TopBar({
 									aria-haspopup="dialog"
 									aria-expanded={controlsOpen}
 									onClick={() => setControlsOpen(true)}
-									style={{ flex: '0 0 auto', minHeight: 'var(--touch-target-min)' }}
+									// 48px, the footprint of the icon-only Start session it replaced: the bar keeps
+									// its whole-pixel height instead of taking the title block's 44.6px.
+									style={{ flex: '0 0 auto', minHeight: 'var(--space-12)' }}
 								>
 									{t('shell.tableControls')}
 								</Button>
