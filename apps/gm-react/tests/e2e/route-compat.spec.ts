@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { dispatch, enterPreview, exitPreview, gotoRoute, markOnboarded } from './_helpers';
+import { dispatch, exitPreview, gotoRoute, markOnboarded } from './_helpers';
 
 // RC-ENG-15.3 — bookmark compatibility under IA-1 (docs/planning/IA_REVIEW.md, "Route, bookmark and
 // rollback contract"). One test per row of that table, on both Playwright profiles. Each route is
@@ -35,6 +35,8 @@ const IS_CURRENT = /^(page|true)$/;
 declare global {
 	interface Window {
 		__routeWrites?: Array<{ kind: string; to: string }>;
+		__privateLeaks?: string[];
+		__stopPrivateWatch?: () => void;
 	}
 }
 
@@ -320,6 +322,57 @@ test('/screens and /screen/:id keep ids; renamed, missing, deleted and private s
 	}
 });
 
+/**
+ * From the next document on, every boot is a previewed player's: the moment the vault finishes
+ * loading, and before React renders the route against it, the runtime enters "Preview as player".
+ * Preview is in-memory by design (a refresh drops it), so this is how a cold load reaches the app
+ * with the unauthorized actor already in place. Every node added to the document is also checked
+ * for the private screen's name, so a GM frame that flashed before the preview took hold is caught
+ * even if it was replaced before an assertion could see it.
+ */
+async function bootAsPreviewedPlayer(page: Page, secretName: string) {
+	await page.addInitScript((name) => {
+		const leaks: string[] = [];
+		window.__privateLeaks = leaks;
+		const check = (node: Node) => {
+			if (node.textContent?.includes(name)) leaks.push(window.location.hash);
+		};
+		const watch = new MutationObserver((records) => {
+			for (const record of records) {
+				if (record.type === 'characterData') check(record.target);
+				record.addedNodes.forEach(check);
+			}
+		});
+		watch.observe(document, { childList: true, subtree: true, characterData: true });
+		window.__stopPrivateWatch = () => watch.disconnect();
+
+		type Runtime = {
+			loaded: boolean;
+			preview: unknown;
+			subscribe: (listener: () => void) => () => void;
+			enterPreview: (selection: { role: 'player' }) => void;
+		};
+		let runtime: Runtime | undefined;
+		let entered = false;
+		const previewOnLoad = () => {
+			if (entered || !runtime?.loaded) return;
+			entered = true;
+			runtime.enterPreview({ role: 'player' });
+		};
+		Object.defineProperty(window, '__rt', {
+			configurable: true,
+			get: () => runtime,
+			set(value: Runtime) {
+				// Published while the initial hydration is still pending; the listener fires in the
+				// same emit that flips `loaded`, ahead of the render React schedules from it.
+				runtime = value;
+				value.subscribe(previewOnLoad);
+				previewOnLoad();
+			},
+		});
+	}, secretName);
+}
+
 test('a private screen stays unavailable to a previewed player, cold and through Back/Forward', async ({
 	page,
 }) => {
@@ -327,41 +380,95 @@ test('a private screen stays unavailable to a previewed player, cold and through
 	const homeId = await homeSceneId(page);
 	const secret = await createScreen(page, 'Villain lair');
 	await persisted(page);
-	await enterPreview(page, 'player');
-	const before = await historyLength(page);
-	await resetWrites(page);
-	// A bookmark pasted into this tab while previewing: the player's read decides, not the GM's.
-	await page.evaluate((target) => {
-		window.location.hash = target;
-	}, `#/screen/${secret}`);
-	await page.waitForURL((url) => url.hash === `#/screen/${secret}`);
-	await unavailable(page);
-	await expect(screenHeading(page, 'Villain lair')).toHaveCount(0);
-	await expectOwner(page, 'Screens');
-	expect(await writes(page)).toEqual([]);
-	expect(await historyLength(page)).toBe(before + 1);
-	// `/board` keeps its non-GM state: no redirect to the GM's home screen.
-	await page.evaluate(() => {
-		window.location.hash = '#/board';
+	await bootAsPreviewedPlayer(page, 'Villain lair');
+
+	/** The unavailable state, no private content ever rendered, the bookmark untouched. */
+	const expectWithheld = async (
+		route: string,
+		writesSoFar: Array<{ kind: string; to: string }>,
+	) => {
+		await page.waitForURL((url) => url.hash === `#${route}`, { timeout: 15_000 });
+		await unavailable(page);
+		await expect(screenHeading(page, 'Villain lair')).toHaveCount(0);
+		await expect(page.getByTestId('screen-pin')).toHaveCount(0);
+		await expectOwner(page, 'Screens');
+		expect(hash(page), 'the bookmark is kept, not redirected').toBe(`#${route}`);
+		expect(await writes(page)).toEqual(writesSoFar);
+		expect(await page.evaluate(() => window.__privateLeaks)).toEqual([]);
+	};
+	const bootedAsPlayer = async () => {
+		await booted(page, true);
+		await page.waitForFunction(() => window.__rt?.preview?.role === 'player');
+	};
+	const bookmark = `/screen/${secret}${MARK}`;
+
+	await test.step('cold bookmark, refresh, Back off the app and Forward', async () => {
+		await page.goto('about:blank');
+		const before = await historyLength(page);
+		await page.goto(`/#${bookmark}`, { waitUntil: 'domcontentloaded' });
+		await bootedAsPlayer();
+		await expectWithheld(bookmark, []);
+		expect(await historyLength(page)).toBe(before + 1);
+
+		await page.reload({ waitUntil: 'domcontentloaded' });
+		await bootedAsPlayer();
+		await expectWithheld(bookmark, []);
+		expect(await historyLength(page)).toBe(before + 1);
+
+		await page.goBack();
+		await page.waitForURL('about:blank');
+		await page.goForward({ waitUntil: 'domcontentloaded' });
+		await bootedAsPlayer();
+		await expectWithheld(bookmark, []);
+		expect(await historyLength(page)).toBe(before + 1);
 	});
-	await page.waitForURL((url) => url.hash === '#/board');
-	await expect(page.locator('#main-content')).toBeAttached();
-	await expect(screenHeading(page, 'Villain lair')).toHaveCount(0);
-	await expect(page.getByTestId('screen-pin')).toHaveCount(0);
-	expect(await writes(page)).toEqual([]);
-	await page.goBack();
-	await page.waitForURL((url) => url.hash === `#/screen/${secret}`);
-	await unavailable(page);
-	await page.goBack();
-	await page.waitForURL((url) => url.hash === '#/screens');
-	await page.goForward();
-	await page.waitForURL((url) => url.hash === `#/screen/${secret}`);
-	await unavailable(page);
-	expect(await writes(page)).toEqual([]);
-	expect(hash(page)).not.toContain(homeId);
+
+	await test.step('cold /board keeps its non-GM state', async () => {
+		await page.goto('about:blank');
+		const before = await historyLength(page);
+		await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
+		await bootedAsPlayer();
+		await page.waitForURL((url) => url.hash === '#/board');
+		await expect(page.locator('#main-content')).toBeAttached();
+		await expect(page.getByTestId('screen-pin')).toHaveCount(0);
+		// No redirect to the GM's home screen.
+		expect(hash(page)).toBe('#/board');
+		expect(await writes(page)).toEqual([]);
+		expect(await historyLength(page)).toBe(before + 1);
+		expect(await page.evaluate(() => window.__privateLeaks)).toEqual([]);
+	});
+
+	await test.step('warm, through same-document Back/Forward', async () => {
+		await page.evaluate(() => {
+			window.location.hash = '#/screens';
+		});
+		await page.waitForURL((url) => url.hash === '#/screens');
+		await expect(page.getByTestId('screens-library')).toBeVisible();
+		const before = await historyLength(page);
+		await resetWrites(page);
+		await page.evaluate((target) => {
+			window.location.hash = target;
+		}, `#${bookmark}`);
+		await expectWithheld(bookmark, []);
+		expect(await historyLength(page)).toBe(before + 1);
+		await page.goBack();
+		await page.waitForURL((url) => url.hash === '#/screens');
+		await page.goForward();
+		await expectWithheld(bookmark, []);
+		await page.goBack();
+		await page.goBack();
+		await page.waitForURL((url) => url.hash === '#/board');
+		await page.goForward();
+		await page.goForward();
+		await expectWithheld(bookmark, []);
+		expect(hash(page)).not.toContain(homeId);
+	});
+
+	// The GM, back in their own view, opens it from the same bookmark.
+	await page.evaluate(() => window.__stopPrivateWatch?.());
 	await exitPreview(page);
-	// The GM, back in their own view, opens it again from the same entry.
 	await expect(screenHeading(page, 'Villain lair')).toBeVisible();
+	expect(hash(page)).toBe(`#${bookmark}`);
 });
 
 test('/scenes and /scene/:id migrate with their query, edit intent kept; templates keep their editor', async ({
