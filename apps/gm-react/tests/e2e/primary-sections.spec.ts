@@ -93,6 +93,37 @@ for (const [tier, width] of [
 	});
 }
 
+// Settings is the secondary utility (it owns Plans & cloud): its own labelled region on every
+// non-phone tier, never a Primary entry, and the current entry on /settings and /upgrade.
+for (const [tier, width] of [
+	['desktop', 1440],
+	['rail', 641],
+	['rail', 834],
+	['rail', 1024],
+] as const) {
+	test(`${tier} ${width}: Settings is a separate utility, current on /settings and /upgrade`, async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width, height: 1000 });
+		await markOnboarded(page);
+		await gotoRoute(page, '/characters');
+		const primary = page.getByRole('navigation', { name: 'Primary', exact: true });
+		await expect(primary.getByRole('button')).toHaveCount(6);
+		await expect(primary.getByRole('button', { name: /^Settings/ })).toHaveCount(0);
+		const utility = page.getByRole('navigation', { name: 'Settings', exact: true });
+		const settings = utility.getByRole('button', { name: /^Settings/ });
+		await expect(settings).toBeVisible();
+		await expect(settings).not.toHaveAttribute('aria-current', 'page');
+		await settings.click();
+		await page.waitForURL((url) => url.hash.startsWith('#/settings'));
+		await expect(settings).toHaveAttribute('aria-current', 'page');
+		await expect(primary.locator('[aria-current="page"]')).toHaveCount(0);
+		await gotoRoute(page, '/upgrade');
+		await expect(settings).toHaveAttribute('aria-current', 'page');
+		await expect(primary.locator('[aria-current="page"]')).toHaveCount(0);
+	});
+}
+
 test.describe('phone: Screens is one tap away', () => {
 	test.beforeEach(async ({ page }) => {
 		await page.setViewportSize({ width: 390, height: 844 });

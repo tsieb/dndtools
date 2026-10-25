@@ -150,8 +150,9 @@ while a session is live, then Command Center, the GM screen, Session and All scr
 So every run screen and pin is one tap after Screens, with no pins or a long list alike, and
 starting a session never navigates. More ("All sections") lists the pins first (ADR-041), then
 Story, Notes and Tools, the current section's local pages, the vault switcher and Settings. The rail
-stacks one `NavRail` per region (Primary, local pages, Screen shortcuts, Pinned screens) between the
-vault launcher and Search, which sit outside every landmark.
+stacks one `NavRail` per region (Primary, local pages, Screen shortcuts, Pinned screens) in a scroll
+between the vault launcher and the Settings utility; Settings is its own landmark below the scroll,
+current on `/settings` and `/upgrade`, and the vault launcher and Search sit outside every landmark.
 
 While `session.workflow` is `active`, the desktop tier opens a right `SessionRail` (272px, collapsible)
 and marks Screens and the Session shortcut LIVE; the rail tier shows a dot on both; the phone tier

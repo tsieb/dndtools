@@ -59,3 +59,21 @@ src/app/shell` 15 passed, `pnpm lint` 0 errors (after tokenising three zero spac
   way (`--repeat-each=3`) → base issue, not this change.
 - `responsive.spec.ts` both profiles: 164 passed. `pnpm a11y:axe` (incl. new `/tools`): 63 passed;
   `pnpm a11y:report`: PASS.
+
+## Attempt after review (Settings on the tablet rail)
+
+- Review finding: the rail dropped the Settings utility (641–1024px had no Settings entry; `/upgrade`
+  had no current rail entry). Fix: `RailNav.tsx` renders a `Settings` NavRail landmark below the
+  scroll, beside Search, outside Primary; current when `routeOwner` is `settings` (`/settings`,
+  `/upgrade`). NAVIGATION.md rail paragraph updated.
+- New `primary-sections.spec.ts` test at 1440/641/834/1024: Primary has 6 buttons and no Settings;
+  the `Settings` landmark's button is visible, navigates, and is the only current entry on
+  `/settings` and `/upgrade`.
+- primary-sections + responsive, both profiles: 184 passed. a11y-axe-gate + 17 nav/Settings-touching
+  specs (pinned-screens, phone-navigator, settings, upgrade, friction-budgets, ux-audit, …), both
+  profiles: 381 passed, 1 skipped.
+- Visual: `run-in-container.sh --project=visual-rail --update-snapshots=changed` rewrote 75 rail
+  goldens (Settings gear above Search) → zopfli refilter (8,185 → 5,664 KB) → strict
+  `--update-snapshots=none` 196 passed; screenshots dir 35,240 KiB / 37,888.
+- `CI=true pnpm test:app --maxWorkers=2`: 199 files / 2407 passed. typecheck, eslint and prettier on
+  the changed files: clean.

@@ -7,7 +7,7 @@ import { Icon, IconButton, NavRail } from '../../ds';
 import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useSettingsTier } from '../../screens/settings/Experience';
-import { activeSectionId, PRIMARY, routeOwner, RUN } from '../nav';
+import { activeSectionId, PRIMARY, routeOwner, RUN, SETTINGS_SECTION } from '../nav';
 import { T } from '../screen-kit';
 import { localEntriesFor, sectionPath } from './sections';
 import { useSessionPosture } from './session-posture';
@@ -30,7 +30,8 @@ const GROUP: CSSProperties = {
 const DIVIDED: CSSProperties = { ...GROUP, borderTop: '1px solid var(--color-border)' };
 
 /** Tablet: the DS NavRail — icon-only, labels move to the accessible name/tooltip. The six primary
- * sections first, then the current section's pages, the Screen shortcuts and the pins. */
+ * sections first, then the current section's pages, the Screen shortcuts and the pins; the Settings
+ * utility sits below the scroll beside Search. */
 export function RailNav({ onOpenPalette }: { onOpenPalette: () => void }) {
 	const { t } = useI18n();
 	const navigate = useNavigate();
@@ -196,6 +197,21 @@ export function RailNav({ onOpenPalette }: { onOpenPalette: () => void }) {
 						/>
 					)}
 				</div>
+				{/* The Settings utility (it owns Plans & cloud) — outside Primary and the scroll, so it is
+				 * always reachable and is the rail's current entry on /settings and /upgrade. */}
+				<NavRail
+					aria-label={t('shell.navSettings')}
+					style={{ ...DIVIDED, width: '100%' }}
+					items={[
+						{
+							key: SETTINGS_SECTION.id,
+							icon: SETTINGS_SECTION.icon,
+							label: t(SETTINGS_SECTION.labelKey),
+						},
+					]}
+					active={owner === 'settings' ? SETTINGS_SECTION.id : undefined}
+					onSelect={go}
+				/>
 				<IconButton
 					icon="search"
 					label={t('shell.searchShortcut')}
