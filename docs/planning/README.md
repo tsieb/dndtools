@@ -36,9 +36,9 @@ gates. It covers every §2 gate on one commit, every inventory row re-read, ever
 pass. Its findings are epics ENG-11 to ENG-14 in the roadmap, and the owner's steps are in §24.
 The second run, on `c97e5da65` (application tree `aa300d6d5`), applied the owner's 2026-10-24
 decisions. It met every clause except the IA-1 precondition, which stayed open because RC-ENG-15.2
-left the hosted `ci-gate` red. Its new findings are epic ENG-16. A third run fixed the live-P2P probe
-that 15.2 broke and verified the pending Electron smoke fix locally. Hosted `ci-gate` stays red
-until that fix lands.
+left the hosted `ci-gate` red. Its new findings are epic ENG-16. The third run, on `loop/rc` `a047c6bd2`,
+passed. The Electron smoke fix had landed and `ci-gate` was green, and the run fixed the live-P2P
+probe that 15.2 broke.
 
 For what is actually built, read [`../requirements/FEATURE-GAPS.md`](../requirements/FEATURE-GAPS.md)
 and run `pnpm feature-audit`, not this folder.

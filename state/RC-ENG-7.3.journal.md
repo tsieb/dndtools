@@ -420,3 +420,36 @@ The ownership gate rejected `30e2b1a9d` because it changed `electron/smoke-parit
 waits on `ci-recovery-2c97e96f8c25` landing and on a green hosted `ci-gate`. **Needs operator:**
 widen the claim to `apps/gm-react/scripts/verify-p2p-live.mjs`, or move the R3-2 fix to the task
 that owns it. No push, promotion, store edit or loop launch happened.
+
+## 2026-10-25 — twelfth attempt: claim widened to the P2P probe; third run on `a047c6bd2`
+
+The claim now includes `apps/gm-react/scripts/verify-p2p-live.mjs` (self-heal round 1), so the R3-2
+fix stays.
+
+- `loop/rc` moved to `a047c6bd2` (= `origin/loop/rc` = `origin/main`). It carries
+  `ci-recovery-2c97e96f8c25`'s smoke fix (`c855eca21`, `16ffc75c4`; store: succeeded, integrated)
+  and the `setup-sam` re-pin `e451763bf`. A plain rebase would have replayed `2fc091c2e`, which
+  reverts the smoke file, over that fix. So the branch was squashed first (backup branch
+  `backup/rc-eng-7.3-pre-rebase-3`, deleted afterwards). Its net change leaves `smoke-parity.cjs`
+  alone. It was then rebased cleanly.
+  `git diff --stat a047c6bd2 HEAD -- apps packages scripts tests .github` lists only
+  `verify-p2p-live.mjs`.
+- Hosted: CI 40211540957 (push, `loop/rc`, `a047c6bd2`) passed, including Electron smoke (Linux)
+  and `ci-gate`. CI 40212936166 (`main`, same commit) passed `ci-gate`. Supply Chain passed on
+  `e451763bf` (40205169236) and on `a047c6bd2` (40212936193, `main`). Nightly has not run since
+  `09524f2e6`. No `v0.4.5` tag exists, and v0.4.4 is still the newest release.
+- Here, on the rebased commit:
+  - IA-1 specs (`DNDTOOLS_E2E_PORT=5874`, both profiles): 78 passed
+    (`/tmp/eng73-ia-specs-r4.log`).
+  - Desktop smoke in the CI image under Xvfb, after a fresh `vite build`: passed
+    (`/tmp/eng73-smoke-container-r4.log`).
+  - `verify-p2p-live.mjs` against `vite` on :5895 with `NODE_PATH`: 4 of 4.
+  - ESLint on the probe: clean.
+- Docs: RC_CHECKLIST (IA box, third-run intro, §1 verdict, §2 note, R3-1/R3-9 rows, §4–§8),
+  RC_ROADMAP (7.3 run record; 16.1 status, acceptance met), IA_REVIEW (status, acceptance row,
+  precondition paragraph), planning README.
+
+**Verdict: passed.** The RC-UX-5.5 precondition, zero unverifiable claims and the open-limit bar
+under the waiver are all met on this commit. RC-ENG-7.2 may start. Its §2.2 and §2.3 bars are still
+open: performance, 800 lines, five themes, every visible string, screen reader. No push,
+promotion, store edit or loop launch happened.

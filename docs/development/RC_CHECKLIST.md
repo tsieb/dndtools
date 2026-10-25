@@ -148,12 +148,14 @@ items pending; neither an exit code nor a green path-filtered `ci-gate` substitu
     [exit audit](#rc-eng-73-exit-audit) §1). RC-ENG-15.2's move of Start session into the sheet
     broke the Electron smoke's parity step, so hosted `ci-gate` is red on `2c97e96f8`,
     `f168547c4`, `aa300d6d5` and `e451763bf` (finding R3-1).
-  - **Third run (2026-10-25):** the smoke fix is dispatcher task `ci-recovery-2c97e96f8c25`'s
-    candidate `16ffc75c4`, still in review; this commit does not carry it. With that file on this
-    tree, the desktop smoke passed 3 of 3 runs locally in the CI image under Xvfb. Without it, the
-    smoke failed at `smoke-parity.cjs:142`, as hosted CI did. The `verify:p2p-live` fix (R3-2) is
-    on this commit, and the three IA-1 specs passed again. Check this box on the tagged RC commit
-    once that task has landed, `ci-gate` is green there, and the same re-run passes.
+  - **Third run (2026-10-25)** on this record's commit, based on `loop/rc` `a047c6bd2`:
+    - The smoke fix (`16ffc75c4`, dispatcher task `ci-recovery-2c97e96f8c25`) is integrated.
+      Hosted `ci-gate` and Electron smoke passed on `a047c6bd2` (CI 40211540957).
+    - The `verify:p2p-live` fix (R3-2) is on this commit and passed 4 of 4.
+    - The three IA-1 specs passed again, 78 of 78.
+
+    Check this box on the tagged RC commit once the same re-run passes there.
+
 - [ ] **Static/unit:** `pnpm check` and `pnpm test:coverage:core` pass; coverage floors have not
       decreased from the previous release.
 - [ ] **Browser:** `pnpm e2e` ran desktop and mobile profiles, with at least one spec per §5–§17 epic.
@@ -253,18 +255,18 @@ release attachments are verified.
 ## RC-ENG-7.3 exit audit
 
 Two runs and a re-check are recorded here. The third run re-checks the second run's blocker and
-is the verdict. The first two are kept as the record their stories cite.
+is the verdict. The first two runs are kept as the record their stories cite.
 
-**Third run, 2026-10-25, on the commit that carries this record:** the second run's commit plus one
-script fix, with no product change. `git diff --stat aa300d6d5 HEAD -- apps packages scripts tests`
-lists only `apps/gm-react/scripts/verify-p2p-live.mjs`. That file is outside this story's claim. It
-is kept because review finding R3-2 makes the fix a condition of approval, and no other candidate
-changes it. The operator decides whether to widen the claim or route the fix elsewhere. The claim of
-dispatcher task `ci-recovery-2c97e96f8c25` lists the file, but that task's candidate `16ffc75c4`
-(in review) changes only `electron/smoke-parity.cjs`. That is the R3-1 fix, and this commit does
-not carry it. The third run checked it on a scratch copy of this tree (§1). The third run
-re-checked only what the second run said a re-check needs, plus R3-2. Every other second-run
-reading stands, because the application tree is unchanged.
+**Third run, 2026-10-25, on the commit that carries this record:** the task branch, squashed and
+rebased onto `loop/rc` `a047c6bd2`, which is also `origin/loop/rc` and `origin/main`. Since
+`aa300d6d5`, that base has taken `ci-recovery-2c97e96f8c25`'s parity-smoke fix (`c855eca21`,
+`16ffc75c4`, the R3-1 fix) and the `setup-sam` re-pin (`e451763bf`). This commit adds one code
+change, the R3-2 fix:
+`git diff --stat a047c6bd2 HEAD -- apps packages scripts tests .github` lists only
+`apps/gm-react/scripts/verify-p2p-live.mjs`. The file is inside this story's claim; it was widened
+on 2026-10-25 after review made R3-2 a condition of approval. The third run re-checked only what the
+second run said a re-check needs, plus R3-2. Every other second-run reading stands. No product file
+changed: `git diff --stat aa300d6d5 a047c6bd2 -- apps/gm-react/src packages` is empty.
 
 **Second run, 2026-10-25, on `c97e5da65`:** the task branch rebased onto `loop/rc`.
 `git diff --stat aa300d6d5 c97e5da65 -- apps packages scripts tests` is empty, so the application
@@ -312,40 +314,48 @@ Severity: **critical** blocks the RC-1 declaration (or, on a surface, silently b
 
 ### 1. Verdict
 
-**Third run: zero unverifiable claims and the open-limit bar are met. The RC-UX-5.5
-precondition still waits on R3-1's fix landing from `ci-recovery-2c97e96f8c25` and on a green
-hosted `ci-gate`. RC-ENG-7.2 stays blocked until both happen.**
+**Third run: passed on this record's commit (base `a047c6bd2`). RC-ENG-7.2 may proceed.** It
+still has its own §2.2 and §2.3 bars, listed below.
 
-1. **R3-1 (critical) has a verified fix, but not on this commit.** `ci-recovery-2c97e96f8c25`'s
-   candidate `16ffc75c4` changes the parity step. It clicks Table controls, if present, before
-   Start session, and ends the session through the current name, End session (live). It also
-   dismisses first-run setup on the fresh profile and closes the sheet before the palette check.
-   The third run put that file on a scratch copy of this tree. It ran the smoke in
-   `mcr.microsoft.com/playwright:v1.61.1-noble` under `xvfb-run`, the image and display CI uses:
-   - `node scripts/run-desktop-smoke.mjs` passed 3 of 3 runs (write, verify, origin migration,
-     12 updater checks, parity write and verify).
-   - With `aa300d6d5`'s `smoke-parity.cjs`, the file this commit carries, the same run failed in
-     parity write at `smoke-parity.cjs:52,142`. Hosted CI 40201160971 and 40205169106
-     (`e451763bf`) failed the same way.
+1. **The RC-UX-5.5 precondition is met.** The decision and RC-ENG-15.1 to 15.4 held in the second
+   run. The `ci-gate` that 15.2 turned red is green again:
+   - **R3-1 (critical) is fixed on the base.** `ci-recovery-2c97e96f8c25` (store: succeeded,
+     integrated) changed the parity step. It now clicks Table controls, if present, before Start
+     session, and ends the session through the current name, End session (live). It also dismisses
+     first-run setup on the fresh profile and closes the sheet before the palette check.
+   - Hosted CI 40211540957 (push to `loop/rc`, `a047c6bd2`) passed, including Electron smoke
+     (Linux) and `ci-gate`. CI 40212936166 on `main` at the same commit passed `ci-gate`.
+   - Locally on this commit, in `mcr.microsoft.com/playwright:v1.61.1-noble` under `xvfb-run`
+     (CI's image and display), `node scripts/run-desktop-smoke.mjs` passed. That covered write,
+     verify, origin migration, 12 updater checks, and parity write and verify. Before the fix
+     landed, the same container check passed 3 of 3 runs with `16ffc75c4`'s file and failed at
+     `smoke-parity.cjs:52,142` without it, as hosted CI 40201160971 and 40205169106 did.
    - On the host's Wayland display, the fixed smoke got past `:142` and then timed out at `:174`,
      after the palette opened. That display is not CI's (Electron logged
      `--ozone-platform=wayland` against Vulkan), so the result is not counted either way.
-2. **R3-2 (high) is fixed on this commit**, outside the claim (see above). `verify-p2p-live.mjs`
-   opens Table controls when it is visible,
-   then matches `/^Host table($| — )/`, the names from `shell.host.label`, `hostingName` and
-   `waitingName`. Against `vite` dev on a free port: before the fix, 0 of 1 (click timeout on
-   "Host a live table"); after it, 4 of 4 at Playwright's default 1280px. A scratch copy at
-   1600×900, where the inline control shows, also passed 4 of 4.
-3. **The IA-1 follow-ups hold on this tree.** The three IA-1 specs passed again on both profiles,
-   78 of 78 (§8). The unit files and the four tasks were not re-run, because no file they
-   load changed since the second run.
-4. **Zero unverifiable claims and open limits:** unchanged from the second run.
-   `pnpm feature-audit` reports 55 limits, 0 stale; 9 are among the four and 46 are in §3 under
-   the waiver. `WorkerHost.ts` is unchanged, so its refusal stays.
+2. **R3-2 (high) is fixed on this commit.** `verify-p2p-live.mjs` opens Table controls when it is
+   visible. It then matches `/^Host table($| — )/`, the names from `shell.host.label`,
+   `hostingName` and `waitingName`. Results against `vite` dev on a free port:
+   - Before the fix: 0 of 1 (click timeout on "Host a live table").
+   - After it, on this commit at Playwright's default 1280px: 4 of 4.
+   - A scratch copy at 1600×900, where the inline control shows: 4 of 4 (run before the rebase,
+     on the same script).
 
-What is left for this audit's precondition is the R3-1 fix landing and hosted `ci-gate` going
-green on the tagged commit. Once it does, re-run the three IA-1 specs there. The §2.2 and §2.3 bars
-the waiver does not cover are listed below.
+   ESLint passes on the file. Hosted CI does not run the probe; Nightly's validation does, and
+   Nightly has not run on this commit.
+
+3. **The IA-1 follow-ups hold on this commit.** The three IA-1 specs passed on both profiles,
+   78 of 78 (§8). The unit files and the four tasks were not re-run, because no product file
+   changed since the second run.
+4. **Zero unverifiable claims: met.** `pnpm feature-audit` reports 55 limits, 0 stale and 0
+   inventory issues. The run records in this checklist, RC_ROADMAP, IA_REVIEW and the planning
+   README now match the hosted state above.
+5. **Open limits: met under the owner's waiver.** 9 of 55 are among the four, and the other 46
+   are in §3 with an owning story. `WorkerHost.ts` is unchanged, so its refusal stays.
+
+The waiver does not cover the following §2 failures, which RC-ENG-7.2's checklist still has to
+clear: five-run performance, the 800-line bar, five-theme visual coverage, "every visible string",
+and the screen-reader run. Supply Chain is now green (§2).
 
 **Second run: not passed on `c97e5da65`, with one blocker. RC-ENG-7.2 stays blocked until hosted
 `ci-gate` is green.** Against the acceptance:
@@ -410,14 +420,13 @@ blocked.** Against the acceptance as it then stood:
 Second-run results on `c97e5da65` unless a row names another commit. "Run 1" is the first run's
 reading on `3cbf4b7cc`. The third run changes three rows:
 
-- **RC-UX-5.5 precondition and Browser:** with `ci-recovery-2c97e96f8c25`'s smoke file, the
-  Electron smoke that turned `ci-gate` red passes locally in the CI image on this tree (§1). Hosted
-  `ci-gate` is still red on every `loop/rc` head since `2c97e96f8`; the newest is `e451763bf`
-  (CI 40205169106, failing at `smoke-parity.cjs:142`). This commit keeps the unfixed smoke file.
-- **Security:** Supply Chain passed on `origin/loop/rc` `e451763bf` (run 40205169236), which
-  re-pins `setup-sam` and touches only two workflow files. Local `loop/rc` and this commit are
-  still at `aa300d6d5`, so R3-9 is fixed upstream but not on this tree. RC-ENG-16.1 can close
-  once that commit is integrated.
+- **RC-UX-5.5 precondition:** met (§1).
+- **Browser:** hosted CI 40211540957 on `loop/rc` `a047c6bd2` passed every job it ran, including
+  Electron smoke and `ci-gate`. It covers this commit's application code. The only code difference
+  is the P2P probe, which CI does not run.
+- **Security:** Supply Chain passed on `loop/rc` `e451763bf` (run 40205169236) and on `main` at
+  `a047c6bd2` (run 40212936193), after the `setup-sam` re-pin. R3-9 is fixed, and RC-ENG-16.1's
+  acceptance is met.
 
 | RC_ROADMAP bar              | Result                                                                                                                                                                                                                                                | Evidence                                                                                            |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
@@ -549,9 +558,9 @@ violation on `/tools`, the Table controls sheet, the phone Screens chooser or Mo
 
 | Id    | Sev      | Finding                                                                                                                                                 | Evidence                                                                                    | Goes to                       |
 | ----- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ----------------------------- |
-| R3-1  | critical | Hosted `ci-gate` is red since RC-ENG-15.2: the Electron smoke waits for Start session in the top bar, which is in the Table controls sheet below 1440px | `apps/gm-react/electron/smoke-parity.cjs:52,142`; `app/shell/TopBar.tsx:29`; CI 40201160971 | `ci-recovery-2c97e96f8c25`    |
+| R3-1  | critical | Hosted `ci-gate` is red since RC-ENG-15.2: the Electron smoke waits for Start session in the top bar, which is in the Table controls sheet below 1440px | `apps/gm-react/electron/smoke-parity.cjs:52,142`; `app/shell/TopBar.tsx:29`; CI 40201160971 | fixed on `loop/rc` (§1)       |
 | R3-2  | high     | Nightly's `verify:p2p-live` looks for "Host a live table", a name 15.2 replaced with "Host table" (static in run 2; reproduced in run 3)                | `apps/gm-react/scripts/verify-p2p-live.mjs:40`; `net/SessionPanel.tsx:203-215`              | fixed here (third run, §1)    |
-| R3-9  | medium   | Supply Chain is red on `loop/rc`: zizmor `ref-version-mismatch` on the `setup-sam` pin                                                                  | `.github/workflows/deploy.yml:158`; `promote-production.yml:124`; run 40178768941           | RC-ENG-16.1                   |
+| R3-9  | medium   | Supply Chain is red on `loop/rc`: zizmor `ref-version-mismatch` on the `setup-sam` pin                                                                  | `.github/workflows/deploy.yml:158`; `promote-production.yml:124`; run 40178768941           | fixed upstream (`e451763bf`)  |
 | U3-M1 | medium   | At 1440px the labelled top bar truncates titles; Spanish shows about four letters                                                                       | `app/shell/TopBar.tsx:25-29,110`                                                            | RC-ENG-16.3                   |
 | U3-M2 | medium   | Phone All sections opens with focus on New screen                                                                                                       | `ds/components/overlay/Sheet.tsx:87-89`; `app/shell/MoreSheet.tsx:70`                       | RC-ENG-16.4                   |
 | U3-M3 | medium   | Tools' Change experience level lands below the fold with focus on `<body>`                                                                              | `screens/Tools.tsx:80`; `i18n/messages/en.ts:998`                                           | RC-ENG-16.4                   |
@@ -575,13 +584,14 @@ route-compat runs history on the desktop and phone profiles but not the rail tie
 
 First-run findings whose status changed on this tree (from R3):
 
-- R1-1 and R2-3 (the IA decision): closed by the acceptance, ADR-013 and RC-ENG-15.1 to 15.4, subject
-  to R3-1.
+- R1-1 and R2-3 (the IA decision): closed by the acceptance, ADR-013 and RC-ENG-15.1 to 15.4. The
+  R3-1 condition cleared in the third run.
 - R1-13 (RC-ENG-8.16 to 8.20 `proposed`): closed; the store shows them succeeded.
 - R2-8 (Nightly): Nightly passed on `loop/rc` `09524f2e6` and still fails on `main`. The second run
   expected it to fail on the candidate (R3-2). The third run fixed `verify:p2p-live`; Nightly has not
   run on this commit.
-- R2-9 (no hosted CI): hosted CI now exists for `aa300d6d5`, and it is red (R3-1).
+- R2-9 (no hosted CI): hosted CI was red on `aa300d6d5` (R3-1). It is green on `a047c6bd2`
+  (CI 40211540957).
 - G5 (Host and Join English in Spanish): the Host and Account controls now use `t()`; the `/play`
   Join dialog is still English (`net/SessionPanel.tsx:270-662`).
 - E13 (the Table controls glyph): unchanged on the phone and now also on the rail (R3-6).
@@ -712,8 +722,8 @@ EARLY_ACCESS A-2, A-3, A-4/B4-3, A2-4, A2-7, C-15, C-19, D-10, D-13) are not re-
 **Second run.** Filed in [RC_ROADMAP.md](../planning/RC_ROADMAP.md) §18 as epic ENG-16: 16.1
 Supply Chain, 16.2 the palette, 16.3 the top-bar title at 1440px, 16.4 focus on sheet and settings
 links, 16.5 Player sheet and the Tools copy, and 16.6 a disposition for each low. R3-1 and R3-2
-were not filed as stories. R3-1's fix is `ci-recovery-2c97e96f8c25`'s candidate, and the third run
-fixed R3-2 (§1). The
+were not filed as stories. `ci-recovery-2c97e96f8c25` fixed R3-1, and the third run fixed R3-2
+(§1). The
 owner's 2026-10-24 amendment makes RC-ENG-7.3 depend on RC-UX-5.5 and RC-ENG-15.4, not on ENG-11
 to ENG-14, and §2.1 now records the waiver. In §24 the RC-UX-5.5 row is marked done, and the store
 row lists the stories the dispatcher store does not hold yet (RC-ENG-11.1 to 14.9 and 16.1 to
@@ -736,9 +746,8 @@ Recorded, not edited, because each file belongs to another story:
 - `docs/planning/IA_REVIEW.md` said "merge pending" and later that the preview-return failure
   blocked the IA box. Both are corrected (the file is in this claim).
 - `apps/gm-react/electron/smoke-parity.cjs:142` and `apps/gm-react/scripts/verify-p2p-live.mjs:40`
-  hard-coded pre-IA-1 top-bar controls (R3-1, R3-2). The smoke stays unedited here; its fix is
-  `ci-recovery-2c97e96f8c25`'s candidate `16ffc75c4`. The third run fixed the P2P probe, outside
-  this story's claim, for the operator to rule on (§1).
+  hard-coded pre-IA-1 top-bar controls (R3-1, R3-2). `ci-recovery-2c97e96f8c25` fixed the smoke
+  on `loop/rc`. The third run fixed the P2P probe after its claim was widened to that file (§1).
 - `docs/adr/013-three-layer-navigation-contract.md:18` asks for "<Section> navigation" labels on
   local navigation; the shell uses the bare section name (R3-8).
 - `docs/planning/EARLY_ACCESS.md` §5 reasons from "eleven budgets"; the registry has 22, and the
@@ -755,7 +764,8 @@ Second run:
 - `pnpm check`, the full `pnpm e2e` suite, `pnpm validate:full`, the visual container and the
   Electron and Android shells. Hosted CI covers the first two on `aa300d6d5` (§2).
 - `verify-ui.mjs` and `verify-canvas.mjs` at runtime. The third run ran `verify:p2p-live` (§1).
-- Hosted CI on the third run's commit; it can only run once the commit is pushed.
+- Hosted CI and Nightly on the third run's own commit. That commit is not pushed. Hosted CI ran on
+  its base `a047c6bd2`, whose application code differs only in the P2P probe.
 - RC-ENG-8.17 to 8.20's specs (read against the code, not run).
 - A screen reader, 200% zoom, a player's shell, a live session's Screens chooser, long pin lists,
   the signed-in Account control, and Spanish title fit above 1440px.
@@ -777,13 +787,13 @@ First run:
 ### 8. Reproducing
 
 From a clean checkout, with `<dir>` a scratch path, `<port>` a free port and `<commit>` the commit
-that carries this record (its application tree must equal `aa300d6d5` apart from the third-run
-`verify-p2p-live.mjs` fix):
+that carries this record (its tree outside `docs` and `state` must equal `a047c6bd2` apart from
+the third-run `verify-p2p-live.mjs` fix):
 
 ```sh
 git worktree add --detach <dir> <commit>
 cd <dir> && pnpm install --frozen-lockfile
-git diff --stat aa300d6d5 HEAD -- apps packages scripts tests
+git diff --stat a047c6bd2 HEAD -- apps packages scripts tests .github
 pnpm feature-audit && pnpm gates && pnpm test:coverage:core
 pnpm exec tsx scripts/i18n-catalog.ts export --dir <dir>/i18n --locale es
 pnpm security:secrets && pnpm security:audit
@@ -794,21 +804,22 @@ pnpm exec vitest run src/app/nav.test.ts src/app/shell/TableControls.test.tsx \
   src/app/shell/sections.test.ts src/i18n/section-vocabulary.test.ts
 gh run view 40201160971 --json jobs
 gh run view 40205169106 --log-failed | grep 'smoke-parity.cjs:'
+gh run view 40211540957 --json jobs --jq '.jobs[] | "\(.name) \(.conclusion)"'
 gh run list --workflow perf.yml --event schedule
 gh run list --workflow Nightly
 gh run list --workflow 'Supply Chain' --branch loop/rc
 ```
 
-The third run's two checks, from `<dir>`. The smoke check puts `16ffc75c4`'s file on the scratch
-tree first; leave that line out to see the unfixed failure. The smoke needs the build first, and
-`--network=none` keeps the container offline. `verify:p2p-live` runs against a `vite` dev server on `<port>`. In this
+The third run's two checks, from `<dir>`. To see the unfixed smoke failure, first put
+`aa300d6d5`'s `smoke-parity.cjs` on the scratch tree:
+`git checkout aa300d6d5 -- apps/gm-react/electron/smoke-parity.cjs`. The smoke needs the build
+first, and `--network=none` keeps the container offline. `verify:p2p-live` runs against a `vite` dev server on `<port>`. In this
 dispatcher worktree, `require('playwright')` in the verify scripts failed with `MODULE_NOT_FOUND`
 (the app depends on `@playwright/test`), so the run set `NODE_PATH` to pnpm's `playwright` package.
 Hosted Nightly resolved it without that (`verify:p2p-live` passed in 3.9s on `09524f2e6`, run
 40178768721); the cause was not investigated.
 
 ```sh
-git checkout 16ffc75c4 -- apps/gm-react/electron/smoke-parity.cjs
 pnpm --filter @dndtools/gm-react exec node scripts/ensure-electron.mjs
 pnpm --filter @dndtools/gm-react exec vite build
 docker run --rm --init --ipc=host --network=none --user "$(id -u):$(id -g)" \
@@ -823,7 +834,5 @@ NODE_PATH="$PWD/../../node_modules/.pnpm/playwright@1.61.1/node_modules" \
 The four IA tasks and the review probes were scratch specs under `apps/gm-react/tests/e2e/`, run
 with `DNDTOOLS_E2E_PORT=<port>` and a per-test viewport, and deleted afterwards. The preview check
 waits for the Characters heading before choosing Preview as player. Before citing this verdict
-for another commit, run `git diff --stat aa300d6d5 <commit> -- . ':!docs' ':!state'`. Output that
-lists only `apps/gm-react/scripts/verify-p2p-live.mjs`, plus `electron/smoke-parity.cjs` once R3-1's
-fix lands, means the same application code. Anything else means the
-audit runs again. The first run's equivalent base was `3cbf4b7cc`.
+for another commit, run `git diff --stat <this record's commit> <commit> -- . ':!docs' ':!state'`.
+Empty output means the same code. Anything else means the audit runs again. The first run's equivalent base was `3cbf4b7cc`.

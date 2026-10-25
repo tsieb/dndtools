@@ -3351,12 +3351,12 @@ RC_CHECKLIST.md` (the §2 gates as a runnable list with commands), `release.yml`
   `ci-recovery-2c97e96f8c25` owns that fix. Once `ci-gate` is green on a `loop/rc` head whose only
   application change from `aa300d6d5` is that fix, re-run the three IA-1 specs and the four IA
   tasks there and record the result. The second run's other findings are RC-ENG-16.1 to 16.6.
-  The third run, 2026-10-25, met zero unverifiable claims and the open-limit bar. It fixed R3-2:
+  The third run, 2026-10-25, on `loop/rc` `a047c6bd2` plus the R3-2 fix, **passed**. The base
+  carries `ci-recovery-2c97e96f8c25`'s smoke fix (R3-1). Hosted `ci-gate` and Electron smoke
+  passed there (CI 40211540957), and the smoke passed locally in the CI image on the candidate.
   `verify:p2p-live` now follows the Table controls sheet and the "Host table" names, and passes
-  4 of 4. That file is outside this story's claim and awaits the operator's ruling. R3-1's fix is
-  `ci-recovery-2c97e96f8c25`'s candidate `16ffc75c4`, which this commit does not carry. With that
-  file on a scratch copy, the desktop smoke passed 3 of 3 runs in the CI image, and the IA-1 specs
-  passed again. The precondition closes once that task lands and hosted `ci-gate` is green.
+  4 of 4. The three IA-1 specs passed again (78 of 78). RC-ENG-7.2 may start. Its own §2.2 and
+  §2.3 bars are still open (RC_CHECKLIST exit audit §1).
 
 ### Epic ENG-8 — Early access: primary paths before platform depth (P2→P3)
 
@@ -4151,7 +4151,10 @@ these on the delta since the first run. Record:
   zizmor `ref-version-mismatch` on the `aws-actions/setup-sam` pin `89ddb14d…` `# v3`: the `v3`
   tag now points to `341eee193f45`, and the pinned hash is no tag (`deploy.yml:158`,
   `promote-production.yml:124`). Re-pin both to the tagged commit with a matching comment. Acceptance: Supply Chain passes on the `loop/rc` head, and the
-  RC checklist's Release item is not blocked by it.
+  RC checklist's Release item is not blocked by it. Status (RC-ENG-7.3 third run, 2026-10-25): the
+  re-pin landed outside the dispatcher in `e451763bf`. Supply Chain passed on it (run 40205169236)
+  and on `a047c6bd2` (run 40212936193, on `main`), so the acceptance is met. The dispatcher store
+  does not hold this story.
 - **RC-ENG-16.2 — The palette finds Tools, billing and the old section names.** `S` · P4 · Deps:
   none · Owns: `apps/gm-react/src/app/CommandPalette.tsx`, `apps/gm-react/src/app/nav.ts`,
   `apps/gm-react/src/screens/settings/Subscription.tsx`, `apps/gm-react/src/i18n/messages/en.ts`,
