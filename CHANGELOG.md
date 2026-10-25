@@ -6,6 +6,28 @@ v1 document-editor have been removed; that application's last state is preserved
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-10-25
+
+### For players and GMs
+
+- The app is organised into six sections on every device: Screens, Characters, Maps, Story, Notes
+  and Tools. On a phone the Screens tab opens a short list with the Command Center, the DM screen,
+  Session, your pinned screens and the full library.
+- A new Tools page gathers audio, extensions and community in one place.
+- A character finished in the builder keeps the ability scores and stats the builder showed.
+- Character history now records rests, combats and level-ups.
+- Starting a session picks a scene your players can see, and falls back to a private one only when
+  none is shareable.
+- An imported map image shows in the map editor straight away.
+- Shipped game-system vocabulary is translated into Spanish, and systems you forked keep the words
+  you wrote.
+- Help has a way to send beta feedback.
+
+### Security
+
+- Updated Electron, Vite, Zod and the network libraries underneath them for seven published
+  high-severity advisories.
+
 ## [0.4.4] - 2026-10-14
 
 Same application as 0.4.3. 0.4.3's Android release check could not reach the app's private storage
