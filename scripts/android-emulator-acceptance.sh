@@ -282,6 +282,15 @@ tap_ui_button_scrolling() {
 	tap_ui_scrolling tap_ui_button "$1" down
 }
 
+# IA-1 (RC-ENG-15.1): the phone tabs are Screens, Characters, Maps and More. Command Center and
+# Session are rows in the sheet the Screens tab opens ("Open a screen"), not tabs of their own.
+open_screen_shortcut() {
+	tap_ui_button 'Screens' || return 1
+	wait_for_ui_text 'Open a screen' || return 1
+	tap_ui_button "$1" || return 1
+	wait_for_ui_text_absent 'Open a screen'
+}
+
 # Tap any accessibility node containing the label (class-agnostic — the WebView surfaces
 # radio/option roles with varying native classes, unlike the Button-only helper above).
 tap_ui_node() {
@@ -480,14 +489,20 @@ wait_for_pid >/dev/null || fail 'dismissing first-run setup terminated the app p
 wait_for_ui_text_absent 'Skip setup' || fail 'Back did not dismiss first-run setup'
 wait_for_ui_text 'Open scene' || fail 'root destination did not render after first-run setup'
 
-# A fresh vault starts empty (RC-UX-3.6). Opening the Command Center scene creates the scene a
-# session can start on; Home then returns to the root destination for the checks below. On a fresh
-# vault the first-session guide (RC-UX-6.3) fills the phone screen above the CTA, so scroll to it.
+# A fresh vault starts empty (RC-UX-3.6). Opening the Command Center scene creates only the DM's
+# home board, a workspace a session never starts on (RC-ENG-8.6), so create a screen from the
+# library's default template, as a DM would. Command Center then returns to the root destination
+# for the checks below. On a fresh vault the first-session guide (RC-UX-6.3) fills the phone screen
+# above the CTA, so scroll to it.
 step 'fresh vault scene'
 tap_ui_button_scrolling 'Open scene' || fail 'Open scene was not reachable on the fresh vault'
 wait_for_ui_text 'New screen' || fail 'Open scene did not open the Screens library'
-tap_ui_button 'Home' || fail 'Home navigation control was not reachable from Screens'
-wait_for_root_destination || fail 'Home did not return to the root destination'
+tap_ui_button 'New screen' || fail 'New screen was not reachable in the Screens library'
+wait_for_ui_text 'Create screen' || fail 'the New screen dialog did not open'
+tap_ui_button 'Create screen' || fail 'the New screen dialog could not be confirmed'
+wait_for_ui_text_absent 'Create screen' || fail 'the new screen was not created'
+open_screen_shortcut 'Command Center' || fail 'Command Center was not reachable from the new screen'
+wait_for_root_destination || fail 'Command Center did not return to the root destination'
 
 # Exercise renderer history and commit a real Core command before the final root-level minimize
 # check. "players see" is rendered only after session.set-workflow was accepted, so observing it now
@@ -495,7 +510,7 @@ wait_for_root_destination || fail 'Home did not return to the root destination'
 # Keep the former acceptance-contract token in this comment for source-level CI compatibility:
 # "Session is in standby" was the pre-UX-copy assertion; runtime checks now use "Players see".
 step 'accepted session command and router Back'
-tap_ui_button 'Session' || fail 'Session navigation control was not reachable'
+open_screen_shortcut 'Session' || fail 'Session was not reachable from the Screens sheet'
 wait_for_ui_text 'LIVE SESSION' || fail 'Session destination did not render'
 # RC-SES-6.2 renamed the header primary "Go live" to "Start session". It opens the start dialog,
 # whose confirm button carries the same label. The dialog's own description says "the scene players
@@ -587,7 +602,7 @@ wait_until_foreground || fail 'Back did not cancel the Android file picker'
 wait_for_ui_text 'Local backup' || fail 'file-picker cancellation did not return to Local backup'
 wait_for_ui_text_absent 'not a valid vault backup' \
 	|| fail 'file-picker cancellation surfaced as an invalid backup'
-tap_ui_button 'Home' || fail 'Home navigation control was not reachable after native surfaces'
+open_screen_shortcut 'Command Center' || fail 'Command Center was not reachable after native surfaces'
 wait_for_root_destination || fail 'native surface cancellation lost renderer navigation state'
 
 # Exercise an actual sheet as the topmost Back layer.
@@ -740,13 +755,13 @@ if [[ -n "$PRIVATE_ACCESS" ]]; then
 fi
 wait_for_root_destination || fail 'offline cold relaunch did not render the root destination'
 # As after the new-process restart below: a rendered root does not prove the cold process is idle.
-# Tap Session only once the app's own window holds focus in two consecutive idle dumps.
+# Open Session only once the app's own window holds focus in two consecutive idle dumps.
 wait_for_settled_app_rotation 0 || fail 'the offline relaunch did not settle before Session'
-tap_ui_button 'Session' || fail 'Session was not reachable after offline process death'
+open_screen_shortcut 'Session' || fail 'Session was not reachable after offline process death'
 wait_for_ui_text 'LIVE SESSION' || fail 'Session did not render after offline process death'
 wait_for_ui_text 'Players see' \
 	|| fail 'the accepted session command was not restored after offline process death'
-tap_ui_button 'Home' || fail 'Home was not reachable after persisted-command verification'
+open_screen_shortcut 'Command Center' || fail 'Command Center was not reachable after persisted-command verification'
 wait_for_root_destination || fail 'persisted-command verification did not return to root'
 
 # Background/resume must retain both process state and private data.

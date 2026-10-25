@@ -429,7 +429,7 @@ describe('Android emulator acceptance gate', () => {
 			line.startsWith("wait_for_root_destination || fail 'offline cold relaunch"),
 		);
 		const settled = at((line) => line.startsWith('wait_for_settled_app_rotation 0 || fail'));
-		const tapSession = at((line) => line.startsWith("tap_ui_button 'Session' || fail"));
+		const tapSession = at((line) => line.startsWith("open_screen_shortcut 'Session' || fail"));
 		expect(offline).toBeGreaterThan(-1);
 		expect(wifiOff).toBeGreaterThan(offline);
 		expect(noNetwork, 'relaunched before the default network was gone').toBeGreaterThan(wifiOff);
