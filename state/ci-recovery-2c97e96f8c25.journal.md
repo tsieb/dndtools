@@ -6,7 +6,7 @@
 - Read failed logs for attempts 1 and 2 of https://github.com/tsieb/dndtools/actions/runs/40193334049.
 - Both fail Electron parity at `smoke-parity.cjs:142`, waiting to click Start session.
 - RC-ENG-15.2 moved session controls into Table controls below 1440px. Electron's default and restored windows are narrower; the smoke never opens the sheet.
-- The repair requires the directly failing Electron smoke file, outside the scheduler's enumerated owned paths. Keep this exception limited to that test and this required journal; no product or protection changes.
+- The repair requires the directly failing Electron smoke file, outside the scheduler's enumerated owned paths. Claim widening is required for that test and this required journal; no product or protection changes.
 - Host lacks xvfb-run; use the installed Playwright Noble container with Xvfb, no network, and the mounted task checkout for reproduction and verification.
 
 ## Verification
@@ -30,3 +30,11 @@ docker run --rm --init --ipc=host --network=none --user "$(id -u):$(id -g)" \
 ```
 
 No push, promotion, loop launch, or dispatcher control-state edit. Central gates and independent review remain the operator's next step.
+
+## Ownership gate follow-up
+
+- Reviewed the retry feedback and the complete diff against base `2c97e96f8c25f310ea09294e4735d9418279147e`. Only `apps/gm-react/electron/smoke-parity.cjs` and this journal differ; there are no unrelated changes to revert.
+- Retain `apps/gm-react/electron/smoke-parity.cjs`: it is the test failing in both CI attempts and in the local reproduction. Its stale interactions must follow the current compact shell and accessible names. Reverting it restores the reported failure; changing the product or bypassing the smoke to fit the stale test would not be an appropriate repair.
+- Retain `state/ci-recovery-2c97e96f8c25.journal.md`: the task explicitly requires a current run journal containing diagnosis and verification evidence.
+- The ownership gate has not approved these paths. Per the retry instruction, the follow-up commit records why each is necessary so the operator can decide whether to widen the claim. No claim or dispatcher state was changed.
+- Re-read the original local failure and final passing smoke logs. Test code is unchanged from the verified candidate; this follow-up changes documentation only. Formatting and whitespace checks passed.
