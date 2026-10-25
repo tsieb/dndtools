@@ -61,6 +61,7 @@ export function RailNav({ onOpenPalette }: { onOpenPalette: () => void }) {
 	return (
 		<>
 			<div
+				data-testid="nav-rail"
 				style={{
 					width: 'calc(64px + var(--safe-area-left, 0px))',
 					flex: '0 0 auto',

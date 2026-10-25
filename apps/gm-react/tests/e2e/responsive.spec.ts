@@ -560,11 +560,19 @@ test('the 640/641 shell switch and desktop-window minimum select the intended na
 			expect(box.x).toBeLessThanOrEqual(1);
 			expect(box.width).toBeGreaterThanOrEqual(63);
 			expect(box.width).toBeLessThanOrEqual(65);
-			expect(box.height).toBeGreaterThanOrEqual(expected.height - 1);
+			// IA-1 — Primary is the first of the rail's landmarks; the column holding them all is
+			// the full-height rail.
+			const rail = await page.getByTestId('nav-rail').boundingBox();
+			expect(rail?.height ?? 0).toBeGreaterThanOrEqual(expected.height - 1);
 		} else {
 			expect(box.width).toBeGreaterThan(200);
 			expect(box.width).toBeLessThan(264);
-			await expect(primary.getByText('Run the table', { exact: true })).toBeVisible();
+			await expect(primary.getByRole('button', { name: /^Tools/ })).toBeVisible();
+			await expect(
+				page
+					.getByRole('navigation', { name: 'Screen shortcuts' })
+					.getByText('Run the table', { exact: true }),
+			).toBeVisible();
 		}
 		await expectNoHorizontalOverflow(page, `${expected.width}px ${expected.profile} shell`);
 	}

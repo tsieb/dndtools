@@ -373,6 +373,8 @@ const routes = [
 	'/audio',
 	'/extensions',
 	'/community',
+	// RC-ENG-15.1 — IA-1's Tools landing.
+	'/tools',
 	'/upgrade',
 	'/player',
 	'/settings',
