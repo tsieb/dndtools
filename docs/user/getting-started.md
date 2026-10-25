@@ -103,7 +103,7 @@ Sources** links to the same hub. Choose a row to open its existing import flow a
   matching notes are skipped by default. Overwriting needs confirmation.
 - **Character JSON:** includes D&D Beyond exports. Review the mapped fields before adding
   a new character. Existing characters remain unchanged.
-- **Map images and external formats:** opens the Maps import dialog for the selected map.
+- **Map images and external formats:** opens the Atlas import dialog for the selected map.
   If your vault has no map, create the destination first. Image imports preview a new layer
   and grid/scale changes. The existing external-format review does not parse map JSON files.
 - **Audio files:** adds a local asset, reusing identical file contents.

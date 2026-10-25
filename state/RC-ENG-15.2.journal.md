@@ -42,8 +42,9 @@ top-bar view-as", Maps/Story/Notes, `{gm} screen`), RC_ROADMAP Epic ENG-15.
   (`mapEditor.backToAtlas` "Back to Maps", `settings.vault.manageInKnowledge` "Manage in Notes",
   empty-state captions, broken-link hints), `campaign.title`/`campaign.sections` → Story. "Campaign"
   left where it names the user's campaign (Campaign name, Campaign calendar/timeline, Data Hub tab).
-  New keys appended at the end of en.ts/es.ts. `docs/user/getting-started.md:106` "Atlas import
-  dialog" → "Maps import dialog" (one word; the guide renders in Help).
+  New keys appended at the end of en.ts/es.ts. (A one-word `docs/user/getting-started.md:106`
+  "Atlas import dialog" edit was reverted after gate feedback: outside the claim and not required
+  by the acceptance criteria.)
 - Raw-style allow-list: ViewAsControl 13 → 9 (its sizing moved to `tableControlBox`).
 - qps-ploc regenerated (`npx tsx scripts/i18n-catalog.ts pseudo`); `vitest src/i18n` 54 passed.
 - New `src/app/shell/TableControls.test.tsx` (app config; `net/*.test.tsx` runs under neither
@@ -80,3 +81,12 @@ top-bar view-as", Maps/Story/Notes, `{gm} screen`), RC_ROADMAP Epic ENG-15.
 --workers=2`: 588 passed (12.0m).
 - Not covered by e2e by design: Account (the e2e server is never cloud-configured); held by
   `TableControls.test.tsx`.
+
+## Attempt after gate feedback (out-of-claim path)
+
+- Gate: `docs/user/getting-started.md` is outside the claim. Reverted to base `f79675059`
+  (`git checkout f79675059e39… -- docs/user/getting-started.md`). Not required by the acceptance
+  criteria: the Help guide prose is not one of the table-control labels or catalog messages, and no
+  test or golden reads that line (the visual re-baseline rewrote no Help/palette golden while the
+  edit was present, so no capture shows it). The remaining "Atlas import dialog" wording in that
+  guide is left for whoever owns `docs/user`.
