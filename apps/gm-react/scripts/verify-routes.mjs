@@ -13,9 +13,23 @@ const { chromium } = require('playwright');
 
 const BASE = process.env.REACT_URL ?? 'http://localhost:5273';
 const routes = [
-	'/', '/board', '/scenes', '/session', '/characters', '/atlas', '/campaign',
-	'/knowledge', '/graph', '/audio', '/extensions', '/community', '/player',
-	'/play', '/upgrade', '/settings', '/wiki',
+	'/',
+	'/board',
+	'/scenes',
+	'/session',
+	'/characters',
+	'/atlas',
+	'/campaign',
+	'/knowledge',
+	'/graph',
+	'/audio',
+	'/extensions',
+	'/community',
+	'/player',
+	'/play',
+	'/upgrade',
+	'/settings',
+	'/wiki',
 ];
 
 const browser = await chromium.launch();
@@ -36,10 +50,14 @@ for (const route of routes) {
 		// resolve to home and false-green the check. `route` already begins with `/`, so `/#${route}`.
 		await page.goto(`${BASE}/#${route}`, { waitUntil: 'networkidle', timeout: 20000 });
 		await page.waitForTimeout(600); // let lazy chunks + effects settle
-		const rootHtml = await page.evaluate(() => document.getElementById('root')?.innerHTML?.length ?? 0);
+		const rootHtml = await page.evaluate(
+			() => document.getElementById('root')?.innerHTML?.length ?? 0,
+		);
 		const ok = errors.length === 0 && rootHtml > 200;
 		if (!ok) fails++;
-		console.log(`${ok ? '✓' : '✗'} ${route.padEnd(14)} root=${rootHtml}b ${errors.length ? '\n   ' + errors.slice(0, 4).join('\n   ') : ''}`);
+		console.log(
+			`${ok ? '✓' : '✗'} ${route.padEnd(14)} root=${rootHtml}b ${errors.length ? '\n   ' + errors.slice(0, 4).join('\n   ') : ''}`,
+		);
 	} catch (e) {
 		fails++;
 		console.log(`✗ ${route.padEnd(14)} NAV FAILED: ${e.message}`);
@@ -47,5 +65,7 @@ for (const route of routes) {
 	await page.close();
 }
 await browser.close();
-console.log(`\n${fails === 0 ? `✓ ALL ${routes.length} ROUTES CLEAN` : `✗ ${fails}/${routes.length} routes had errors`}`);
+console.log(
+	`\n${fails === 0 ? `✓ ALL ${routes.length} ROUTES CLEAN` : `✗ ${fails}/${routes.length} routes had errors`}`,
+);
 process.exit(fails === 0 ? 0 : 1);

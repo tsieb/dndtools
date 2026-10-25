@@ -36,7 +36,10 @@ try {
 
 	// Shell host control: its accessible name is the aria-label "Host a live table" (idle) or
 	// "Hosting N players" (already live) — NOT the compact-hidden visible "Host" text.
-	await host.getByRole('button', { name: /^Host a live table$|^Hosting \d/ }).first().click();
+	await host
+		.getByRole('button', { name: /^Host a live table$|^Hosting \d/ })
+		.first()
+		.click();
 	// The LAN-start button is labelled "Host on local network" (was "Start hosting" before the
 	// online-play UI landed). Clicking it flips the modal into host mode and reveals "Create invite".
 	await host.getByRole('button', { name: 'Host on local network' }).click();
@@ -65,7 +68,11 @@ try {
 	const answerField = joiner.locator('textarea[readonly]').first();
 	await answerField.waitFor({ state: 'visible', timeout: 15000 });
 	const answerCode = await answerField.inputValue();
-	check('joiner produced a reply (answer) code', answerCode.length > 40, `${answerCode.length} chars`);
+	check(
+		'joiner produced a reply (answer) code',
+		answerCode.length > 40,
+		`${answerCode.length} chars`,
+	);
 
 	// --- HOST accepts the answer → the data channel forms ---
 	await host.getByPlaceholder('Paste the reply code from the player…').fill(answerCode);
@@ -76,13 +83,21 @@ try {
 	check('joiner connected to the host over WebRTC', true);
 
 	// The host should show a live connected peer.
-	const livePeer = await host.getByText(/· player · live|live/i).first().count().catch(() => 0);
+	const livePeer = await host
+		.getByText(/· player · live|live/i)
+		.first()
+		.count()
+		.catch(() => 0);
 	check('host shows a connected player', livePeer >= 0); // presence rendered; non-fatal detail
 
 	await hostCtx.close();
 	await joinCtx.close();
 } catch (err) {
-	check('verify-p2p-live ran without throwing', false, err instanceof Error ? err.message : String(err));
+	check(
+		'verify-p2p-live ran without throwing',
+		false,
+		err instanceof Error ? err.message : String(err),
+	);
 } finally {
 	await browser.close();
 }
