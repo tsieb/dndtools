@@ -6,6 +6,20 @@ v1 document-editor have been removed; that application's last state is preserved
 
 ## [Unreleased]
 
+## [0.4.6] - 2026-10-26
+
+### For players and GMs
+
+- The top bar on a wide screen shows Host table, Preview as player, Start or End session and
+  Account with their names. On narrower screens one Table controls button opens the same controls
+  as a labelled list.
+- Account opens a menu instead of signing you out on a single press.
+- Settings, imports, the wiki publisher and map captions now point you to Maps, Notes and
+  Notes → Sources, matching the section names, in English and Spanish.
+- Old bookmarks to the board and the earlier section addresses open the right screen.
+- The Privacy Policy and Terms of Service name who runs Lamplight and how to reach us:
+  support@lamplight.click.
+
 ## [0.4.5] - 2026-10-25
 
 ### For players and GMs
