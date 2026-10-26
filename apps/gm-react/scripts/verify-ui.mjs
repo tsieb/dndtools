@@ -176,15 +176,20 @@ await trial('Atlas · New map', '/atlas', async (p) => {
 	await fillFirst(p, 'UI Gate Map');
 	await click(p, /create|add|save/i);
 });
-// Session — Go live → session.set-workflow on one click
-await trial('Session · Go live', '/session', async (p) => {
-	await click(p, /go live|start session/i);
-});
+// Session — Start session opens the "Start a session" dialog; confirming it → session.set-workflow.
+const startSession = async (p) => {
+	await click(p, /^start session$/i);
+	await p
+		.getByRole('dialog', { name: 'Start a session' })
+		.getByRole('button', { name: 'Start session', exact: true })
+		.click({ timeout: 5000 });
+};
+await trial('Session · Go live', '/session', startSession);
 // Session — Build encounter → pick a real roster member → Roll initiative → encounter.build + combat.start.
 // NOTE each trial's page is an ISOLATED browser context (fresh vault), so the trial goes live itself —
 // Build encounter is core-gated to the active workflow.
 await trial('Session · Build encounter', '/session', async (p) => {
-	await click(p, /go live|start session/i);
+	await startSession(p);
 	await p.waitForTimeout(500);
 	await click(p, /build encounter/i);
 	await p.waitForTimeout(400);
