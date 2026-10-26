@@ -26,17 +26,18 @@ case-sensitive usernames (the client canonicalizes emails); the prod pool is cas
 
 ## Stacks, in deploy order
 
-| #   | Stack         | Purpose                                                                                                                                                          | Always-on cost          |
-| --- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| 0   | `edge-cert`   | us-east-1 ACM certificate for the custom domain; deploy once                                                                                                     | none                    |
-| 1   | `foundation`  | Budget and cost-anomaly alerts, OIDC deploy role, SSM namespace, alerts topic (+ KMS key in prod), the stage dashboard                                           | ~$1/mo (prod)           |
-| 2   | `identity`    | Cognito user pool and client; the SES configuration set every mail goes through                                                                                  | none                    |
-| 3   | `turn`        | coturn on EC2 `t4g.nano` + Elastic IP + credential Lambda                                                                                                        | ~$7.70/mo (prod only)   |
-| 3.5 | `edge-waf`    | us-east-1 per-IP rate-limiting WAF web ACL for the public edge (prod only on cost grounds)                                                                       | ~$6/mo (prod)           |
-| 4   | `app-api`     | HTTP API + Lambda + DynamoDB (accounts, entitlements, invites, listings) + S3 (modules) + telemetry Lambda + Stripe webhook Lambda + protected CloudFront origin | ~$0.40/mo secret (prod) |
-| 5   | `signaling`   | WebSocket API + Lambdas + DynamoDB (rooms, connections, TTL)                                                                                                     | none                    |
-| 6   | `sync-api`    | HTTP API + Lambdas + DynamoDB (op index) + S3 (ciphertext) + the Cloud-Enhanced KMS key                                                                          | none                    |
-| 7   | `web-hosting` | Private S3 + CloudFront (OAC) + CSP header + `edge-waf` ACL                                                                                                      | none                    |
+| #   | Stack          | Purpose                                                                                                                                                          | Always-on cost          |
+| --- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| 0   | `edge-cert`    | us-east-1 ACM certificate for the custom domain; deploy once                                                                                                     | none                    |
+| 1   | `foundation`   | Budget and cost-anomaly alerts, OIDC deploy role, SSM namespace, alerts topic (+ KMS key in prod), the stage dashboard                                           | ~$1/mo (prod)           |
+| 2   | `identity`     | Cognito user pool and client; the SES configuration set every mail goes through                                                                                  | none                    |
+| 3   | `turn`         | coturn on EC2 `t4g.nano` + Elastic IP + credential Lambda                                                                                                        | ~$7.70/mo (prod only)   |
+| 3.5 | `edge-waf`     | us-east-1 per-IP rate-limiting WAF web ACL for the public edge (prod only on cost grounds)                                                                       | ~$6/mo (prod)           |
+| 4   | `app-api`      | HTTP API + Lambda + DynamoDB (accounts, entitlements, invites, listings) + S3 (modules) + telemetry Lambda + Stripe webhook Lambda + protected CloudFront origin | ~$0.40/mo secret (prod) |
+| 5   | `signaling`    | WebSocket API + Lambdas + DynamoDB (rooms, connections, TTL)                                                                                                     | none                    |
+| 6   | `sync-api`     | HTTP API + Lambdas + DynamoDB (op index) + S3 (ciphertext) + the Cloud-Enhanced KMS key                                                                          | none                    |
+| 7   | `web-hosting`  | Private S3 + CloudFront (OAC) + CSP header + `edge-waf` ACL                                                                                                      | none                    |
+| —   | `support-mail` | Prod only, operator-deployed: SES receipt rule + forwarder Lambda for support@, apex MX/DMARC                                                                    | pennies (per message)   |
 
 Stacks couple through SSM under `/dndtools/<stage>/…`, never `ImportValue`, so any one can be
 updated alone once its inputs exist. Two deploy-time couplings enforce the order: `signaling`
@@ -187,6 +188,29 @@ signaling tables (TTL session state) and the web-hosting bucket (rebuildable fro
 intentionally not retained; a tooling guardrail inventories every table and bucket so a new one
 cannot skip the decision. These policies protect only CloudFormation operations, not a principal
 with direct delete permissions.
+
+## Support mailbox (prod only)
+
+`support-mail` makes `support@lamplight.click` a working address with no mail provider beyond SES.
+SES receives the message (the stack owns the apex MX record), stores it in a private bucket that
+expires objects after 30 days, and a Lambda forwards it to the operator's inbox with the sender as
+Reply-To. Spam and virus verdicts are dropped at the Lambda and stay readable in the bucket. No
+workflow deploys it. One-time setup, with the operator profile:
+
+1. Set the destination (kept out of the repository):
+   `aws ssm put-parameter --profile dndtools-prod --region ca-central-1 --type String --name /dndtools/prod/support-mail/forward-to --value <inbox>`
+2. `infra/deploy.sh support-mail prod`
+3. Activate the rule set. CloudFormation cannot, and a region has only one active set:
+   `aws ses set-active-receipt-rule-set --profile dndtools-prod --region ca-central-1 --rule-set-name dndtools-prod-support-mail`
+4. To reply as support@, create one access key for the stack's send-only IAM user
+   `dndtools-prod-support-smtp` and convert its secret into an SES SMTP password (AWS's documented
+   SigV4 derivation for `ca-central-1`). In Gmail: Settings → Accounts → Send mail as → add
+   `support@lamplight.click`, SMTP server `email-smtp.ca-central-1.amazonaws.com`, port 587, TLS,
+   with the key id as the username. Gmail's confirmation mail arrives through the forwarder. The
+   user may only send with that From address.
+
+Check: mail to support@ arrives in the inbox within a minute, and the forwarder's errors alarm stays
+`OK`. A forwarding failure leaves the message in the bucket under `inbound/<SES message id>`.
 
 ## Post-deploy verification
 
