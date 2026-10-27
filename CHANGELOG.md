@@ -6,6 +6,14 @@ v1 document-editor have been removed; that application's last state is preserved
 
 ## [Unreleased]
 
+## [0.4.7] - 2026-10-26
+
+### For players and GMs
+
+- Accounts, plans, invites and the wiki reach Lamplight's servers through a new protected address,
+  behind a web firewall. Desktop and Android installs from 0.4.6 or earlier need this update for
+  those features.
+
 ## [0.4.6] - 2026-10-26
 
 ### For players and GMs
