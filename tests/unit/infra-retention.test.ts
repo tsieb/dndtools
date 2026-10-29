@@ -28,6 +28,8 @@ const intentionallyRebuildableStorage = new Set([
 	'signaling/template.yaml:AttemptsTable',
 	'signaling/template.yaml:ConnectionsTable',
 	'signaling/template.yaml:RoomsTable',
+	// Transit buffer: the forwarded copy in the operator's inbox is the record.
+	'support-mail/template.yaml:InboundBucket',
 	'web-hosting/template.yaml:WebBucket',
 ]);
 

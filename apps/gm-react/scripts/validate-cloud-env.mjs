@@ -26,14 +26,17 @@ if (required || configured) {
 	}
 }
 
-function endpoint(name, value, protocol) {
+// `bareOrigin` admits a URL with no path at all: the protected app API edge (CloudFront) adds the
+// stage itself through its origin path, so its published URL is just `https://<distribution>`.
+function endpoint(name, value, protocol, { bareOrigin = false } = {}) {
 	if (!value) return null;
 	try {
 		const url = new URL(value);
 		if (url.protocol !== protocol) errors.push(`${name} must use ${protocol}`);
 		if (url.username || url.password || url.search || url.hash)
 			errors.push(`${name} must not contain credentials, a query, or a fragment`);
-		if (url.pathname === '/' || url.pathname.endsWith('/'))
+		if (value.endsWith('/')) errors.push(`${name} must have no trailing slash`);
+		else if (url.pathname === '/' ? !bareOrigin : url.pathname.endsWith('/'))
 			errors.push(`${name} must include a stage path and have no trailing slash`);
 		return url.origin;
 	} catch {
@@ -76,7 +79,7 @@ if (values.client && !/^[a-z0-9]{1,128}$/.test(values.client))
 const expectedCloud = new Set();
 const signalingOrigin = endpoint('signaling URL', values.signaling, 'wss:');
 const syncOrigin = endpoint('sync API URL', values.sync, 'https:');
-const appOrigin = endpoint('app API URL', values.app, 'https:');
+const appOrigin = endpoint('app API URL', values.app, 'https:', { bareOrigin: true });
 for (const origin of [signalingOrigin, syncOrigin, appOrigin])
 	if (origin) expectedCloud.add(origin);
 

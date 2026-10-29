@@ -48,7 +48,16 @@ const DEV_IDENTITY = {
 };
 
 /** A complete object is required: partial production identities must not silently ship. */
-const PROD_IDENTITY: typeof DEV_IDENTITY = DEV_IDENTITY;
+const PROD_IDENTITY: typeof DEV_IDENTITY = {
+	entityName: 'Jade Sieb',
+	mailingAddress: '1576 Kitchener St, Vancouver, BC V5L 2V9, Canada',
+	contactEmail: 'support@lamplight.click',
+	governingLaw: 'British Columbia, Canada',
+	// The day these terms reach production; move it with every substantive change.
+	effectiveDate: 'October 26, 2026',
+	// RC-CLD-2.9 builds the sweep that deletes a lapsed vault after this period.
+	cloudRetention: '30 days',
+};
 
 export const LEGAL_IDENTITY =
 	import.meta.env.VITE_CLOUD_STAGE === 'prod' ? PROD_IDENTITY : DEV_IDENTITY;

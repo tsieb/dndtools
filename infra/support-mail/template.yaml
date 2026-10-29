@@ -1,0 +1,230 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  dndtools support mailbox (prod only, operator-deployed). SES receives mail for the support
+  address on the apex domain, stores each message in a short-lived private bucket, and a Lambda
+  forwards it to the operator's inbox with the sender as Reply-To. A send-only IAM user lets the
+  operator's mail client reply as the support address through the SES SMTP endpoint. The stack
+  also owns the apex MX and DMARC records. After the first deploy, activate the rule set once
+  (see infra/README.md, "Support mailbox").
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: dndtools
+  Stage:
+    Type: String
+    AllowedValues: [prod]
+  Domain:
+    Type: String
+    Default: lamplight.click
+  SupportLocalPart:
+    Type: String
+    Default: support
+  HostedZoneId:
+    Type: AWS::Route53::HostedZone::Id
+    Description: The public hosted zone for Domain, in this account.
+  InboundRetentionDays:
+    Type: Number
+    Default: 30
+    Description: >
+      Days a received message stays in the inbound bucket. The bucket is a transit buffer: the
+      forwarded copy in the operator's inbox is the record, so the stored copy only covers a failed
+      forward or a dropped false-positive spam verdict.
+  LogRetentionDays:
+    Type: Number
+    Default: 90
+
+Globals:
+  Function:
+    Runtime: nodejs24.x
+    Architectures: [arm64]
+    MemorySize: 256
+    Timeout: 30
+    PermissionsBoundary: !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/meta/permissions-boundary-arn}}'
+
+Resources:
+  # Transit only, so it is rebuildable rather than retained (tests/unit/infra-retention.test.ts).
+  InboundBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-inbound-mail
+            Status: Enabled
+            ExpirationInDays: !Ref InboundRetentionDays
+
+  InboundBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref InboundBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowSesReceiptRule
+            Effect: Allow
+            Principal:
+              Service: ses.amazonaws.com
+            Action: s3:PutObject
+            Resource: !Sub '${InboundBucket.Arn}/inbound/*'
+            Condition:
+              StringEquals:
+                'aws:SourceAccount': !Ref AWS::AccountId
+              ArnLike:
+                'aws:SourceArn': !Sub 'arn:aws:ses:${AWS::Region}:${AWS::AccountId}:receipt-rule-set/${ProjectName}-${Stage}-support-mail:receipt-rule/*'
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !GetAtt InboundBucket.Arn
+              - !Sub '${InboundBucket.Arn}/*'
+            Condition:
+              Bool:
+                'aws:SecureTransport': 'false'
+
+  ForwarderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: forwarder/
+      Handler: index.handler
+      Environment:
+        Variables:
+          INBOUND_BUCKET: !Ref InboundBucket
+          INBOUND_PREFIX: inbound/
+          SUPPORT_ADDRESS: !Sub '${SupportLocalPart}@${Domain}'
+          # Kept out of the repository: the operator's personal inbox lives only in SSM.
+          FORWARD_TO: !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/support-mail/forward-to}}'
+      LoggingConfig:
+        LogGroup: !Ref ForwarderLogGroup
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: s3:GetObject
+              Resource: !Sub '${InboundBucket.Arn}/inbound/*'
+            # Scoped by sender, not resource: a default configuration set adds its own resource.
+            - Effect: Allow
+              Action: [ses:SendEmail, ses:SendRawEmail]
+              Resource: '*'
+              Condition:
+                StringEquals:
+                  'ses:FromAddress': !Sub '${SupportLocalPart}@${Domain}'
+
+  ForwarderLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${ProjectName}-${Stage}-support-mail-forwarder'
+      RetentionInDays: !Ref LogRetentionDays
+
+  ForwarderInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ForwarderFunction
+      Action: lambda:InvokeFunction
+      Principal: ses.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+      SourceArn: !Sub 'arn:aws:ses:${AWS::Region}:${AWS::AccountId}:receipt-rule-set/${ProjectName}-${Stage}-support-mail:receipt-rule/*'
+
+  ForwarderErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Support mail could not be forwarded; the message is still in the inbound bucket.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ForwarderFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/ops/alerts-topic-arn}}'
+
+  ReceiptRuleSet:
+    Type: AWS::SES::ReceiptRuleSet
+    Properties:
+      RuleSetName: !Sub '${ProjectName}-${Stage}-support-mail'
+
+  SupportReceiptRule:
+    Type: AWS::SES::ReceiptRule
+    DependsOn:
+      - InboundBucketPolicy
+      - ForwarderInvokePermission
+    Properties:
+      RuleSetName: !Ref ReceiptRuleSet
+      Rule:
+        Name: forward-support
+        Enabled: true
+        ScanEnabled: true
+        TlsPolicy: Optional
+        Recipients:
+          - !Sub '${SupportLocalPart}@${Domain}'
+        Actions:
+          - S3Action:
+              BucketName: !Ref InboundBucket
+              ObjectKeyPrefix: inbound/
+          - LambdaAction:
+              FunctionArn: !GetAtt ForwarderFunction.Arn
+              InvocationType: Event
+
+  # SMTP identity for replying as the support address from the operator's mail client. Its access
+  # key is created once by hand (README) so the secret never passes through CloudFormation.
+  SmtpUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Sub '${ProjectName}-${Stage}-support-smtp'
+      Policies:
+        - PolicyName: send-as-support-only
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ses:SendRawEmail
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    'ses:FromAddress': !Sub '${SupportLocalPart}@${Domain}'
+
+  MxRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref Domain
+      Type: MX
+      TTL: '300'
+      ResourceRecords:
+        - !Sub '10 inbound-smtp.${AWS::Region}.amazonaws.com'
+
+  # Monitoring only (p=none) while the domain's senders settle; SES mail already aligns through DKIM.
+  DmarcRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Sub '_dmarc.${Domain}'
+      Type: TXT
+      TTL: '300'
+      ResourceRecords:
+        - '"v=DMARC1; p=none"'
+
+Outputs:
+  ReceiptRuleSetName:
+    Value: !Ref ReceiptRuleSet
+  SmtpUserName:
+    Value: !Ref SmtpUser
+  InboundBucketName:
+    Value: !Ref InboundBucket

@@ -2,7 +2,7 @@
 # Deploy one dndtools infra stack for one stage.
 # Usage: infra/deploy.sh <stack> [stage]
 #   <stack>  foundation | identity | signaling | turn | sync-api | app-api | web-hosting
-#            | edge-cert | edge-waf (both us-east-1 — see below)
+#            | edge-cert | edge-waf (both us-east-1 — see below) | support-mail (prod only)
 #   [stage]  dev (default) | prod
 #
 # Thin wrapper around `sam build && sam deploy --config-env <stage>` run from the

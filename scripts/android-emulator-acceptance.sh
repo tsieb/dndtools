@@ -503,6 +503,9 @@ wait_for_ui_text 'Open scene' || fail 'root destination did not render after fir
 # above the CTA, so scroll to it.
 step 'fresh vault scene'
 tap_ui_button_scrolling 'Open scene' || fail 'Open scene was not reachable on the fresh vault'
+# Command Center's first-session guide also says "New screen from a template", so that text alone
+# passes before the navigation lands. The document title (the WebView node's text) proves it did.
+wait_for_ui_text_absent 'Lamplight — Command Center' || fail 'Open scene did not leave the Command Center'
 wait_for_ui_text 'New screen' || fail 'Open scene did not open the Screens library'
 # The library opens with #main-content still scrolled from the home page's CTA. Part-way up, its
 # header button sits under the sticky top bar and a tap lands on Search (the command palette), so
