@@ -206,13 +206,15 @@ export function InitiativeTrackerCompact({
 		return (
 			<div style={{ ...bodyWrap, overflowY: 'hidden' }}>
 				<div style={{ font: `max(12.5px, var(--fit-text-min, 0px)) ${T.sans}`, color: T.sub }}>
-					{/* Keep the same div > div > LiveReadout position as the running branch so React
-					    updates the existing announcement channel through start, end and empty order. */}
-					<LiveReadout style={{ display: 'inline' }}>
-						{showHp
-							? t('widgetBody.initiative.noneHpShown')
-							: t('widgetBody.initiative.noneHpHidden')}
-					</LiveReadout>
+					{/* Keep the same div > div > span > LiveReadout position as the running branch so
+					    React updates the existing announcement channel through start, end and empty order. */}
+					<span>
+						<LiveReadout style={{ display: 'inline' }}>
+							{showHp
+								? t('widgetBody.initiative.noneHpShown')
+								: t('widgetBody.initiative.noneHpHidden')}
+						</LiveReadout>
+					</span>
 				</div>
 			</div>
 		);
