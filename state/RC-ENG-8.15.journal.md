@@ -98,3 +98,12 @@
 - Branch base is `e3d90eee3`; `loop/rc` is 41 commits ahead (`a95257891`). Only the i18n catalogs (en, es, qps-ploc) overlap with upstream; `git merge-tree --write-tree HEAD loop/rc` is clean (exit 0). Not rebased here; left to the dispatcher.
 - Fresh run on this tree, both profiles: tile-overflow-controls (strict every-button acceptance plus the ENG-8.1 detector), combat-tile and map-tile: **25 passed, 5 skipped** (combat-tile's viewport-gated phone/desk cases), exit 0, `/tmp/rc-eng-8.15-r4-check.log`.
 - Still open, outside this story: mobile `widget-full-disclosure.spec.ts:21` axe color-contrast on the builder footer (identical on base). Also the EARLY_ACCESS.md §4 / RC_ROADMAP prose HANDOFF from round 2.
+
+## 2026-10-28 — scheduled continuation verification
+
+- Current branch starts at `90403c29f` with a clean working tree. The implementation, strict acceptance spec, and visual baselines are already committed; the expanded ownership includes MapView and resolves the old claim fence. Preserved the existing implementation rather than making redundant layout changes.
+- Headroom tools are unavailable. Read original native command output; no compressed summaries are used as gate evidence.
+- Running the strict acceptance and related combat/map cases on both browser profiles, plus pinned-container board-polish and board-layouts screenshot comparisons. No dispatcher state changes, additional agents, push, or promotion.
+- Fresh functional command: `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/tile-overflow-controls.spec.ts tests/e2e/combat-tile.spec.ts tests/e2e/map-tile.spec.ts --workers=1`: **25 passed, 5 skipped (1.3m)**. Skips are the combat spec's existing viewport-specific cases. All six strict centre-hit cases (1440/834/390 on both profiles), their ENG-8.1 clipping detector assertions, and both footer recovery cases passed.
+- Fresh pinned screenshot command: `bash apps/gm-react/tests/visual/run-in-container.sh tests/visual/board-polish.spec.ts tests/visual/board-layouts.spec.ts --workers=2 --update-snapshots=none`: **18 passed (34.2s)**, exit 0. No snapshots changed. This is the targeted board suite, not a claim of a full visual-suite run.
+- No production changes were needed in this continuation. Commit records fresh verification of the existing implementation; central full gates and independent review remain with the operator.
