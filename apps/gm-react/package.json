@@ -47,7 +47,7 @@
 		"amazon-cognito-identity-js": "^6.3.20",
 		"dexie": "^4.4.5",
 		"electron-updater": "^6.8.9",
-		"lucide-react": "^0.460.0",
+		"lucide-react": "^1.61.0",
 		"multicast-dns": "^7.2.5",
 		"qrcode": "^1.5.4",
 		"react": "^18.3.1",
