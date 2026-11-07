@@ -4,10 +4,9 @@
 
 [`RC_ROADMAP.md`](RC_ROADMAP.md) is the execution plan from the current baseline to Release
 Candidate 1: the honest gap list, the RC exit criteria, the critical path, sixteen workstreams, and
-the story index in §23 whose Status column is kept current by the autonomous loop. It is parsed by
-`tools/loop/rcloop.py` and cited by `scripts/validate/feature-audit.ts`, so its story format and its
-§0.3 guardrails (lines 42–78, which the worker prompt points agents at) must not be reshaped
-casually.
+the story index in §23. It is parsed by the agent-dispatcher roadmap importer and cited by
+`scripts/validate/feature-audit.ts`, so its story format and its §0.3 guardrails (lines 42–78, which
+the dispatcher's project briefing points agents at) must not be reshaped casually.
 
 [`CLOUD_TIER_ROADMAP.md`](CLOUD_TIER_ROADMAP.md) is the product thesis for the paid cloud tiers and
 the standing decisions the CLD workstream executes.

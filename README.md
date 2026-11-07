@@ -35,7 +35,6 @@ packages/cloud-fns/  @dndtools/cloud-fns — Lambda handlers for signaling, E2EE
 infra/               AWS SAM stacks for the opt-in cloud backend
 docs/                architecture, decisions, design, development, runbooks, planning, security
 scripts/, tests/     workspace tooling, gates, the validate harness, repo guardrail tests
-tools/loop/          the autonomous RC loop's roadmap parser and prompts
 archive/gm-svelte/   the retired SvelteKit app (tag svelte-gm-final); not built
 ```
 

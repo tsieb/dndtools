@@ -151,6 +151,8 @@ restore with `git branch <name> refs/archive/<name>`):
 - `dispatch/dndtools/<hash>` (10): worktrees of succeeded dispatcher tasks (CAN-2.1/2.2, DSN-1.1/2.2,
   ENG-2.3/2.4/2.5, UX-3.1/3.2, one ci-recovery), all integrated; kept as `refs/archive/dispatch/<hash>`.
 - Worktrees removed: `~/Programming/dndtools-loop/wt-1..5`, `~/Programming/dndtools-review-loop`.
+- `tools/loop/` removed 2026-11-07 with the retired loop's control directories and user service; the
+  agent-dispatcher owns scheduling, prompts and roadmap parsing.
 - Open dependabot PRs #56, #57, #59–#63 are superseded by RC-ENG-4.4 and closed when it lands.
 
 Second pass (2026-09-11, evening), after `loop/rc` through `5e6064d9` was merged into `main`:

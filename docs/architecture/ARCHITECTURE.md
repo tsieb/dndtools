@@ -14,7 +14,6 @@ packages/core/    @dndtools/core     — the processing core: commands, determin
 packages/cloud-fns/ @dndtools/cloud-fns — Lambda handlers for signaling, E2EE sync, app-api, billing.
 infra/            AWS SAM stacks for the opt-in cloud backend (infra/README.md).
 scripts/, tests/  Workspace tooling, gates, the validate harness, repo guardrail tests.
-tools/loop/       The autonomous RC loop's roadmap parser and prompts.
 archive/gm-svelte/ The retired SvelteKit app; not in the workspace, not built, not linted.
 ```
 
